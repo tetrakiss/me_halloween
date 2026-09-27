@@ -192,7 +192,10 @@
       const message = document.getElementById('adminActionMsg'); message.textContent = 'Считаем…';
       try {
         const result = await api('/recompute', { method: 'POST' });
-        message.textContent = `Готово: ${result.groupCount} групп, отправлено уведомлений: ${result.notifications.sent}, пропущено по лимиту: ${result.notifications.ignoredByCooldown}`;
+        const resumedText = result.resumedWaitingCount
+          ? `, возвращено из очереди: ${result.resumedWaitingCount}`
+          : '';
+        message.textContent = `Готово: ${result.groupCount} групп${resumedText}, отправлено уведомлений: ${result.notifications.sent}, пропущено по лимиту: ${result.notifications.ignoredByCooldown}`;
         setTimeout(renderDashboard, 900);
       } catch (error) { message.textContent = error.message; }
     };

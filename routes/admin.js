@@ -517,6 +517,14 @@ router.post('/override', (req, res) => {
 // Пересчитать группы и маршруты по текущему состоянию БД.
 // manual_group_id уважается алгоритмом (buildGroups сам выделяет такие семьи).
 router.post('/recompute', asyncRoute(async (req, res) => {
+  const hasGroups = db.prepare('SELECT COUNT(*) AS count FROM groups').get().count > 0;
+  // После удаления последней группы все её участники находятся в явной
+  // очереди ожидания. Полное формирование должно снова взять их в работу,
+  // иначе buildGroups получает пустой список и не может создать группы.
+  const resumedWaitingCount = hasGroups ? 0 : db.prepare(`
+    UPDATE families SET grouping_paused = 0
+    WHERE grouping_paused = 1 AND walking = 1 AND cancelled = 0
+  `).run().changes;
   const families = loadFamiliesForAlgo();
   const wishLinks = loadWishLinks();
   const specialPoints = loadSpecialPoints();
@@ -576,7 +584,7 @@ router.post('/recompute', asyncRoute(async (req, res) => {
     };
   });
   const notifications = await notifyChangedGroups(notificationGroups);
-  res.json({ ok: true, groupCount: groups.length, notifications });
+  res.json({ ok: true, groupCount: groups.length, resumedWaitingCount, notifications });
 }));
 
 router.get('/quest-slots', (req, res) => {
