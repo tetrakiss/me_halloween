@@ -415,6 +415,55 @@ button.danger { background: linear-gradient(135deg, var(--danger), #b91c1c); }
 }
 .age-bar strong { align-self: end; color: var(--text-dim); font-size: 10px; font-weight: 700; }
 .age-chart-caption { display: flex; justify-content: space-between; gap: 10px; margin-top: 7px; color: var(--text-dim); font-size: 10px; }
+.hosting-choice-card {
+  display: flex;
+  gap: 13px;
+  margin-top: 10px;
+  padding: 15px;
+  border: 1px solid rgba(34, 197, 94, .28);
+  border-radius: 18px;
+  background: rgba(34, 197, 94, .07);
+}
+.hosting-choice-card.has-warning { border-color: rgba(255, 179, 71, .42); background: rgba(255, 140, 47, .08); }
+.hosting-choice-icon {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, .07);
+  font-size: 19px;
+}
+.hosting-choice-content { min-width: 0; flex: 1; }
+.hosting-choice-content .muted { margin: 7px 0 0; }
+.hosting-choice-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; max-height: 210px; margin-top: 10px; overflow-y: auto; }
+button.hosting-choice-family {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid rgba(255, 255, 255, .08);
+  border-radius: 10px;
+  background: rgba(18, 8, 29, .36);
+  text-align: left;
+}
+.hosting-choice-family strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.hosting-choice-family span { flex-shrink: 0; color: var(--text-dim); font-size: 10px; }
+.choice-missing-mark { color: var(--accent-2); font-size: 11px; font-weight: 800; }
+.incoming-visits-card {
+  overflow: hidden;
+  border-color: rgba(255, 140, 47, .38);
+  background: linear-gradient(145deg, rgba(90, 39, 79, .88), var(--bg-card));
+}
+.incoming-visits-card .countdown-kicker { margin-bottom: 7px; }
+.incoming-visits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; margin-top: 12px; }
+.incoming-visits-grid div { padding: 14px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 14px; background: rgba(18, 8, 29, .4); text-align: center; }
+.incoming-visits-grid strong { display: block; color: var(--accent-2); font-size: 30px; line-height: 1; font-variant-numeric: tabular-nums; }
+.incoming-visits-grid span { display: block; margin-top: 6px; color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
 .group-card { padding: 12px 0; border-bottom: 1px solid #4a3465; }
 .group-card h4 { margin: 14px 0 7px; }
 .group-summary { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; }
@@ -448,4 +497,5 @@ button:disabled { opacity: .35; cursor: default; }
   .metric-card { padding: 12px; }
   .metric-card strong { font-size: 21px; }
   .overview-heading { align-items: center; }
+  .hosting-choice-list { grid-template-columns: 1fr; }
 }

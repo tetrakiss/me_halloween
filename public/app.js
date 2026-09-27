@@ -81,13 +81,15 @@
     toast('Код семьи скопирован');
   }
 
-  let state = { family: null, group: null, route: null, isAdmin: false };
+  let state = { family: null, group: null, route: null, incomingVisits: null, isAdmin: false };
   let eventState = null;
   let serverClockOffsetMs = 0;
   let countdownTimer = null;
   let childRows = [{ name: '', age: '' }];
   let wishFamilyId = null;
-  const MIN_LOADING_MS = 2000;
+  const skipReturnSplash = sessionStorage.getItem('skipNextAppSplash') === '1';
+  sessionStorage.removeItem('skipNextAppSplash');
+  const MIN_LOADING_MS = skipReturnSplash ? 0 : 2000;
   let isInitialLoad = true;
   const urlJoin = new URLSearchParams(location.search).get('join');
   const startParam = getStartParam();
@@ -153,7 +155,9 @@
   }
   function bindAdminButton() {
     const button = document.getElementById('adminBtn');
-    if (button) button.onclick = () => { location.href = '/admin.html'; };
+    if (button) button.onclick = () => {
+      location.href = `/admin.html${location.search}${location.hash}`;
+    };
   }
   function renderLoading() {
     stopCountdown();
@@ -218,13 +222,22 @@
       <select id="wishTower">${towerOptions()}</select><input type="text" id="wishApartment" placeholder="Номер квартиры" list="wishApartmentList" />
       <datalist id="wishApartmentList"></datalist><div id="wishHint" class="search-hint"></div>
       <h3 class="section-title">👻 Дети</h3><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button>
-      <div class="toggle-row"><span>Открываем дверь у себя 🍬</span><input type="checkbox" id="hosting" /></div>
+      <div class="toggle-row"><span>Раздаём конфеты в квартире 🍬</span><input type="checkbox" id="hosting" /></div>
       <div class="toggle-row"><span>У нас будет квест 🎭</span><input type="checkbox" id="quest" /></div>
       <div id="questDurationWrap" hidden><label>Сколько минут займёт квест?</label><input type="number" id="questDuration" value="20" min="5" max="40" /></div>
       <button id="submitRegister">Записаться 🎃</button><div id="registerMsg" class="search-hint"></div></div>`;
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
-    document.getElementById('quest').onchange = (event) => { document.getElementById('questDurationWrap').hidden = !event.target.checked; };
+    document.getElementById('hosting').onchange = (event) => {
+      if (!event.target.checked) {
+        document.getElementById('quest').checked = false;
+        document.getElementById('questDurationWrap').hidden = true;
+      }
+    };
+    document.getElementById('quest').onchange = (event) => {
+      if (event.target.checked) document.getElementById('hosting').checked = true;
+      document.getElementById('questDurationWrap').hidden = !event.target.checked;
+    };
     bindWishSearch();
     document.getElementById('submitRegister').onclick = async () => {
       const floor = Number(document.getElementById('floor').value);
@@ -313,6 +326,7 @@
       <p class="muted">По этому коду родственник может открыть ту же запись в Telegram или MAX.</p>
       <button id="editFamilyBtn" class="secondary">✏️ Редактировать запись семьи</button>
       <button id="deleteFamilyBtn" class="danger">🗑️ Удалить запись полностью</button></div>
+      ${renderIncomingVisitsCard()}
       ${state.group ? renderRouteCard() : renderWaitingCard()}`;
     bindAdminButton();
     bindCountdown();
@@ -325,6 +339,19 @@
         catch (error) { button.disabled = false; toast(error.message); }
       };
     });
+  }
+  function renderIncomingVisitsCard() {
+    if (!state.family?.hosting && !state.family?.quest) return '';
+    const visits = state.incomingVisits || { groupCount: 0, childCount: 0 };
+    const kind = state.family.quest ? 'Квест в вашей квартире 🎭' : 'Раздача конфет в вашей квартире 🍬';
+    const note = visits.groupCount
+      ? 'Расчёт сделан по сформированным маршрутам.'
+      : 'После формирования маршрутов здесь появится прогноз посещений.';
+    return `<section class="card incoming-visits-card"><div class="countdown-kicker">${kind}</div>
+      <h3>К вам придут</h3><div class="incoming-visits-grid">
+        <div><strong>${visits.groupCount}</strong><span>групп</span></div>
+        <div><strong>${visits.childCount}</strong><span>детей всего</span></div>
+      </div><p class="muted">${note}</p></section>`;
   }
   function renderEditForm() {
     stopCountdown();
@@ -341,13 +368,22 @@
       <datalist id="editWishApartmentList"></datalist><div id="editWishHint" class="search-hint ${currentWish ? 'found' : ''}">${currentWish ? `Выбрана семья: ${esc(currentWish.childrenNames.join(', '))}` : ''}</div>
       <h3 class="section-title">👻 Дети</h3><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button>
       <div class="toggle-row"><span>Участвуем в обходе 🚶</span><input type="checkbox" id="editWalking" ${family.walking ? 'checked' : ''} /></div>
-      <div class="toggle-row"><span>Открываем дверь 🍬</span><input type="checkbox" id="editHosting" ${family.hosting ? 'checked' : ''} /></div>
+      <div class="toggle-row"><span>Раздаём конфеты в квартире 🍬</span><input type="checkbox" id="editHosting" ${family.hosting ? 'checked' : ''} /></div>
       <div class="toggle-row"><span>У нас будет квест 🎭</span><input type="checkbox" id="editQuest" ${family.quest ? 'checked' : ''} /></div>
       <div id="editQuestWrap" ${family.quest ? '' : 'hidden'}><label>Длительность квеста</label><input type="number" id="editQuestDuration" value="${family.questDurationMin || 20}" min="5" max="40" /></div>
       <button id="saveFamilyBtn">Сохранить</button><button id="cancelEditBtn" class="secondary">Отмена</button><div id="editMsg" class="search-hint"></div></div>`;
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
-    document.getElementById('editQuest').onchange = (event) => { document.getElementById('editQuestWrap').hidden = !event.target.checked; };
+    document.getElementById('editHosting').onchange = (event) => {
+      if (!event.target.checked) {
+        document.getElementById('editQuest').checked = false;
+        document.getElementById('editQuestWrap').hidden = true;
+      }
+    };
+    document.getElementById('editQuest').onchange = (event) => {
+      if (event.target.checked) document.getElementById('editHosting').checked = true;
+      document.getElementById('editQuestWrap').hidden = !event.target.checked;
+    };
     bindWishSearch({ towerId: 'editWishTower', apartmentId: 'editWishApartment', listId: 'editWishApartmentList', hintId: 'editWishHint', excludeFamilyId: family.id });
     document.getElementById('cancelEditBtn').onclick = renderDashboard;
     document.getElementById('saveFamilyBtn').onclick = async () => {
@@ -380,7 +416,7 @@
       message.textContent = 'Удаляем…';
       try {
         await api('/me', { method: 'DELETE' });
-        state = { family: null, group: null, route: null, isAdmin: state.isAdmin };
+        state = { family: null, group: null, route: null, incomingVisits: null, isAdmin: state.isAdmin };
         activeTab = 'register';
         toast('Запись семьи удалена');
         renderEntry();
@@ -419,7 +455,13 @@
       eventState = eventData;
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
       if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
-      state = { family: data.family, group: data.group || null, route: data.route || null, isAdmin: !!data.isAdmin };
+      state = {
+        family: data.family,
+        group: data.group || null,
+        route: data.route || null,
+        incomingVisits: data.incomingVisits || null,
+        isAdmin: !!data.isAdmin,
+      };
       if (!state.family) renderEntry(); else renderDashboard();
     } catch (error) {
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);

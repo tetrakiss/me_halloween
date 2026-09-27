@@ -288,7 +288,7 @@ router.patch('/families/:id', (req, res) => {
       floor: floor === undefined ? null : Number(floor),
       apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
-      hosting: hosting === undefined ? null : hosting ? 1 : 0,
+      hosting: hosting === undefined && quest !== true ? null : hosting || quest ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
       questDurationMin: quest === false ? null : questDurationMin === undefined ? current.quest_duration_min : Number(questDurationMin) || 20,
       cancelled: cancelled === undefined ? null : cancelled ? 1 : 0,

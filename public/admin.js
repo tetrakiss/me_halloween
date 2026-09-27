@@ -58,9 +58,10 @@
   }
   function familyCard(family, groups) {
     const childrenText = family.children.map((child) => `${child.name}|${child.age}`).join('\n');
+    const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : '<span class="choice-missing-mark">⚠️ тип не выбран</span>';
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-        <span>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${family.hosting ? family.quest ? '🎭' : '🍬' : ''}</span></summary>
+        <span>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${hostingMark}</span></summary>
       <div class="admin-grid">
         <div><b>Код семьи:</b> ${esc(family.familyCode)}</div><div><b>ID:</b> ${esc(family.id)}</div>
         <div class="admin-wide"><b>Участники:</b><ul>${family.parents.map((parent) => `<li>${participantText(parent)}</li>`).join('') || '<li>Нет привязанных аккаунтов</li>'}</ul></div>
@@ -71,7 +72,7 @@
       <label>Дети — по одному в строке: Имя|возраст</label><textarea data-field="children">${esc(childrenText)}</textarea>
       <div class="checkbox-grid">
         <label><input type="checkbox" data-field="walking" ${family.walking ? 'checked' : ''}/> Идёт</label>
-        <label><input type="checkbox" data-field="hosting" ${family.hosting ? 'checked' : ''}/> Открывает дверь</label>
+        <label><input type="checkbox" data-field="hosting" ${family.hosting ? 'checked' : ''}/> Раздаёт конфеты 🍬</label>
         <label><input type="checkbox" data-field="quest" ${family.quest ? 'checked' : ''}/> Квест</label>
         <label><input type="checkbox" data-field="cancelled" ${family.cancelled ? 'checked' : ''}/> Отмена</label>
       </div>
@@ -118,7 +119,7 @@
   }
   function dashboardOverview(families, groups, waitingFamilies) {
     const participatingFamilies = families.filter((family) => family.walking && !family.cancelled);
-    const hostingFamilies = families.filter((family) => family.hosting && !family.cancelled);
+    const hostingFamilies = families.filter((family) => (family.hosting || family.quest) && !family.cancelled);
     const children = participatingFamilies.flatMap((family) => family.children);
     const waitingChildren = waitingFamilies.reduce((sum, family) => sum + family.children.length, 0);
     const assignedChildren = groups.reduce((sum, group) => (
@@ -130,6 +131,7 @@
     const ageCounts = new Map(Array.from({ length: 17 }, (_, index) => [index + 1, 0]));
     children.forEach((child) => ageCounts.set(Number(child.age), (ageCounts.get(Number(child.age)) || 0) + 1));
     const maxAgeCount = Math.max(1, ...ageCounts.values());
+    const unconfiguredFamilies = families.filter((family) => !family.cancelled && !family.hosting && !family.quest);
     const ageBars = [...ageCounts.entries()].map(([age, count]) => {
       const height = count ? Math.max(8, Math.round(count / maxAgeCount * 100)) : 2;
       return `<div class="age-bar" title="${age} лет — ${count} детей">
@@ -154,6 +156,18 @@
         <h3>Распределение детей по возрастам</h3></div><span class="chart-total">${children.length} всего</span></div>
         <div class="age-chart-scroll"><div class="age-chart" role="img" aria-label="Распределение детей от одного года до семнадцати лет">${ageBars}</div></div>
         <div class="age-chart-caption"><span>Возраст, лет</span><span>Высота столбца — количество детей</span></div>
+      </article>
+      <article class="hosting-choice-card ${unconfiguredFamilies.length ? 'has-warning' : ''}">
+        <div class="hosting-choice-icon">${unconfiguredFamilies.length ? '⚠️' : '✅'}</div><div class="hosting-choice-content">
+          <div class="overview-heading"><div><span class="overview-kicker">Проверка анкет</span>
+            <h3>${unconfiguredFamilies.length ? 'Не выбран тип приёма гостей' : 'Во всех анкетах указан тип приёма'}</h3></div>
+            <span class="chart-total">${unconfiguredFamilies.length}</span></div>
+          ${unconfiguredFamilies.length ? `<p class="muted">Эти семьи не отметили ни раздачу конфет, ни квест. Нажмите на адрес, чтобы открыть анкету.</p>
+            <div class="hosting-choice-list">${unconfiguredFamilies.map((family) => `<button class="hosting-choice-family" data-open-family="${esc(family.id)}">
+              <strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
+              <span>${family.children.length} детей</span></button>`).join('')}</div>`
+            : '<p class="muted">Все семейные записи проверены.</p>'}
+        </div>
       </article>
     </section>`;
   }
@@ -199,7 +213,24 @@
     });
   }
   function bindDashboard({ families, groups }) {
-    document.getElementById('backBtn').onclick = () => { location.href = '/'; };
+    document.getElementById('backBtn').onclick = () => {
+      sessionStorage.setItem('skipNextAppSplash', '1');
+      location.href = `/${location.search}${location.hash}`;
+    };
+    document.querySelectorAll('[data-open-family]').forEach((button) => {
+      button.onclick = () => {
+        const card = document.querySelector(`[data-family-card="${CSS.escape(button.dataset.openFamily)}"]`);
+        if (!card) return;
+        card.open = true;
+        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+    });
+    document.querySelectorAll('[data-family-card]').forEach((card) => {
+      const hosting = card.querySelector('[data-field="hosting"]');
+      const quest = card.querySelector('[data-field="quest"]');
+      hosting.onchange = () => { if (!hosting.checked) quest.checked = false; };
+      quest.onchange = () => { if (quest.checked) hosting.checked = true; };
+    });
     document.getElementById('saveEventStartBtn').onclick = async () => {
       const button = document.getElementById('saveEventStartBtn');
       const message = document.getElementById('eventSettingsMsg');

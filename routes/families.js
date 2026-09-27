@@ -112,6 +112,20 @@ function routeForFamily(family) {
   });
 }
 
+function incomingVisitsForFamily(family) {
+  if (!family.hosting && !family.quest) return null;
+  const visitingGroups = db.prepare(`
+    SELECT DISTINCT rs.group_id, COALESCE(g.child_count, 0) AS child_count
+    FROM route_stops rs
+    JOIN groups g ON g.id = rs.group_id
+    WHERE rs.host_type = 'family' AND rs.host_id = ?
+  `).all(family.id);
+  return {
+    groupCount: visitingGroups.length,
+    childCount: visitingGroups.reduce((sum, group) => sum + Number(group.child_count || 0), 0),
+  };
+}
+
 // Серверное время — единственный источник времени для обратного отсчёта.
 router.get('/event', (req, res) => {
   res.json(getEventSettings());
@@ -175,7 +189,7 @@ router.post('/register', (req, res) => {
       floor,
       apartmentCode: normalizedApartmentCode,
       walking: walking ? 1 : 0,
-      hosting: hosting ? 1 : 0,
+      hosting: hosting || quest ? 1 : 0,
       quest: quest ? 1 : 0,
       questDurationMin: quest ? questDurationMin || 20 : null,
       createdAt: Date.now(),
@@ -275,6 +289,7 @@ router.get('/me', (req, res) => {
     family: familyWithChildren(family),
     group: groupInfo ? { id: groupInfo.id, name: groupInfo.name || groupInfo.id } : null,
     route: groupInfo ? routeForFamily(family) : null,
+    incomingVisits: incomingVisitsForFamily(family),
     isAdmin: isTelegramSuperAdmin(platform, req.platformUser),
   });
 });
@@ -332,7 +347,7 @@ router.patch('/me', (req, res) => {
       floor: floor === undefined ? null : Number(floor),
       apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
-      hosting: hosting === undefined ? null : hosting ? 1 : 0,
+      hosting: hosting === undefined && quest !== true ? null : hosting || quest ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
       questDurationMin:
         quest === false ? null : questDurationMin === undefined ? family.quest_duration_min : Number(questDurationMin) || 20,
