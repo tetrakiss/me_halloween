@@ -83,7 +83,7 @@
   }
   function renderLoading() {
     APP.innerHTML = `<div class="loading-splash" role="status" aria-label="Приложение загружается">
-      <iframe class="loading-bat" src="bat-pixel-animation.html" title="Летучая мышь" tabindex="-1"></iframe>
+      <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-2" title="Летучая мышь" tabindex="-1"></iframe>
       <div class="loading-label">Монстрополия загружается…</div>
     </div>`;
   }

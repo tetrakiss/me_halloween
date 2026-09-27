@@ -206,6 +206,10 @@ router.patch('/families/:id', (req, res) => {
         insert.run(req.params.id, name, age);
       }
     }
+    const currentAddress = db.prepare('SELECT tower, floor, apartment_code FROM families WHERE id = ?').get(req.params.id);
+    db.prepare(`UPDATE route_stops SET tower = ?, floor = ?, apartment_code = ?
+                WHERE host_type = 'family' AND host_id = ?`)
+      .run(currentAddress.tower, currentAddress.floor, currentAddress.apartment_code, req.params.id);
   })();
   res.json({ ok: true });
 });

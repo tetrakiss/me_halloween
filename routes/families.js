@@ -302,6 +302,13 @@ router.patch('/me', (req, res) => {
         insertChild.run(family.id, ch.name, Number(ch.age));
       }
     }
+
+    // Адрес дублируется в уже сформированных маршрутах. Обновляем снимок,
+    // чтобы новый этаж/квартира сразу появились у всех групп без пересчёта.
+    const currentAddress = db.prepare('SELECT tower, floor, apartment_code FROM families WHERE id = ?').get(family.id);
+    db.prepare(`UPDATE route_stops SET tower = ?, floor = ?, apartment_code = ?
+                WHERE host_type = 'family' AND host_id = ?`)
+      .run(currentAddress.tower, currentAddress.floor, currentAddress.apartment_code, family.id);
   });
   tx();
 
