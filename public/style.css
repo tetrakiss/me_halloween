@@ -289,6 +289,78 @@ button:disabled { opacity: .38; cursor: default; transform: none; }
 .family-route-cap-end { margin-top: 9px; margin-bottom: 0; }
 .family-route-cap-end span { border-color: var(--violet); color: var(--violet-2); }
 
+/* Main app — one-to-one adaptation of halloween-bot-app.html. */
+.app-page {
+  min-height: 100dvh;
+  padding: 0;
+  background: var(--ink);
+}
+.app-page::before { display: none; }
+.stage { position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+.stage::before { content: ""; position: absolute; inset: -20%; background: radial-gradient(38% 32% at 22% 12%, oklch(0.45 0.14 300 / .3), transparent 70%), radial-gradient(34% 30% at 82% 88%, oklch(0.55 0.15 55 / .22), transparent 72%), radial-gradient(60% 50% at 50% 50%, oklch(0.22 0.03 288 / .7), transparent 75%); }
+.stage::after { content: ""; position: absolute; inset: 0; opacity: .05; mix-blend-mode: overlay; background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>"); }
+.app-shell { position: relative; z-index: 1; width: min(100%, 366px); min-height: 100dvh; margin-inline: auto; overflow: hidden; background: var(--ink); box-shadow: 0 0 90px -30px oklch(0.55 0.15 300 / .28); }
+.appbar { position: sticky; top: 0; z-index: 50; display: grid; grid-template-columns: 80px 1fr 80px; align-items: center; min-height: 54px; padding: 4px 10px 10px; border-bottom: 1px solid var(--border); background: oklch(0.145 0.016 285 / .94); backdrop-filter: blur(16px); }
+.appbar strong { text-align: center; font: 600 15px/1 var(--font-display); letter-spacing: -.01em; }
+.appbar-actions { display: flex; justify-content: flex-end; gap: 2px; color: var(--fg-2); }
+.appbar-actions svg { width: 40px; height: 40px; padding: 11px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.appbar-actions .dots { fill: currentColor; stroke: none; }
+.app-scroll { display: flex; flex-direction: column; gap: 22px; padding: 16px 16px 30px; }
+.app-page #app { display: flex; width: 100%; flex-direction: column; gap: 22px; margin: 0; }
+.app-page .brand-row { display: flex; align-items: center; gap: 12px; }
+.app-page .brand-mark { display: grid; width: 46px; height: 46px; flex: 0 0 46px; overflow: hidden; place-items: center; border: 0; border-radius: 50%; background: radial-gradient(circle at 34% 28%, oklch(.975 .018 95), oklch(.905 .045 82) 58%, oklch(.815 .062 72)); box-shadow: inset 0 0 0 1px oklch(0.97 0.03 92 / .4), 0 10px 26px -14px oklch(0.8 0.1 80 / .7), 0 0 34px -12px oklch(0.72 0.16 300 / .6); color: #202020; }
+.app-page .brand-mark iframe { display: block; width: 46px !important; height: 46px !important; min-width: 46px; min-height: 46px; border: 0; border-radius: inherit; background: transparent; pointer-events: none; }
+.app-page .brand-copy { gap: 1px; }
+.app-page .brand-copy h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
+.app-page .brand-copy small { order: 2; color: var(--muted); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 10.5px; font-weight: 400; letter-spacing: .14em; text-transform: uppercase; }
+.app-page .card { margin: 0; }
+.app-page .family-home { margin: 0; }
+.app-page button { min-height: 54px; margin: 0; font-size: 15.5px; font-weight: 600; }
+.app-page button.small { min-height: 44px; }
+.app-page button svg { width: 17px; height: 17px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.admin-entry-button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: 46px !important; font-size: 14px !important; }
+
+.app-page .tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.app-page .tabs button { min-height: 50px; padding: 15px 10px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); color: var(--fg-2); font-size: 14px; font-weight: 600; }
+.app-page .tabs button.active { border-color: transparent; background: var(--accent); box-shadow: 0 10px 24px -12px oklch(0.76 0.17 58 / .95); color: oklch(0.19 0.02 60); }
+#tabContent { min-width: 0; }
+.form-panel { display: flex; flex-direction: column; gap: 22px; animation: rise .3s var(--ease) both; }
+.app-page .form-card { overflow: visible; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.app-page .form-section { gap: 15px; padding: 0; border: 0; }
+.form-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.app-page .form-section h4 { display: flex; align-items: center; gap: 8px; padding: 0; color: var(--fg-2); font-size: 12px; letter-spacing: .13em; }
+.section-icon { display: grid; width: 15px; height: 15px; place-items: center; color: var(--accent-hi); }
+.section-icon svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.app-page .form-help { margin: -4px 0 0; font-size: 13px; line-height: 1.5; }
+.app-page .form-row-address { grid-template-columns: 1fr 1fr; gap: 12px; }
+.app-page .form-row-address .address-tower { grid-column: 1 / -1; }
+.app-page .form-row-stack { grid-template-columns: 1fr; gap: 12px; }
+.app-page .form-field { gap: 7px; }
+.app-page .form-field > span { font-size: 13.5px; }
+.app-page input[type="text"], .app-page input[type="number"], .app-page select { min-height: 52px; }
+.form-subblock { display: flex; flex-direction: column; gap: 12px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--recess); }
+.form-subblock > strong { font-size: 13px; font-weight: 600; }
+.app-page .child-row { grid-template-columns: 1.5fr 1fr 48px; gap: 9px; margin-bottom: 10px; }
+.app-page .child-remove { width: 48px; min-height: 48px; padding: 0; border-radius: 14px; color: var(--muted); }
+.app-page .add-child-button { display: inline-flex; width: auto; align-self: flex-start; align-items: center; gap: 8px; padding-inline: 16px; font-size: 13.5px; }
+.participation-section { gap: 0 !important; }
+.app-page .toggle-row { min-height: 58px; margin: 0; }
+.app-page .toggle-row + .toggle-row { border-top: 0; }
+.app-page .form-actions { padding: 0; }
+
+.app-page .family-countdown { margin: 0; }
+.countdown-bat { position: absolute; left: 0; z-index: 3; width: 22px; color: oklch(0.96 0.02 300); opacity: 0; filter: drop-shadow(0 0 8px oklch(0.85 0.14 300 / .6)); animation: countdown-bat 5s linear infinite; }
+.countdown-bat svg { display: block; width: 100%; fill: currentColor; }
+.countdown-bat.bat-one { top: 20px; }
+.countdown-bat.bat-two { top: 70px; width: 15px; animation-duration: 6.6s; animation-delay: 2.6s; }
+.countdown-spark { position: absolute; z-index: 3; color: oklch(0.96 0.07 92); font-size: 13px; font-style: normal; opacity: 0; filter: drop-shadow(0 0 6px oklch(0.9 0.12 90 / .8)); animation: countdown-twinkle 3.2s var(--ease) infinite; }
+.countdown-spark.spark-one { top: 26%; left: 12%; }
+.countdown-spark.spark-two { top: 20%; right: 14%; font-size: 10px; animation-delay: .9s; }
+.countdown-spark.spark-three { right: 35%; bottom: 16%; color: var(--violet-2); font-size: 11px; animation-delay: 1.7s; }
+.countdown-magic i:nth-child(4) { top: 7%; left: 28%; background: var(--accent-hi); animation-delay: -.7s; animation-duration: 3.8s; }
+@keyframes countdown-bat { 0% { transform: translate(-34px, 14px) rotate(-10deg) scale(.8); opacity: 0; } 10% { opacity: .95; } 50% { transform: translate(160px, -8px) rotate(8deg) scale(1); opacity: 1; } 90% { opacity: .9; } 100% { transform: translate(374px, 16px) rotate(-8deg) scale(.82); opacity: 0; } }
+@keyframes countdown-twinkle { 0%, 100% { opacity: 0; transform: scale(.5) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(35deg); } }
+
 .loading-splash { position: fixed; inset: 0; z-index: 9999; display: grid; overflow: hidden; place-items: center; background: var(--ink); color: var(--fg); transition: background-color .38s var(--ease) .15s, opacity .2s var(--ease) .25s; }
 .loading-splash::before, .loading-splash::after { content: ""; position: absolute; border-radius: 50%; pointer-events: none; }
 .loading-splash::before { width: min(108vw, 620px); aspect-ratio: 1; background: radial-gradient(circle, oklch(0.55 0.14 300 / .2), transparent 68%); animation: aura 2.8s ease-in-out infinite; }

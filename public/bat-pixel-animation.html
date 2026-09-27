@@ -55,6 +55,18 @@
         filter: drop-shadow(0 0 5px rgba(255, 166, 84, .72)) drop-shadow(0 0 18px rgba(161, 92, 246, .6));
       }
 
+      @media (max-width: 80px) {
+        body { background: transparent; }
+        body::before { display: none; }
+        .bat {
+          left: -19px;
+          top: -15px;
+          transform: scale(.65);
+          animation-play-state: paused;
+          filter: none;
+        }
+      }
+
       @keyframes aura {
         50% { transform: scale(1.12); opacity: .7; }
       }
