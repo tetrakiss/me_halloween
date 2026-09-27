@@ -4,19 +4,22 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Монстрополия — админка</title>
-<link rel="stylesheet" href="style.css?v=20260927-12" />
-<script src="platform-sdk.js?v=20260927-7"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css?v=20260927-13" />
+<script src="platform-sdk.js?v=20260927-8"></script>
 <script src="towers-config.js"></script>
 <style>
   table { width: 100%; border-collapse: collapse; font-size: 13px; }
-  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid #4a3465; }
-  th { color: var(--text-dim); }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); }
   select, input { width: auto; display: inline-block; }
 </style>
 </head>
-<body>
-  <div class="header"><span class="emoji">🛠️</span><h1>Монстрополия — админка</h1></div>
+<body class="admin-page">
+  <div class="header"><span class="brand-mark" aria-hidden="true">🦇</span><span class="brand-copy"><small>HALLOWEEN BOT</small><h1>Панель управления</h1></span></div>
   <div id="app"></div>
-  <script src="admin.js?v=20260927-12"></script>
+  <script src="admin.js?v=20260927-13"></script>
 </body>
 </html>

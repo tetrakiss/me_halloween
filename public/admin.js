@@ -61,7 +61,7 @@
     const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : '<span class="choice-missing-mark">⚠️ тип не выбран</span>';
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-        <span>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${hostingMark}</span></summary>
+        <span class="admin-family-meta"><i>${family.children.length} дет.</i>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${hostingMark}</span></summary>
       <div class="admin-grid">
         <div><b>Код семьи:</b> ${esc(family.familyCode)}</div><div><b>ID:</b> ${esc(family.id)}</div>
         <div class="admin-wide"><b>Участники:</b><ul>${family.parents.map((parent) => `<li>${participantText(parent)}</li>`).join('') || '<li>Нет привязанных аккаунтов</li>'}</ul></div>
@@ -85,10 +85,11 @@
     </details>`;
   }
   function routeStop(stop, index, total, groupId) {
+    const title = stop.hostType === 'special' ? stop.displayName : stop.tower;
     const address = stop.hostType === 'special'
-      ? `${stop.displayName} — ${stop.tower}, этаж ${stop.floor}`
-      : `${stop.tower}, этаж ${stop.floor}, квартира ${stop.apartmentCode}`;
-    return `<li class="admin-route-stop"><span>${stop.isQuest ? '🎭' : '🍬'} ${esc(address)}</span>
+      ? `${stop.tower} · этаж ${stop.floor}`
+      : `этаж ${stop.floor} · квартира ${stop.apartmentCode}`;
+    return `<li class="admin-route-stop"><span class="admin-route-node">${index + 1}</span><span class="admin-route-address"><strong>${stop.isQuest ? '🎭' : '🍬'} ${esc(title)}</strong><small>${esc(address)}</small></span>
       <span class="route-controls"><button class="secondary tiny" data-route-move="up" data-group="${esc(groupId)}" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
       <button class="secondary tiny" data-route-move="down" data-group="${esc(groupId)}" data-index="${index}" ${index === total - 1 ? 'disabled' : ''}>↓</button></span></li>`;
   }
@@ -179,27 +180,28 @@
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
-      APP.innerHTML = `<div class="button-row top-actions"><button id="backBtn" class="secondary small">← В приложение</button>
+      APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
+        <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
         <button id="distributeWaitingBtn" class="secondary small" ${waitingFamilies.length ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${waitingFamilies.length}</span></button>
-        <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div>
+        <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div></section>
         ${dashboardOverview(families, groups, waitingFamilies)}
         <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
           <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
           <div class="event-settings-controls"><div><label>Дата и время начала</label><input type="datetime-local" id="eventStartLocal" value="${esc(eventSettings.eventStartLocal)}" /></div>
           <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div></div>
-        <div class="card"><h3>👥 Группы (${groups.length})</h3>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p>Группы ещё не сформированы.</p>'}</div>
-        <div class="card"><h3>⏳ Ожидают назначения (${waitingFamilies.length})</h3>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Очередь</span><h2>Ожидают назначения</h2></div><span class="metric-total">${waitingFamilies.length}</span></div>
           <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
           <ul class="waiting-list">${waitingFamilies.map((family) => waitingFamilyCard(family, groups)).join('') || '<li>Очередь пуста</li>'}</ul></div>
-        <div class="card"><h3>🏪 Спецточки</h3><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Точки маршрута</span><h2>Спецточки</h2></div><span class="metric-total">${specialPoints.length}</span></div><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
           <div><label>Этаж</label><input type="number" id="spFloor" value="0" /></div></div>
           <label>Название</label><input type="text" id="spName" placeholder="Название точки" /><button id="spAddBtn" class="secondary">+ Добавить</button>
           <div id="spMsg" class="search-hint"></div><ul class="plain-list">${specialPoints.map((point) => `<li>${point.quest ? '🎭' : '🍬'} ${esc(point.name)} — ${esc(point.tower)}, эт. ${point.floor}
           <button class="secondary tiny" data-toggle-sp="${esc(point.id)}" data-active="${point.active}">${point.active ? 'Выключить' : 'Включить'}</button>
           <button class="danger tiny" data-delete-sp="${esc(point.id)}">Удалить</button></li>`).join('') || '<li>Нет спецточек</li>'}</ul></div>
-        <div class="card"><h3>🎃 Зарегистрированные семьи (${families.length})</h3>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div><span class="metric-total">${families.length}</span></div>
           <p class="muted">Раскройте семью, чтобы увидеть все аккаунты и изменить анкету.</p>${families.map((family) => familyCard(family, groups)).join('')}</div>`;
       bindDashboard({ families, groups });
     } catch (error) {

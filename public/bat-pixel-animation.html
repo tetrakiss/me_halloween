@@ -25,10 +25,20 @@
       body {
         margin: 0;
         overflow: hidden;
-        background: #ff8c2f;
+        background: radial-gradient(circle at 50% 50%, rgba(174, 108, 255, .18), transparent 62%);
         display: flex;
         align-items: center;
         justify-content: center;
+      }
+
+      body::before {
+        content: "";
+        position: absolute;
+        width: 190px;
+        height: 190px;
+        border-radius: 50%;
+        background: radial-gradient(circle, rgba(255, 188, 111, .12), rgba(150, 86, 232, .05) 54%, transparent 72%);
+        animation: aura 2.8s ease-in-out infinite;
       }
 
       /* Bat */
@@ -41,6 +51,12 @@
         top: -128px;
         -webkit-animation: 0.4s bat steps(1) infinite;
                 animation: 0.4s bat steps(1) infinite;
+        z-index: 1;
+        filter: drop-shadow(0 0 5px rgba(255, 166, 84, .72)) drop-shadow(0 0 18px rgba(161, 92, 246, .6));
+      }
+
+      @keyframes aura {
+        50% { transform: scale(1.12); opacity: .7; }
       }
 
       /* Bat animation */

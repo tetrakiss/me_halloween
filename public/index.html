@@ -4,23 +4,35 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Монстрополия</title>
-<link rel="stylesheet" href="style.css?v=20260927-12" />
-<script src="platform-sdk.js?v=20260927-7"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="style.css?v=20260927-13" />
+<script src="platform-sdk.js?v=20260927-8"></script>
 <script src="towers-config.js"></script>
 </head>
-<body>
+<body class="app-page">
   <div class="header">
-    <span class="emoji">🎃</span>
-    <h1>Монстрополия</h1>
+    <span class="brand-mark" aria-hidden="true">🦇</span>
+    <span class="brand-copy"><small>HALLOWEEN BOT</small><h1>Монстрополия</h1></span>
   </div>
 
   <div id="app">
     <div class="loading-splash" role="status" aria-label="Приложение загружается">
-      <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-4" title="Летучая мышь" tabindex="-1"></iframe>
-      <div class="loading-label">Монстрополия загружается…</div>
+      <div class="loading-inner">
+        <div class="loading-orbit" aria-hidden="true">
+          <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe>
+        </div>
+        <div class="loading-copy">
+          <span class="loading-kicker">HALLOWEEN BOT</span>
+          <h2>Монстрополия</h2>
+          <p>Собираем костюмы и конфеты</p>
+          <span class="loading-track" aria-hidden="true"><i></i></span>
+        </div>
+      </div>
     </div>
   </div>
 
-  <script src="app.js?v=20260927-12"></script>
+  <script src="app.js?v=20260927-13"></script>
 </body>
 </html>

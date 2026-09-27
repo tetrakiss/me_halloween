@@ -102,18 +102,21 @@
   }
   function countdownCard() {
     if (!eventState?.eventStartAt) {
-      return `<section class="countdown-card countdown-unset"><div class="countdown-kicker">🎃 Монстрополия</div>
-        <h2>Скоро начинаем</h2><p>Организаторы скоро укажут время начала мероприятия.</p></section>`;
+      return `<section class="countdown-card family-countdown countdown-unset">
+        <div class="countdown-magic" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="countdown-content"><div class="countdown-kicker"><span class="countdown-dot"></span> Монстрополия</div>
+        <h2>Скоро начинаем</h2><p>Организаторы скоро укажут время начала мероприятия.</p></div></section>`;
     }
-    return `<section class="countdown-card" id="eventCountdown" aria-live="polite">
-      <div class="countdown-kicker"><span class="countdown-dot"></span> До начала мероприятия</div>
+    return `<section class="countdown-card family-countdown" id="eventCountdown" aria-live="polite">
+      <div class="countdown-magic" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="countdown-content"><div class="countdown-kicker"><span class="countdown-dot"></span> До начала мероприятия</div>
       <div class="countdown-grid">
-        <div class="countdown-unit"><strong data-countdown="days">00</strong><span>дней</span></div>
+        <div class="countdown-unit countdown-days"><strong data-countdown="days">00</strong><span>дней</span></div>
         <div class="countdown-unit"><strong data-countdown="hours">00</strong><span>часов</span></div>
         <div class="countdown-unit"><strong data-countdown="minutes">00</strong><span>минут</span></div>
         <div class="countdown-unit"><strong data-countdown="seconds">00</strong><span>секунд</span></div>
       </div>
-      <div class="countdown-status" id="countdownStatus">Готовим костюмы и конфеты</div>
+      <div class="countdown-status" id="countdownStatus">Готовим <em>костюмы</em> и <em>конфеты</em></div></div>
     </section>`;
   }
   function stopCountdown() {
@@ -159,12 +162,31 @@
       location.href = `/admin.html${location.search}${location.hash}`;
     };
   }
+  function loadingMarkup() {
+    return `<div class="loading-splash" role="status" aria-label="Приложение загружается">
+      <div class="loading-inner">
+        <div class="loading-orbit" aria-hidden="true">
+          <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe>
+        </div>
+        <div class="loading-copy">
+          <span class="loading-kicker">HALLOWEEN BOT</span>
+          <h2>Монстрополия</h2>
+          <p>Собираем костюмы и конфеты</p>
+          <span class="loading-track" aria-hidden="true"><i></i></span>
+        </div>
+      </div>
+    </div>`;
+  }
   function renderLoading() {
     stopCountdown();
-    APP.innerHTML = `<div class="loading-splash" role="status" aria-label="Приложение загружается">
-      <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-4" title="Летучая мышь" tabindex="-1"></iframe>
-      <div class="loading-label">Монстрополия загружается…</div>
-    </div>`;
+    APP.innerHTML = loadingMarkup();
+  }
+  async function finishInitialLoading(isBoot) {
+    if (!isBoot) return;
+    const splash = APP.querySelector('.loading-splash');
+    if (!splash) return;
+    splash.classList.add('is-leaving');
+    await new Promise((resolve) => setTimeout(resolve, 460));
   }
   function renderEntry() {
     APP.innerHTML = `${adminButton()}${countdownCard()}<div class="tabs">
@@ -179,10 +201,14 @@
     bindCountdown();
   }
   function renderJoinForm() {
-    document.getElementById('tabContent').innerHTML = `<div class="card"><h3>🔑 Присоединиться к семье</h3>
-      <p class="muted">Введите код, который получил уже зарегистрированный член семьи. Этот же код нужен, если вы зарегистрировались через Telegram, а теперь хотите открыть данные семьи в MAX — новую запись создавать не нужно.</p>
-      <label>Код семьи</label><input type="text" id="joinCode" placeholder="Например ABC123" value="${esc(joinCodeFromUrl)}" />
-      <button id="joinBtn">Присоединиться</button><div id="joinMsg" class="search-hint"></div></div>`;
+    document.getElementById('tabContent').innerHTML = `<div class="card form-card">
+      <div class="form-head"><span class="form-kicker">Доступ к записи</span><h3>Присоединиться к семье</h3>
+      <p>Введите код, который получил уже зарегистрированный член семьи. Он открывает одну семейную запись и в Telegram, и в MAX.</p></div>
+      <section class="form-section"><h4>Код приглашения</h4>
+        <label class="form-field"><span>Код семьи <i>*</i></span><input type="text" id="joinCode" placeholder="Например ABC123" value="${esc(joinCodeFromUrl)}" autocomplete="off" /></label>
+        <div id="joinMsg" class="search-hint form-status" aria-live="polite"></div>
+      </section>
+      <div class="form-actions"><button id="joinBtn">Присоединиться</button></div></div>`;
     document.getElementById('joinBtn').onclick = async () => {
       const code = document.getElementById('joinCode').value.trim();
       if (!code) return void (document.getElementById('joinMsg').textContent = 'Введите код');
@@ -199,8 +225,8 @@
   function renderChildRows() {
     const container = document.getElementById('childrenList');
     container.innerHTML = childRows.map((child, index) => `<div class="child-row">
-      <input type="text" placeholder="Имя" data-child-name="${index}" value="${esc(child.name)}" />
-      <input type="number" placeholder="Возраст" data-child-age="${index}" value="${esc(child.age)}" min="1" max="17" />
+      <input type="text" placeholder="Имя ребёнка" aria-label="Имя ребёнка ${index + 1}" data-child-name="${index}" value="${esc(child.name)}" />
+      <input type="number" placeholder="Возраст" aria-label="Возраст ребёнка ${index + 1}" data-child-age="${index}" value="${esc(child.age)}" min="1" max="17" />
       ${childRows.length > 1 ? `<button type="button" class="secondary small" data-remove="${index}">✕</button>` : ''}</div>`).join('');
     container.querySelectorAll('[data-remove]').forEach((button) => {
       button.onclick = () => { syncChildRows(); childRows.splice(Number(button.dataset.remove), 1); renderChildRows(); };
@@ -213,19 +239,35 @@
   function towerOptions(selected) {
     return window.TOWERS.map((tower) => `<option value="${esc(tower)}" ${tower === selected ? 'selected' : ''}>${esc(tower)}</option>`).join('');
   }
+  function groupTitle(group) {
+    const raw = String(group?.name || '');
+    const generated = raw.match(/^group_(\d+)$/i);
+    if (generated) return `Группа ${generated[1]}`;
+    return raw || 'Ваш маршрут';
+  }
   function renderRegisterForm() {
-    document.getElementById('tabContent').innerHTML = `<div class="card"><h3>🎃 Записать нашу семью</h3>
-      <label>Башня</label><select id="tower">${towerOptions()}</select>
-      <label>Этаж</label><input type="number" id="floor" min="0" max="200" placeholder="Например 22" />
-      <label>Номер квартиры</label><input type="text" id="apartmentCode" placeholder="Например 2206Г" />
-      <label>Хотим идти с семьёй (необязательно)</label><p class="muted">Выберите башню и начните вводить номер квартиры зарегистрированной семьи.</p>
-      <select id="wishTower">${towerOptions()}</select><input type="text" id="wishApartment" placeholder="Номер квартиры" list="wishApartmentList" />
-      <datalist id="wishApartmentList"></datalist><div id="wishHint" class="search-hint"></div>
-      <h3 class="section-title">👻 Дети</h3><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button>
-      <div class="toggle-row"><span>Раздаём конфеты в квартире 🍬</span><input type="checkbox" id="hosting" /></div>
-      <div class="toggle-row"><span>У нас будет квест 🎭</span><input type="checkbox" id="quest" /></div>
-      <div id="questDurationWrap" hidden><label>Сколько минут займёт квест?</label><input type="number" id="questDuration" value="20" min="5" max="40" /></div>
-      <button id="submitRegister">Записаться 🎃</button><div id="registerMsg" class="search-hint"></div></div>`;
+    document.getElementById('tabContent').innerHTML = `<div class="card form-card">
+      <div class="form-head"><span class="form-kicker">Новая анкета</span><h3>Записать нашу семью</h3><p>Расскажите, откуда вы стартуете и кто отправится за конфетами.</p></div>
+      <section class="form-section"><h4>Адрес</h4>
+        <div class="form-row form-row-address">
+          <label class="form-field"><span>Башня <i>*</i></span><select id="tower">${towerOptions()}</select></label>
+          <label class="form-field"><span>Этаж <i>*</i></span><input type="number" id="floor" min="0" max="200" placeholder="22" /></label>
+          <label class="form-field"><span>Квартира <i>*</i></span><input type="text" id="apartmentCode" placeholder="2206Г" /></label>
+        </div>
+      </section>
+      <section class="form-section"><h4>Хотим идти вместе</h4><p class="form-help">Необязательно. Выберите башню и начните вводить квартиру зарегистрированной семьи.</p>
+        <div class="form-row"><label class="form-field"><span>Башня</span><select id="wishTower">${towerOptions()}</select></label>
+        <label class="form-field"><span>Квартира</span><input type="text" id="wishApartment" placeholder="Номер квартиры" list="wishApartmentList" /></label></div>
+        <datalist id="wishApartmentList"></datalist><div id="wishHint" class="search-hint form-status" aria-live="polite"></div>
+      </section>
+      <section class="form-section"><h4>Дети</h4><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button></section>
+      <section class="form-section"><h4>Участие</h4>
+        <div class="toggle-row"><span><b>Раздаём конфеты в квартире</b><small>Будем выдавать конфеты участникам</small></span><input type="checkbox" id="hosting" aria-label="Раздаём конфеты в квартире" /></div>
+        <div class="toggle-row"><span><b>У нас будет квест</b><small>Добавить точку с заданием</small></span><input type="checkbox" id="quest" aria-label="У нас будет квест" /></div>
+        <div id="questDurationWrap" hidden><label class="form-field"><span>Длительность квеста</span><input type="number" id="questDuration" value="20" min="5" max="40" /></label></div>
+      </section>
+      <div id="registerMsg" class="search-hint form-status" aria-live="polite"></div>
+      <div class="form-actions"><button id="submitRegister">Записаться 🎃</button></div></div>`;
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('hosting').onchange = (event) => {
@@ -260,11 +302,11 @@
     };
   }
   function renderApartmentExists() {
-    APP.innerHTML = `<div class="card"><h3>🏠 Ваша квартира уже участвует</h3>
+    APP.innerHTML = `<div class="card state-card"><div class="state-icon">🏠</div><span class="form-kicker">Запись найдена</span><h3>Ваша квартира уже участвует</h3>
       <p>Для этой квартиры уже создана семейная запись. Не создавайте вторую запись — попросите код доступа у родных.</p>
       <p class="muted">Код также позволяет открыть одну и ту же семейную запись в разных приложениях: например, зарегистрироваться через Telegram, а затем войти в MAX.</p>
-      <button id="existingApartmentJoinBtn">Ввести код семьи</button>
-      <button id="existingApartmentBackBtn" class="secondary">Вернуться</button></div>`;
+      <div class="form-actions"><button id="existingApartmentJoinBtn">Ввести код семьи</button>
+      <button id="existingApartmentBackBtn" class="secondary">Вернуться</button></div></div>`;
     document.getElementById('existingApartmentJoinBtn').onclick = () => { activeTab = 'join'; renderEntry(); };
     document.getElementById('existingApartmentBackBtn').onclick = () => { activeTab = 'register'; renderEntry(); };
   }
@@ -308,9 +350,9 @@
   }
   function renderRegisteredSuccess(family) {
     stopCountdown();
-    APP.innerHTML = `<div class="card"><h3>✅ Готово!</h3><p>Нажмите на код, чтобы скопировать его для второго члена семьи:</p>
+    APP.innerHTML = `<div class="card state-card success-card"><div class="state-icon">✓</div><span class="form-kicker">Анкета сохранена</span><h3>Семья участвует!</h3><p>Нажмите на код, чтобы скопировать его для второго члена семьи:</p>
       <button class="family-code code-button" id="familyCodeBtn">${esc(family.familyCode)}</button>
-      <button id="shareBtn" class="secondary">Поделиться кодом</button><button id="continueBtn">Дальше</button></div>`;
+      <div class="form-actions"><button id="continueBtn">Дальше</button><button id="shareBtn" class="secondary">Поделиться кодом</button></div></div>`;
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('shareBtn').onclick = async () => {
       const text = `Присоединяйся к нашей записи в «Монстрополию»! Код семьи: ${family.familyCode}`;
@@ -320,19 +362,29 @@
   }
   function renderDashboard() {
     const family = state.family;
-    APP.innerHTML = `${adminButton()}${countdownCard()}<div class="card"><h3>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</h3>
-      <p class="muted">Дети: ${family.children.map((child) => `${esc(child.name)} (${child.age})`).join(', ')}</p>
-      <button class="family-code code-button" id="familyCodeBtn">Код семьи: ${esc(family.familyCode)} 📋</button>
-      <p class="muted">По этому коду родственник может открыть ту же запись в Telegram или MAX.</p>
-      <button id="editFamilyBtn" class="secondary">✏️ Редактировать запись семьи</button>
-      <button id="deleteFamilyBtn" class="danger">🗑️ Удалить запись полностью</button></div>
-      ${renderIncomingVisitsCard()}
-      ${state.group ? renderRouteCard() : renderWaitingCard()}`;
+    const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>');
+    APP.innerHTML = `${adminButton()}${countdownCard()}<section class="family-home">
+      <div class="family-success-card"><span class="family-success-kicker">Регистрация завершена</span>
+        <h2>Ваша семья в игре</h2><p>Данные сохранены. По семейному коду близкие смогут присоединиться с другого устройства.</p></div>
+      <div class="family-code-card"><span>Код семьи</span><div class="family-code-row">
+        <strong class="family-code-value">${esc(family.familyCode)}</strong>
+        <button class="family-copy-button" id="familyCodeBtn" aria-label="Скопировать код семьи">⧉</button></div></div>
+      <div class="family-summary-grid" aria-label="Данные семьи">
+        <div class="family-summary-item"><span>Адрес</span><b>${esc(family.tower)}<br>этаж ${family.floor}, кв. ${esc(family.apartmentCode)}</b></div>
+        <div class="family-summary-item"><span>Дети</span><b>${children}</b></div>
+        <div class="family-summary-item"><span>Открытая дверь</span><b>${family.hosting ? 'Да, выдаём конфеты' : 'Нет'}</b></div>
+        <div class="family-summary-item"><span>Квест</span><b>${family.quest ? `${family.questDurationMin || 20} минут` : 'Нет'}</b></div>
+      </div>
+      <div class="family-state-actions"><button id="editFamilyBtn" class="secondary">Изменить</button>
+        <button id="showRouteBtn">К маршруту</button></div>
+      <button id="deleteFamilyBtn" class="family-delete-button">Удалить семейную запись</button>
+    </section>${renderIncomingVisitsCard()}${state.group ? renderRouteCard() : renderWaitingCard()}`;
     bindAdminButton();
     bindCountdown();
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('editFamilyBtn').onclick = renderEditForm;
     document.getElementById('deleteFamilyBtn').onclick = renderDeleteConfirmation;
+    document.getElementById('showRouteBtn').onclick = () => document.getElementById('familyRouteCard')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     document.querySelectorAll('[data-door]').forEach((button) => {
       button.onclick = async () => { button.disabled = true;
         try { await api('/door-status', { method: 'POST', body: { hostId: button.dataset.door, status: 'no_answer' } }); button.textContent = 'Отправлено ✓'; }
@@ -359,19 +411,27 @@
     const currentWish = family.wishFamilies?.[0] || null;
     wishFamilyId = currentWish?.id || null;
     childRows = family.children.map((child) => ({ name: child.name, age: child.age }));
-    APP.innerHTML = `<div class="card"><h3>✏️ Редактировать запись семьи</h3>
-      <label>Башня</label><select id="editTower">${towerOptions(family.tower)}</select>
-      <label>Этаж</label><input type="number" id="editFloor" value="${family.floor}" min="0" max="200" />
-      <label>Номер квартиры</label><input type="text" id="editApartment" value="${esc(family.apartmentCode)}" />
-      <label>Хотим идти с семьёй (необязательно)</label><p class="muted">Выберите башню и квартиру. Чтобы убрать пожелание, очистите номер квартиры.</p>
-      <select id="editWishTower">${towerOptions(currentWish?.tower)}</select><input type="text" id="editWishApartment" value="${esc(currentWish?.apartmentCode || '')}" placeholder="Номер квартиры" list="editWishApartmentList" />
-      <datalist id="editWishApartmentList"></datalist><div id="editWishHint" class="search-hint ${currentWish ? 'found' : ''}">${currentWish ? `Выбрана семья: ${esc(currentWish.childrenNames.join(', '))}` : ''}</div>
-      <h3 class="section-title">👻 Дети</h3><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button>
-      <div class="toggle-row"><span>Участвуем в обходе 🚶</span><input type="checkbox" id="editWalking" ${family.walking ? 'checked' : ''} /></div>
-      <div class="toggle-row"><span>Раздаём конфеты в квартире 🍬</span><input type="checkbox" id="editHosting" ${family.hosting ? 'checked' : ''} /></div>
-      <div class="toggle-row"><span>У нас будет квест 🎭</span><input type="checkbox" id="editQuest" ${family.quest ? 'checked' : ''} /></div>
-      <div id="editQuestWrap" ${family.quest ? '' : 'hidden'}><label>Длительность квеста</label><input type="number" id="editQuestDuration" value="${family.questDurationMin || 20}" min="5" max="40" /></div>
-      <button id="saveFamilyBtn">Сохранить</button><button id="cancelEditBtn" class="secondary">Отмена</button><div id="editMsg" class="search-hint"></div></div>`;
+    APP.innerHTML = `<div class="card form-card">
+      <div class="form-head"><span class="form-kicker">Настройки семьи</span><h3>Редактировать запись</h3><p>Измените адрес, состав семьи или формат участия.</p></div>
+      <section class="form-section"><h4>Адрес</h4><div class="form-row form-row-address">
+        <label class="form-field"><span>Башня <i>*</i></span><select id="editTower">${towerOptions(family.tower)}</select></label>
+        <label class="form-field"><span>Этаж <i>*</i></span><input type="number" id="editFloor" value="${family.floor}" min="0" max="200" /></label>
+        <label class="form-field"><span>Квартира <i>*</i></span><input type="text" id="editApartment" value="${esc(family.apartmentCode)}" /></label>
+      </div></section>
+      <section class="form-section"><h4>Хотим идти вместе</h4><p class="form-help">Чтобы убрать пожелание, очистите номер квартиры.</p><div class="form-row">
+        <label class="form-field"><span>Башня</span><select id="editWishTower">${towerOptions(currentWish?.tower)}</select></label>
+        <label class="form-field"><span>Квартира</span><input type="text" id="editWishApartment" value="${esc(currentWish?.apartmentCode || '')}" placeholder="Номер квартиры" list="editWishApartmentList" /></label></div>
+        <datalist id="editWishApartmentList"></datalist><div id="editWishHint" class="search-hint form-status ${currentWish ? 'found' : ''}">${currentWish ? `Выбрана семья: ${esc(currentWish.childrenNames.join(', '))}` : ''}</div>
+      </section>
+      <section class="form-section"><h4>Дети</h4><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button></section>
+      <section class="form-section"><h4>Участие</h4>
+        <div class="toggle-row"><span><b>Участвуем в обходе</b><small>Дети идут по маршруту</small></span><input type="checkbox" id="editWalking" aria-label="Участвуем в обходе" ${family.walking ? 'checked' : ''} /></div>
+        <div class="toggle-row"><span><b>Раздаём конфеты в квартире</b><small>Выдаём конфеты участникам</small></span><input type="checkbox" id="editHosting" aria-label="Раздаём конфеты в квартире" ${family.hosting ? 'checked' : ''} /></div>
+        <div class="toggle-row"><span><b>У нас будет квест</b><small>Точка с заданием</small></span><input type="checkbox" id="editQuest" aria-label="У нас будет квест" ${family.quest ? 'checked' : ''} /></div>
+        <div id="editQuestWrap" ${family.quest ? '' : 'hidden'}><label class="form-field"><span>Длительность квеста</span><input type="number" id="editQuestDuration" value="${family.questDurationMin || 20}" min="5" max="40" /></label></div>
+      </section>
+      <div id="editMsg" class="search-hint form-status" aria-live="polite"></div>
+      <div class="form-actions"><button id="saveFamilyBtn">Сохранить</button><button id="cancelEditBtn" class="secondary">Отмена</button></div></div>`;
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('editHosting').onchange = (event) => {
@@ -403,11 +463,11 @@
   }
   function renderDeleteConfirmation() {
     stopCountdown();
-    APP.innerHTML = `<div class="card"><h3>🗑️ Удалить семейную запись?</h3>
+    APP.innerHTML = `<div class="card state-card danger-state"><div class="state-icon">!</div><span class="form-kicker">Опасное действие</span><h3>Удалить семейную запись?</h3>
       <p>Будут полностью удалены анкета, дети, пожелания и доступ всех членов семьи. Отменить это действие будет нельзя.</p>
-      <button id="confirmDeleteFamilyBtn" class="danger">Да, удалить полностью</button>
-      <button id="cancelDeleteFamilyBtn" class="secondary">Отмена</button>
-      <div id="deleteFamilyMsg" class="search-hint"></div></div>`;
+      <div id="deleteFamilyMsg" class="search-hint form-status" aria-live="polite"></div>
+      <div class="form-actions"><button id="cancelDeleteFamilyBtn" class="secondary">Отмена</button>
+      <button id="confirmDeleteFamilyBtn" class="danger">Да, удалить полностью</button></div></div>`;
     document.getElementById('cancelDeleteFamilyBtn').onclick = renderDashboard;
     document.getElementById('confirmDeleteFamilyBtn').onclick = async () => {
       const button = document.getElementById('confirmDeleteFamilyBtn');
@@ -427,25 +487,32 @@
     };
   }
   function renderWaitingCard() {
-    if (state.family?.groupingPaused) {
-      return '<div class="card"><h3>⏸️ Ожидаете перераспределения</h3><p class="muted">Организатор убрал семью из прежней группы. Ваша запись сохранена; после назначения в новую группу здесь появится маршрут.</p></div>';
-    }
-    return '<div class="card"><h3>⏳ Группа ещё не сформирована</h3><p class="muted">Когда организаторы соберут группы, здесь появится маршрут.</p></div>';
+    const paused = state.family?.groupingPaused;
+    return `<section class="card family-route-card family-route-empty" id="familyRouteCard"><div class="family-section-head">
+      <div><span class="form-kicker">Маршрут обхода</span><h3>${paused ? 'Ожидаете перераспределения' : 'Группа ещё не сформирована'}</h3></div><span class="family-pill">Ожидание</span></div>
+      <p>${paused ? 'Организатор убрал семью из прежней группы. После нового назначения здесь появится маршрут.' : 'Когда организаторы соберут группы, здесь появится порядок квартир и специальных точек.'}</p></section>`;
   }
   function renderRouteCard() {
     const items = (state.route || []).map((stop) => {
       const kind = stop.isQuest ? '🎭 Квест' : '🍬 Конфеты';
-      const address = stop.isSpecial ? `${esc(stop.displayName)} — ${esc(stop.tower)}, этаж ${stop.floor}` : `${esc(stop.tower)}, этаж ${stop.floor}, квартира ${esc(stop.apartmentCode)}`;
-      return `<li class="stop ${stop.isQuest ? 'quest' : ''} ${stop.lastKnownStatus === 'no_answer' ? 'warned' : ''}">
-        <div class="stop-num">${stop.seq}</div><div class="stop-info"><div class="addr">${address}</div><div class="tag">${kind}</div>
+      const title = stop.isSpecial ? esc(stop.displayName) : esc(stop.tower);
+      const address = stop.isSpecial ? `${esc(stop.tower)} · этаж ${stop.floor}` : `этаж ${stop.floor} · квартира ${esc(stop.apartmentCode)}`;
+      return `<li class="stop family-route-stop ${stop.isQuest ? 'quest' : ''} ${stop.lastKnownStatus === 'no_answer' ? 'warned' : ''}">
+        <div class="stop-num">${stop.seq}</div><div class="stop-info"><div class="addr">${title}</div><div class="stop-address">${address}</div>
         ${stop.lastKnownStatus === 'no_answer' ? '<div class="stop-warning">⚠️ ранее не открыли</div>' : ''}</div>
-        <button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли 🚪</button></li>`;
+        <div class="route-stop-actions"><span class="route-kind">${kind}</span><button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли</button></div></li>`;
     }).join('');
-    return `<div class="card"><h3>🗺️ ${esc(state.group.name || 'Ваш маршрут')}</h3>${items ? `<ul class="route-list">${items}</ul>` : '<p>Маршрут пока пуст.</p>'}</div>`;
+    return `<section class="card family-route-card" id="familyRouteCard"><div class="family-section-head">
+      <div><span class="form-kicker">Маршрут обхода</span><h3>${esc(groupTitle(state.group))}</h3></div>
+      <span class="family-pill">${(state.route || []).length} точек</span></div>
+      <p class="family-route-intro">Порядок, в котором ваша группа идёт по квартирам. Он обновляется после формирования групп.</p>
+      ${items ? `<div class="family-route-cap"><span>⌂</span><small>Начало маршрута</small></div><ul class="route-list family-route-list">${items}</ul>
+        <div class="family-route-cap family-route-cap-end"><span>✓</span><small>Маршрут завершён</small></div>` : '<p>Маршрут пока пуст.</p>'}</section>`;
   }
   async function loadMe() {
-    const loadingStartedAt = isInitialLoad ? APP_BOOT_STARTED_AT : Date.now();
-    const minimumLoadingMs = isInitialLoad ? MIN_LOADING_MS : 0;
+    const isBoot = isInitialLoad;
+    const loadingStartedAt = isBoot ? APP_BOOT_STARTED_AT : Date.now();
+    const minimumLoadingMs = isBoot ? MIN_LOADING_MS : 0;
     isInitialLoad = false;
     renderLoading();
     try {
@@ -462,10 +529,12 @@
         incomingVisits: data.incomingVisits || null,
         isAdmin: !!data.isAdmin,
       };
+      await finishInitialLoading(isBoot);
       if (!state.family) renderEntry(); else renderDashboard();
     } catch (error) {
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
       if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
+      await finishInitialLoading(isBoot);
       APP.innerHTML = `<div class="card"><p>Ошибка: ${esc(error.message)}</p></div>`;
     }
   }
