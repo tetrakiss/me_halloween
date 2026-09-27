@@ -116,6 +116,47 @@
       <button class="small" data-assign-waiting="${esc(family.id)}">Назначить</button>
       ${family.groupingPaused ? `<button class="secondary small" data-resume-grouping="${esc(family.id)}">Вернуть в автоподбор</button>` : ''}</div></li>`;
   }
+  function dashboardOverview(families, groups, waitingFamilies) {
+    const participatingFamilies = families.filter((family) => family.walking && !family.cancelled);
+    const hostingFamilies = families.filter((family) => family.hosting && !family.cancelled);
+    const children = participatingFamilies.flatMap((family) => family.children);
+    const waitingChildren = waitingFamilies.reduce((sum, family) => sum + family.children.length, 0);
+    const assignedChildren = groups.reduce((sum, group) => (
+      sum + group.memberFamilyIds.reduce((groupSum, familyId) => (
+        groupSum + (families.find((family) => family.id === familyId)?.children.length || 0)
+      ), 0)
+    ), 0);
+    const averageGroupSize = groups.length ? (assignedChildren / groups.length).toFixed(1) : '—';
+    const ageCounts = new Map(Array.from({ length: 17 }, (_, index) => [index + 1, 0]));
+    children.forEach((child) => ageCounts.set(Number(child.age), (ageCounts.get(Number(child.age)) || 0) + 1));
+    const maxAgeCount = Math.max(1, ...ageCounts.values());
+    const ageBars = [...ageCounts.entries()].map(([age, count]) => {
+      const height = count ? Math.max(8, Math.round(count / maxAgeCount * 100)) : 2;
+      return `<div class="age-bar" title="${age} лет — ${count} детей">
+        <span class="age-bar-value">${count || ''}</span>
+        <div class="age-bar-track"><i style="height:${height}%"></i></div>
+        <strong>${age}</strong>
+      </div>`;
+    }).join('');
+    const metrics = [
+      ['👧', children.length, 'Всего детей', `${participatingFamilies.length} семей участвуют`],
+      ['👥', groups.length, 'Всего групп', `${assignedChildren} детей распределено`],
+      ['🍬', hostingFamilies.filter((family) => !family.quest).length, 'Квартир с конфетами', 'обычная выдача'],
+      ['🎭', hostingFamilies.filter((family) => family.quest).length, 'Квартир с квестами', 'остановки с заданием'],
+      ['⏳', waitingFamilies.length, 'Ждут распределения', `${waitingChildren} детей`],
+      ['⚖️', averageGroupSize, 'Средний размер группы', 'детей в группе'],
+    ];
+    return `<section class="admin-overview" aria-label="Сводка мероприятия">
+      <div class="metric-grid">${metrics.map(([icon, value, label, note]) => `<article class="metric-card">
+        <span class="metric-icon">${icon}</span><div><strong>${value}</strong><span>${label}</span><small>${note}</small></div>
+      </article>`).join('')}</div>
+      <article class="age-chart-card"><div class="overview-heading"><div><span class="overview-kicker">Возраст участников</span>
+        <h3>Распределение детей по возрастам</h3></div><span class="chart-total">${children.length} всего</span></div>
+        <div class="age-chart-scroll"><div class="age-chart" role="img" aria-label="Распределение детей от одного года до семнадцати лет">${ageBars}</div></div>
+        <div class="age-chart-caption"><span>Возраст, лет</span><span>Высота столбца — количество детей</span></div>
+      </article>
+    </section>`;
+  }
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
     try {
@@ -126,8 +167,9 @@
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
       APP.innerHTML = `<div class="button-row top-actions"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
-        <button id="distributeWaitingBtn" class="secondary small">🎲 Распределить ожидающих</button>
+        <button id="distributeWaitingBtn" class="secondary small" ${waitingFamilies.length ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${waitingFamilies.length}</span></button>
         <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div>
+        ${dashboardOverview(families, groups, waitingFamilies)}
         <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
           <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
