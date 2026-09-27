@@ -1,24 +1,53 @@
-(function () {
+(async function () {
+  const APP_BOOT_STARTED_AT = Date.now();
   const APP = document.getElementById('app');
 
+  function hashParams() {
+    return new URLSearchParams(location.hash.replace(/^#/, ''));
+  }
+  function maxInitDataFromUrl() {
+    return hashParams().get('WebAppData') || '';
+  }
+  function telegramInitDataFromUrl() {
+    const search = new URLSearchParams(location.search);
+    return search.get('tgWebAppData') || hashParams().get('tgWebAppData') || '';
+  }
+  async function waitForPlatformBridge() {
+    if (maxInitDataFromUrl() || telegramInitDataFromUrl()) return;
+    const deadline = Date.now() + 1200;
+    while (Date.now() < deadline) {
+      if (window.WebApp?.initData || window.Telegram?.WebApp?.initData) return;
+      await new Promise((resolve) => setTimeout(resolve, 40));
+    }
+  }
+
+  await waitForPlatformBridge();
+
   function detectPlatform() {
-    if (window.WebApp?.initData) return 'max';
-    if (window.Telegram?.WebApp?.initData) return 'telegram';
+    if (window.WebApp?.initData || maxInitDataFromUrl()) return 'max';
+    if (window.Telegram?.WebApp?.initData || telegramInitDataFromUrl()) return 'telegram';
     return 'dev';
   }
   const PLATFORM = detectPlatform();
-  if (PLATFORM === 'telegram') {
+  if (PLATFORM === 'telegram' && window.Telegram?.WebApp) {
     window.Telegram.WebApp.ready();
     window.Telegram.WebApp.expand();
   }
   function getInitDataRaw() {
-    if (PLATFORM === 'telegram') return window.Telegram.WebApp.initData;
-    if (PLATFORM === 'max') return window.WebApp.initData;
+    if (PLATFORM === 'telegram') return window.Telegram?.WebApp?.initData || telegramInitDataFromUrl();
+    if (PLATFORM === 'max') return window.WebApp?.initData || maxInitDataFromUrl();
     return '';
   }
   function getStartParam() {
-    if (PLATFORM === 'telegram') return window.Telegram.WebApp.initDataUnsafe?.start_param || '';
-    if (PLATFORM === 'max') return window.WebApp.initDataUnsafe?.start_param || '';
+    if (PLATFORM === 'telegram') {
+      return window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+        new URLSearchParams(getInitDataRaw()).get('start_param') || '';
+    }
+    if (PLATFORM === 'max') {
+      const rawInitData = getInitDataRaw();
+      return window.WebApp?.initDataUnsafe?.start_param || hashParams().get('WebAppStartParam') ||
+        new URLSearchParams(rawInitData).get('start_param') || '';
+    }
     return '';
   }
   function devUserId() {
@@ -393,7 +422,7 @@
     return `<div class="card"><h3>🗺️ ${esc(state.group.name || 'Ваш маршрут')}</h3>${items ? `<ul class="route-list">${items}</ul>` : '<p>Маршрут пока пуст.</p>'}</div>`;
   }
   async function loadMe() {
-    const loadingStartedAt = Date.now();
+    const loadingStartedAt = isInitialLoad ? APP_BOOT_STARTED_AT : Date.now();
     const minimumLoadingMs = isInitialLoad ? MIN_LOADING_MS : 0;
     isInitialLoad = false;
     renderLoading();
