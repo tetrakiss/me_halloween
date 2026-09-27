@@ -77,7 +77,8 @@
       <label>Длительность квеста, мин.</label><input type="number" data-field="questDurationMin" value="${family.questDurationMin || 20}" min="5" max="60" />
       <label>Ручная группа</label><select data-field="manualGroup">${groupOptions(groups, family.manualGroupId)}</select>
       <div class="button-row"><button class="small" data-save-family="${esc(family.id)}">Сохранить все данные</button>
-      <button class="secondary small" data-save-override="${esc(family.id)}">Применить группу</button></div>
+      <button class="secondary small" data-save-override="${esc(family.id)}">Применить группу</button>
+      <button class="danger small" data-delete-family="${esc(family.id)}">Удалить семью</button></div>
       <div class="search-hint" data-family-msg="${esc(family.id)}"></div>
     </details>`;
   }
@@ -101,11 +102,18 @@
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
     try {
-      const [{ families }, { groups }, { specialPoints }] = await Promise.all([api('/families'), api('/groups'), api('/special-points')]);
+      const [{ families }, { groups }, { specialPoints }, eventSettings] = await Promise.all([
+        api('/families'), api('/groups'), api('/special-points'), api('/event-settings'),
+      ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       APP.innerHTML = `<div class="button-row top-actions"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
         <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div>
+        <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
+          <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
+          <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
+          <div class="event-settings-controls"><div><label>Дата и время начала</label><input type="datetime-local" id="eventStartLocal" value="${esc(eventSettings.eventStartLocal)}" /></div>
+          <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div></div>
         <div class="card"><h3>👥 Группы (${groups.length})</h3>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p>Группы ещё не сформированы.</p>'}</div>
         <div class="card"><h3>🏪 Спецточки</h3><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
           <div><label>Этаж</label><input type="number" id="spFloor" value="0" /></div></div>
@@ -128,6 +136,22 @@
   }
   function bindDashboard({ groups }) {
     document.getElementById('backBtn').onclick = () => { location.href = '/'; };
+    document.getElementById('saveEventStartBtn').onclick = async () => {
+      const button = document.getElementById('saveEventStartBtn');
+      const message = document.getElementById('eventSettingsMsg');
+      const eventStartLocal = document.getElementById('eventStartLocal').value;
+      if (!eventStartLocal) return void (message.textContent = 'Укажите дату и время начала');
+      button.disabled = true;
+      message.textContent = 'Сохраняем…';
+      try {
+        const result = await api('/event-settings', { method: 'PUT', body: { eventStartLocal } });
+        message.textContent = `Сохранено: ${result.eventStartLocal.replace('T', ' ')}`;
+        setTimeout(renderDashboard, 700);
+      } catch (error) {
+        button.disabled = false;
+        message.textContent = error.message;
+      }
+    };
     document.getElementById('addTestDataBtn').onclick = async () => {
       const button = document.getElementById('addTestDataBtn');
       const message = document.getElementById('adminActionMsg');
@@ -170,6 +194,22 @@
         const id = button.dataset.saveOverride; const card = document.querySelector(`[data-family-card="${CSS.escape(id)}"]`);
         try { await api('/override', { method: 'POST', body: { familyId: id, groupId: card.querySelector('[data-field="manualGroup"]').value || null } }); button.textContent = 'Применено ✓'; }
         catch (error) { alert(error.message); }
+      };
+    });
+    document.querySelectorAll('[data-delete-family]').forEach((button) => {
+      button.onclick = async () => {
+        const id = button.dataset.deleteFamily;
+        const card = document.querySelector(`[data-family-card="${CSS.escape(id)}"]`);
+        const address = card.querySelector('summary strong')?.textContent || 'эту семью';
+        if (!confirm(`Полностью удалить ${address}? Доступ всех членов семьи и анкета будут удалены.`)) return;
+        button.disabled = true;
+        try {
+          await api(`/families/${encodeURIComponent(id)}`, { method: 'DELETE' });
+          await renderDashboard();
+        } catch (error) {
+          button.disabled = false;
+          alert(error.message);
+        }
       };
     });
     document.querySelectorAll('[data-save-group-name]').forEach((button) => {

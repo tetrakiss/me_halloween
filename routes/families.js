@@ -1,6 +1,7 @@
 const express = require('express');
 const { db, shortCode, newId } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
+const { getEventSettings } = require('../lib/event-settings');
 
 const router = express.Router();
 
@@ -109,6 +110,11 @@ function routeForFamily(family) {
     };
   });
 }
+
+// Серверное время — единственный источник времени для обратного отсчёта.
+router.get('/event', (req, res) => {
+  res.json(getEventSettings());
+});
 
 // ---- Регистрация новой семьи ----
 router.post('/register', (req, res) => {

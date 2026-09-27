@@ -50,7 +50,7 @@ label {
   margin: 10px 0 4px;
 }
 
-input[type="text"], input[type="number"], select {
+input[type="text"], input[type="number"], input[type="datetime-local"], select {
   width: 100%;
   padding: 10px 12px;
   border-radius: 10px;
@@ -179,6 +179,95 @@ button.danger { background: linear-gradient(135deg, var(--danger), #b91c1c); }
   margin: 30px 0;
 }
 
+.countdown-card {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  margin: 0 0 16px;
+  padding: 20px;
+  border: 1px solid rgba(255, 179, 71, .42);
+  border-radius: 22px;
+  background:
+    radial-gradient(circle at 12% 12%, rgba(255, 196, 110, .28), transparent 34%),
+    radial-gradient(circle at 88% 90%, rgba(139, 92, 246, .34), transparent 38%),
+    linear-gradient(145deg, #5a274f 0%, #34204a 48%, #241533 100%);
+  box-shadow: 0 18px 50px rgba(12, 5, 22, .38), inset 0 1px rgba(255, 255, 255, .08);
+}
+.countdown-card::before,
+.countdown-card::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border-radius: 50%;
+  filter: blur(2px);
+  animation: countdown-orbit 8s ease-in-out infinite alternate;
+}
+.countdown-card::before { width: 120px; height: 120px; top: -72px; right: -32px; background: rgba(255, 140, 47, .28); }
+.countdown-card::after { width: 84px; height: 84px; left: -42px; bottom: -48px; background: rgba(139, 92, 246, .34); animation-delay: -3s; }
+.countdown-kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  color: #ffe0b8;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+}
+.countdown-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 0 5px rgba(255, 140, 47, .14), 0 0 18px var(--accent);
+  animation: countdown-pulse 1.8s ease-in-out infinite;
+}
+.countdown-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+.countdown-unit {
+  min-width: 0;
+  padding: 13px 5px 11px;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 14px;
+  background: rgba(18, 8, 29, .46);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .06);
+  backdrop-filter: blur(8px);
+}
+.countdown-unit strong {
+  display: block;
+  color: #fff7ed;
+  font-size: clamp(25px, 9vw, 42px);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.05em;
+  text-shadow: 0 4px 18px rgba(255, 140, 47, .28);
+}
+.countdown-unit span { display: block; margin-top: 7px; color: #d8cae8; font-size: 10px; letter-spacing: .04em; text-transform: uppercase; }
+.countdown-status { margin-top: 14px; text-align: center; color: var(--text-dim); font-size: 13px; }
+.countdown-tick { animation: countdown-flip .42s cubic-bezier(.2, .8, .2, 1); }
+.countdown-live { border-color: rgba(34, 197, 94, .62); }
+.countdown-live .countdown-dot { background: var(--ok); box-shadow: 0 0 0 5px rgba(34, 197, 94, .14), 0 0 18px var(--ok); }
+.countdown-live .countdown-status { color: #86efac; font-weight: 800; }
+.countdown-unset h2 { margin-bottom: 6px; color: #fff7ed; }
+.countdown-unset p { margin: 0; color: var(--text-dim); }
+
+.event-settings-card { border-color: rgba(255, 140, 47, .34); background: linear-gradient(145deg, rgba(90, 39, 79, .82), var(--bg-card)); }
+.event-settings-heading { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; }
+.event-settings-heading .countdown-kicker { margin-bottom: 7px; }
+.server-clock { flex-shrink: 0; padding: 9px 11px; border: 1px solid rgba(255, 255, 255, .1); border-radius: 12px; background: rgba(18, 8, 29, .45); text-align: right; }
+.server-clock span { display: block; color: var(--text-dim); font-size: 10px; text-transform: uppercase; letter-spacing: .08em; }
+.server-clock strong { display: block; margin-top: 3px; color: var(--accent-2); font-size: 13px; font-variant-numeric: tabular-nums; }
+.event-settings-controls { display: grid; grid-template-columns: minmax(220px, 1fr) auto; gap: 10px; align-items: end; }
+.event-settings-controls button { margin-bottom: 0; }
+
+@keyframes countdown-flip {
+  0% { opacity: .35; transform: translateY(-6px) scale(.92); filter: blur(2px); }
+  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+}
+@keyframes countdown-pulse { 50% { transform: scale(.72); opacity: .65; } }
+@keyframes countdown-orbit { to { transform: translate(14px, 10px) scale(1.16); } }
+
 .loading-splash {
   position: fixed;
   inset: 0;
@@ -249,4 +338,7 @@ button:disabled { opacity: .35; cursor: default; }
   .button-row { flex-wrap: wrap; }
   .stop { align-items: flex-start; flex-wrap: wrap; }
   .door-button { margin-left: 40px; }
+  .event-settings-heading { display: block; }
+  .server-clock { margin: 10px 0; text-align: left; }
+  .event-settings-controls { grid-template-columns: 1fr; }
 }

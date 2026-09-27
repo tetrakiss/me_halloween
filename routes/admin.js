@@ -4,6 +4,7 @@ const { buildGroups, buildRoutes } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups } = require('../lib/notifications');
+const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -16,6 +17,14 @@ function randomItem(items) {
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function deleteFamilyCompletely(familyId) {
+  return db.transaction(() => {
+    db.prepare("DELETE FROM route_stops WHERE host_type = 'family' AND host_id = ?").run(familyId);
+    db.prepare('DELETE FROM door_status WHERE host_id = ?').run(familyId);
+    return db.prepare('DELETE FROM families WHERE id = ?').run(familyId).changes;
+  })();
 }
 
 // Доступ разрешён двумя способами:
@@ -169,6 +178,24 @@ router.get('/families', (req, res) => {
       currentGroupId: byFamily.get(f.id)?.group_id || null,
     })),
   });
+});
+
+router.delete('/families/:id', (req, res) => {
+  const deleted = deleteFamilyCompletely(req.params.id);
+  if (!deleted) return res.status(404).json({ error: 'Семья не найдена' });
+  res.json({ ok: true });
+});
+
+router.get('/event-settings', (req, res) => {
+  res.json(getEventSettings());
+});
+
+router.put('/event-settings', (req, res) => {
+  const timestamp = saveEventStartLocal(req.body.eventStartLocal);
+  if (timestamp === null) {
+    return res.status(400).json({ error: 'Укажите корректные дату и время сервера' });
+  }
+  res.json({ ok: true, ...getEventSettings() });
 });
 
 // Пакет случайных анкет для проверки группировки и маршрутов администратором.

@@ -115,6 +115,11 @@ CREATE TABLE IF NOT EXISTS recipient_notification_state (
   last_notified_at INTEGER NOT NULL,
   PRIMARY KEY (platform, platform_user_id)
 );
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
 `);
 
 // Лёгкие миграции для уже существующей SQLite-базы.

@@ -70,6 +70,9 @@
   }
 
   let state = { family: null, group: null, route: null, isAdmin: false };
+  let eventState = null;
+  let serverClockOffsetMs = 0;
+  let countdownTimer = null;
   let childRows = [{ name: '', age: '' }];
   let wishFamilyId = null;
   const MIN_LOADING_MS = 2000;
@@ -83,18 +86,72 @@
   function adminButton() {
     return state.isAdmin ? '<button id="adminBtn" class="secondary">🛠️ Администрирование</button>' : '';
   }
+  function countdownCard() {
+    if (!eventState?.eventStartAt) {
+      return `<section class="countdown-card countdown-unset"><div class="countdown-kicker">🎃 Монстрополия</div>
+        <h2>Скоро начинаем</h2><p>Организаторы скоро укажут время начала мероприятия.</p></section>`;
+    }
+    return `<section class="countdown-card" id="eventCountdown" aria-live="polite">
+      <div class="countdown-kicker"><span class="countdown-dot"></span> До начала мероприятия</div>
+      <div class="countdown-grid">
+        <div class="countdown-unit"><strong data-countdown="days">00</strong><span>дней</span></div>
+        <div class="countdown-unit"><strong data-countdown="hours">00</strong><span>часов</span></div>
+        <div class="countdown-unit"><strong data-countdown="minutes">00</strong><span>минут</span></div>
+        <div class="countdown-unit"><strong data-countdown="seconds">00</strong><span>секунд</span></div>
+      </div>
+      <div class="countdown-status" id="countdownStatus">Готовим костюмы и конфеты</div>
+    </section>`;
+  }
+  function stopCountdown() {
+    clearInterval(countdownTimer);
+    countdownTimer = null;
+  }
+  function bindCountdown() {
+    stopCountdown();
+    const card = document.getElementById('eventCountdown');
+    if (!card || !eventState?.eventStartAt) return;
+    const previous = {};
+    const update = () => {
+      const remaining = Math.max(0, eventState.eventStartAt - (Date.now() + serverClockOffsetMs));
+      const values = {
+        days: Math.floor(remaining / 86400000),
+        hours: Math.floor((remaining % 86400000) / 3600000),
+        minutes: Math.floor((remaining % 3600000) / 60000),
+        seconds: Math.floor((remaining % 60000) / 1000),
+      };
+      Object.entries(values).forEach(([key, value]) => {
+        const element = card.querySelector(`[data-countdown="${key}"]`);
+        const formatted = String(value).padStart(2, '0');
+        if (element && previous[key] !== formatted) {
+          element.textContent = formatted;
+          element.classList.remove('countdown-tick');
+          void element.offsetWidth;
+          element.classList.add('countdown-tick');
+          previous[key] = formatted;
+        }
+      });
+      if (remaining === 0) {
+        card.classList.add('countdown-live');
+        document.getElementById('countdownStatus').textContent = 'Мероприятие началось!';
+        stopCountdown();
+      }
+    };
+    update();
+    countdownTimer = setInterval(update, 1000);
+  }
   function bindAdminButton() {
     const button = document.getElementById('adminBtn');
     if (button) button.onclick = () => { location.href = '/admin.html'; };
   }
   function renderLoading() {
+    stopCountdown();
     APP.innerHTML = `<div class="loading-splash" role="status" aria-label="Приложение загружается">
       <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-4" title="Летучая мышь" tabindex="-1"></iframe>
       <div class="loading-label">Монстрополия загружается…</div>
     </div>`;
   }
   function renderEntry() {
-    APP.innerHTML = `${adminButton()}<div class="tabs">
+    APP.innerHTML = `${adminButton()}${countdownCard()}<div class="tabs">
       <button id="tabRegister" class="${activeTab === 'register' ? 'active' : ''}">Записать семью</button>
       <button id="tabJoin" class="${activeTab === 'join' ? 'active' : ''}">У нас есть код</button>
       </div><div id="tabContent"></div>`;
@@ -103,6 +160,7 @@
     document.getElementById('tabJoin').onclick = () => { activeTab = 'join'; renderEntry(); };
     if (activeTab === 'register') renderRegisterForm();
     else renderJoinForm();
+    bindCountdown();
   }
   function renderJoinForm() {
     document.getElementById('tabContent').innerHTML = `<div class="card"><h3>🔑 Присоединиться к семье</h3>
@@ -224,6 +282,7 @@
     };
   }
   function renderRegisteredSuccess(family) {
+    stopCountdown();
     APP.innerHTML = `<div class="card"><h3>✅ Готово!</h3><p>Нажмите на код, чтобы скопировать его для второго члена семьи:</p>
       <button class="family-code code-button" id="familyCodeBtn">${esc(family.familyCode)}</button>
       <button id="shareBtn" class="secondary">Поделиться кодом</button><button id="continueBtn">Дальше</button></div>`;
@@ -236,7 +295,7 @@
   }
   function renderDashboard() {
     const family = state.family;
-    APP.innerHTML = `${adminButton()}<div class="card"><h3>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</h3>
+    APP.innerHTML = `${adminButton()}${countdownCard()}<div class="card"><h3>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</h3>
       <p class="muted">Дети: ${family.children.map((child) => `${esc(child.name)} (${child.age})`).join(', ')}</p>
       <button class="family-code code-button" id="familyCodeBtn">Код семьи: ${esc(family.familyCode)} 📋</button>
       <p class="muted">По этому коду родственник может открыть ту же запись в Telegram или MAX.</p>
@@ -244,6 +303,7 @@
       <button id="deleteFamilyBtn" class="danger">🗑️ Удалить запись полностью</button></div>
       ${state.group ? renderRouteCard() : renderWaitingCard()}`;
     bindAdminButton();
+    bindCountdown();
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('editFamilyBtn').onclick = renderEditForm;
     document.getElementById('deleteFamilyBtn').onclick = renderDeleteConfirmation;
@@ -255,6 +315,7 @@
     });
   }
   function renderEditForm() {
+    stopCountdown();
     const family = state.family;
     const currentWish = family.wishFamilies?.[0] || null;
     wishFamilyId = currentWish?.id || null;
@@ -293,6 +354,7 @@
     };
   }
   function renderDeleteConfirmation() {
+    stopCountdown();
     APP.innerHTML = `<div class="card"><h3>🗑️ Удалить семейную запись?</h3>
       <p>Будут полностью удалены анкета, дети, пожелания и доступ всех членов семьи. Отменить это действие будет нельзя.</p>
       <button id="confirmDeleteFamilyBtn" class="danger">Да, удалить полностью</button>
@@ -336,7 +398,10 @@
     isInitialLoad = false;
     renderLoading();
     try {
-      const data = await api('/me');
+      const requestStartedAt = Date.now();
+      const [data, eventData] = await Promise.all([api('/me'), api('/event')]);
+      serverClockOffsetMs = eventData.serverNow - ((requestStartedAt + Date.now()) / 2);
+      eventState = eventData;
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
       if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
       state = { family: data.family, group: data.group || null, route: data.route || null, isAdmin: !!data.isAdmin };
