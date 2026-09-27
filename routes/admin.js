@@ -1,5 +1,5 @@
 const express = require('express');
-const { db, newId } = require('../db');
+const { db, newId, shortCode } = require('../db');
 const { buildGroups, buildRoutes } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
@@ -7,6 +7,16 @@ const { notifyChangedGroups } = require('../lib/notifications');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
+const TEST_TOWERS = ['Венеция', 'Санкт-Петербург', 'Стокгольм', 'Вена', 'Амстердам', 'Копенгаген', 'Флоренция', 'Барселона', 'Екатеринбург', 'Великий Новгород', 'Владивосток', 'Гонконг', 'Сингапур', 'Стамбул', 'Афины'];
+const TEST_CHILD_NAMES = ['Алиса', 'Миша', 'Соня', 'Лёва', 'Маша', 'Федя', 'Варя', 'Кирилл', 'Полина', 'Саша', 'Даша', 'Максим'];
+
+function randomItem(items) {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
+}
 
 // Доступ разрешён двумя способами:
 // 1) заголовок X-Admin-Password совпадает с ADMIN_PASSWORD (для всех админов);
@@ -159,6 +169,52 @@ router.get('/families', (req, res) => {
       currentGroupId: byFamily.get(f.id)?.group_id || null,
     })),
   });
+});
+
+// Пакет случайных анкет для проверки группировки и маршрутов администратором.
+router.post('/test-data', (req, res) => {
+  const requestedCount = Number(req.body.count ?? 20);
+  const count = Number.isInteger(requestedCount) ? Math.min(Math.max(requestedCount, 1), 50) : 20;
+  const createdFamilyIds = [];
+
+  const tx = db.transaction(() => {
+    const insertFamily = db.prepare(`
+      INSERT INTO families (id, family_code, tower, floor, apartment_code, walking, hosting, quest, quest_duration_min, cancelled, created_at)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?)
+    `);
+    const insertChild = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
+    const insertWish = db.prepare('INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)');
+
+    for (let index = 0; index < count; index += 1) {
+      const familyId = newId('test');
+      const hosting = Math.random() < 0.7;
+      const quest = hosting && Math.random() < 0.25;
+      insertFamily.run(
+        familyId,
+        shortCode(),
+        randomItem(TEST_TOWERS),
+        randomInt(1, 35),
+        String(randomInt(10, 999)),
+        hosting ? 1 : 0,
+        quest ? 1 : 0,
+        quest ? randomItem([10, 15, 20]) : null,
+        Date.now() + index
+      );
+      const childCount = randomInt(1, 3);
+      for (let childIndex = 0; childIndex < childCount; childIndex += 1) {
+        insertChild.run(familyId, `Тест ${randomItem(TEST_CHILD_NAMES)} ${index + 1}`, randomInt(4, 14));
+      }
+      createdFamilyIds.push(familyId);
+    }
+
+    for (let index = 0; index + 1 < createdFamilyIds.length; index += 4) {
+      const pair = [createdFamilyIds[index], createdFamilyIds[index + 1]].sort();
+      insertWish.run(pair[0], pair[1]);
+    }
+  });
+  tx();
+
+  res.json({ ok: true, created: createdFamilyIds.length });
 });
 
 router.patch('/families/:id', (req, res) => {

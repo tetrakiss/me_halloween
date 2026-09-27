@@ -104,7 +104,8 @@
       const [{ families }, { groups }, { specialPoints }] = await Promise.all([api('/families'), api('/groups'), api('/special-points')]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       APP.innerHTML = `<div class="button-row top-actions"><button id="backBtn" class="secondary small">← В приложение</button>
-        <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="recomputeMsg" class="search-hint"></div>
+        <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
+        <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div>
         <div class="card"><h3>👥 Группы (${groups.length})</h3>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p>Группы ещё не сформированы.</p>'}</div>
         <div class="card"><h3>🏪 Спецточки</h3><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
           <div><label>Этаж</label><input type="number" id="spFloor" value="0" /></div></div>
@@ -127,8 +128,22 @@
   }
   function bindDashboard({ groups }) {
     document.getElementById('backBtn').onclick = () => { location.href = '/'; };
+    document.getElementById('addTestDataBtn').onclick = async () => {
+      const button = document.getElementById('addTestDataBtn');
+      const message = document.getElementById('adminActionMsg');
+      button.disabled = true;
+      message.textContent = 'Создаём случайные анкеты…';
+      try {
+        const result = await api('/test-data', { method: 'POST', body: { count: 20 } });
+        message.textContent = `Добавлено тестовых семей: ${result.created}`;
+        setTimeout(renderDashboard, 700);
+      } catch (error) {
+        button.disabled = false;
+        message.textContent = error.message;
+      }
+    };
     document.getElementById('recomputeBtn').onclick = async () => {
-      const message = document.getElementById('recomputeMsg'); message.textContent = 'Считаем…';
+      const message = document.getElementById('adminActionMsg'); message.textContent = 'Считаем…';
       try {
         const result = await api('/recompute', { method: 'POST' });
         message.textContent = `Готово: ${result.groupCount} групп, отправлено уведомлений: ${result.notifications.sent}, пропущено по лимиту: ${result.notifications.ignoredByCooldown}`;

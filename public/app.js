@@ -30,7 +30,11 @@
     else headers['X-Init-Data'] = getInitDataRaw();
     const response = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
     const data = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(data.error || 'Ошибка запроса');
+    if (!response.ok) {
+      const error = new Error(data.error || 'Ошибка запроса');
+      error.code = data.code;
+      throw error;
+    }
     return data;
   }
   function esc(value) {
@@ -68,6 +72,8 @@
   let state = { family: null, group: null, route: null, isAdmin: false };
   let childRows = [{ name: '', age: '' }];
   let wishFamilyId = null;
+  const MIN_LOADING_MS = 2000;
+  let isInitialLoad = true;
   const urlJoin = new URLSearchParams(location.search).get('join');
   const startParam = getStartParam();
   const startJoin = startParam.startsWith('join_') ? startParam.slice(5) : '';
@@ -83,7 +89,7 @@
   }
   function renderLoading() {
     APP.innerHTML = `<div class="loading-splash" role="status" aria-label="Приложение загружается">
-      <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-2" title="Летучая мышь" tabindex="-1"></iframe>
+      <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-4" title="Летучая мышь" tabindex="-1"></iframe>
       <div class="loading-label">Монстрополия загружается…</div>
     </div>`;
   }
@@ -100,7 +106,7 @@
   }
   function renderJoinForm() {
     document.getElementById('tabContent').innerHTML = `<div class="card"><h3>🔑 Присоединиться к семье</h3>
-      <p class="muted">Введите код, который получил уже зарегистрированный член семьи.</p>
+      <p class="muted">Введите код, который получил уже зарегистрированный член семьи. Этот же код нужен, если вы зарегистрировались через Telegram, а теперь хотите открыть данные семьи в MAX — новую запись создавать не нужно.</p>
       <label>Код семьи</label><input type="text" id="joinCode" placeholder="Например ABC123" value="${esc(joinCodeFromUrl)}" />
       <button id="joinBtn">Присоединиться</button><div id="joinMsg" class="search-hint"></div></div>`;
     document.getElementById('joinBtn').onclick = async () => {
@@ -136,7 +142,7 @@
   function renderRegisterForm() {
     document.getElementById('tabContent').innerHTML = `<div class="card"><h3>🎃 Записать нашу семью</h3>
       <label>Башня</label><select id="tower">${towerOptions()}</select>
-      <label>Этаж (укажите явно)</label><input type="number" id="floor" min="0" max="200" placeholder="Например 22" />
+      <label>Этаж</label><input type="number" id="floor" min="0" max="200" placeholder="Например 22" />
       <label>Номер квартиры</label><input type="text" id="apartmentCode" placeholder="Например 2206Г" />
       <label>Хотим идти с семьёй (необязательно)</label><p class="muted">Выберите башню и начните вводить номер квартиры зарегистрированной семьи.</p>
       <select id="wishTower">${towerOptions()}</select><input type="text" id="wishApartment" placeholder="Номер квартиры" list="wishApartmentList" />
@@ -164,24 +170,56 @@
           questDurationMin: Number(document.getElementById('questDuration').value) || 20, wishFamilyId,
         } });
         renderRegisteredSuccess(data.family);
-      } catch (error) { message.textContent = error.message; }
+      } catch (error) {
+        if (error.code === 'APARTMENT_EXISTS') renderApartmentExists();
+        else message.textContent = error.message;
+      }
     };
   }
-  function bindWishSearch() {
+  function renderApartmentExists() {
+    APP.innerHTML = `<div class="card"><h3>🏠 Ваша квартира уже участвует</h3>
+      <p>Для этой квартиры уже создана семейная запись. Не создавайте вторую запись — попросите код доступа у родных.</p>
+      <p class="muted">Код также позволяет открыть одну и ту же семейную запись в разных приложениях: например, зарегистрироваться через Telegram, а затем войти в MAX.</p>
+      <button id="existingApartmentJoinBtn">Ввести код семьи</button>
+      <button id="existingApartmentBackBtn" class="secondary">Вернуться</button></div>`;
+    document.getElementById('existingApartmentJoinBtn').onclick = () => { activeTab = 'join'; renderEntry(); };
+    document.getElementById('existingApartmentBackBtn').onclick = () => { activeTab = 'register'; renderEntry(); };
+  }
+  function bindWishSearch({
+    towerId = 'wishTower',
+    apartmentId = 'wishApartment',
+    listId = 'wishApartmentList',
+    hintId = 'wishHint',
+    excludeFamilyId = null,
+  } = {}) {
     let timer;
-    document.getElementById('wishApartment').oninput = (event) => {
+    const towerInput = document.getElementById(towerId);
+    const apartmentInput = document.getElementById(apartmentId);
+    const hint = document.getElementById(hintId);
+    const resetWish = () => {
+      wishFamilyId = null;
+      hint.textContent = '';
+      hint.className = 'search-hint';
+    };
+    towerInput.onchange = () => {
+      apartmentInput.value = '';
+      resetWish();
+    };
+    apartmentInput.oninput = (event) => {
       clearTimeout(timer); const value = event.target.value.trim(); wishFamilyId = null;
-      if (!value) return void (document.getElementById('wishHint').textContent = '');
+      if (!value) return void resetWish();
       timer = setTimeout(async () => {
-        const tower = document.getElementById('wishTower').value;
+        const tower = towerInput.value;
         try {
           const suggestions = await api(`/apartments-suggest?tower=${encodeURIComponent(tower)}&query=${encodeURIComponent(value)}`);
-          document.getElementById('wishApartmentList').innerHTML = suggestions.apartmentCodes.map((code) => `<option value="${esc(code)}"></option>`).join('');
+          document.getElementById(listId).innerHTML = suggestions.apartmentCodes.map((code) => `<option value="${esc(code)}"></option>`).join('');
           const found = await api(`/search?tower=${encodeURIComponent(tower)}&apartmentCode=${encodeURIComponent(value)}`);
-          const hint = document.getElementById('wishHint');
-          if (found.found) { wishFamilyId = found.familyId; hint.textContent = `Нашли: ${found.childrenNames.join(', ')} — свяжем вас в одну группу`; hint.className = 'search-hint found'; }
+          if (found.found && found.familyId === excludeFamilyId) {
+            hint.textContent = 'Это ваша семья — выберите другую квартиру';
+            hint.className = 'search-hint';
+          } else if (found.found) { wishFamilyId = found.familyId; hint.textContent = `Нашли: ${found.childrenNames.join(', ')} — свяжем вас в одну группу`; hint.className = 'search-hint found'; }
           else { hint.textContent = 'Такая семья пока не зарегистрирована'; hint.className = 'search-hint'; }
-        } catch { document.getElementById('wishHint').textContent = ''; }
+        } catch { hint.textContent = ''; }
       }, 350);
     };
   }
@@ -201,11 +239,14 @@
     APP.innerHTML = `${adminButton()}<div class="card"><h3>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</h3>
       <p class="muted">Дети: ${family.children.map((child) => `${esc(child.name)} (${child.age})`).join(', ')}</p>
       <button class="family-code code-button" id="familyCodeBtn">Код семьи: ${esc(family.familyCode)} 📋</button>
-      <button id="editFamilyBtn" class="secondary">✏️ Редактировать запись семьи</button></div>
+      <p class="muted">По этому коду родственник может открыть ту же запись в Telegram или MAX.</p>
+      <button id="editFamilyBtn" class="secondary">✏️ Редактировать запись семьи</button>
+      <button id="deleteFamilyBtn" class="danger">🗑️ Удалить запись полностью</button></div>
       ${state.group ? renderRouteCard() : renderWaitingCard()}`;
     bindAdminButton();
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('editFamilyBtn').onclick = renderEditForm;
+    document.getElementById('deleteFamilyBtn').onclick = renderDeleteConfirmation;
     document.querySelectorAll('[data-door]').forEach((button) => {
       button.onclick = async () => { button.disabled = true;
         try { await api('/door-status', { method: 'POST', body: { hostId: button.dataset.door, status: 'no_answer' } }); button.textContent = 'Отправлено ✓'; }
@@ -215,11 +256,16 @@
   }
   function renderEditForm() {
     const family = state.family;
+    const currentWish = family.wishFamilies?.[0] || null;
+    wishFamilyId = currentWish?.id || null;
     childRows = family.children.map((child) => ({ name: child.name, age: child.age }));
     APP.innerHTML = `<div class="card"><h3>✏️ Редактировать запись семьи</h3>
       <label>Башня</label><select id="editTower">${towerOptions(family.tower)}</select>
-      <label>Этаж (укажите явно)</label><input type="number" id="editFloor" value="${family.floor}" min="0" max="200" />
+      <label>Этаж</label><input type="number" id="editFloor" value="${family.floor}" min="0" max="200" />
       <label>Номер квартиры</label><input type="text" id="editApartment" value="${esc(family.apartmentCode)}" />
+      <label>Хотим идти с семьёй (необязательно)</label><p class="muted">Выберите башню и квартиру. Чтобы убрать пожелание, очистите номер квартиры.</p>
+      <select id="editWishTower">${towerOptions(currentWish?.tower)}</select><input type="text" id="editWishApartment" value="${esc(currentWish?.apartmentCode || '')}" placeholder="Номер квартиры" list="editWishApartmentList" />
+      <datalist id="editWishApartmentList"></datalist><div id="editWishHint" class="search-hint ${currentWish ? 'found' : ''}">${currentWish ? `Выбрана семья: ${esc(currentWish.childrenNames.join(', '))}` : ''}</div>
       <h3 class="section-title">👻 Дети</h3><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button>
       <div class="toggle-row"><span>Участвуем в обходе 🚶</span><input type="checkbox" id="editWalking" ${family.walking ? 'checked' : ''} /></div>
       <div class="toggle-row"><span>Открываем дверь 🍬</span><input type="checkbox" id="editHosting" ${family.hosting ? 'checked' : ''} /></div>
@@ -229,18 +275,45 @@
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('editQuest').onchange = (event) => { document.getElementById('editQuestWrap').hidden = !event.target.checked; };
+    bindWishSearch({ towerId: 'editWishTower', apartmentId: 'editWishApartment', listId: 'editWishApartmentList', hintId: 'editWishHint', excludeFamilyId: family.id });
     document.getElementById('cancelEditBtn').onclick = renderDashboard;
     document.getElementById('saveFamilyBtn').onclick = async () => {
       const floor = Number(document.getElementById('editFloor').value); const children = readChildren();
       if (!document.getElementById('editFloor').value || !Number.isInteger(floor) || floor < 0 || !children.length) return void (document.getElementById('editMsg').textContent = 'Проверьте этаж и данные детей');
+      if (document.getElementById('editWishApartment').value.trim() && !wishFamilyId) return void (document.getElementById('editMsg').textContent = 'Выберите зарегистрированную семью из поиска или очистите номер квартиры');
       try {
         await api('/me', { method: 'PATCH', body: {
           tower: document.getElementById('editTower').value, floor, apartmentCode: document.getElementById('editApartment').value.trim(), children,
           walking: document.getElementById('editWalking').checked, hosting: document.getElementById('editHosting').checked,
           quest: document.getElementById('editQuest').checked, questDurationMin: Number(document.getElementById('editQuestDuration').value) || 20,
+          wishFamilyId,
         } });
         toast('Запись семьи обновлена'); await loadMe();
       } catch (error) { document.getElementById('editMsg').textContent = error.message; }
+    };
+  }
+  function renderDeleteConfirmation() {
+    APP.innerHTML = `<div class="card"><h3>🗑️ Удалить семейную запись?</h3>
+      <p>Будут полностью удалены анкета, дети, пожелания и доступ всех членов семьи. Отменить это действие будет нельзя.</p>
+      <button id="confirmDeleteFamilyBtn" class="danger">Да, удалить полностью</button>
+      <button id="cancelDeleteFamilyBtn" class="secondary">Отмена</button>
+      <div id="deleteFamilyMsg" class="search-hint"></div></div>`;
+    document.getElementById('cancelDeleteFamilyBtn').onclick = renderDashboard;
+    document.getElementById('confirmDeleteFamilyBtn').onclick = async () => {
+      const button = document.getElementById('confirmDeleteFamilyBtn');
+      const message = document.getElementById('deleteFamilyMsg');
+      button.disabled = true;
+      message.textContent = 'Удаляем…';
+      try {
+        await api('/me', { method: 'DELETE' });
+        state = { family: null, group: null, route: null, isAdmin: state.isAdmin };
+        activeTab = 'register';
+        toast('Запись семьи удалена');
+        renderEntry();
+      } catch (error) {
+        button.disabled = false;
+        message.textContent = error.message;
+      }
     };
   }
   function renderWaitingCard() {
@@ -258,12 +331,21 @@
     return `<div class="card"><h3>🗺️ ${esc(state.group.name || 'Ваш маршрут')}</h3>${items ? `<ul class="route-list">${items}</ul>` : '<p>Маршрут пока пуст.</p>'}</div>`;
   }
   async function loadMe() {
+    const loadingStartedAt = Date.now();
+    const minimumLoadingMs = isInitialLoad ? MIN_LOADING_MS : 0;
+    isInitialLoad = false;
     renderLoading();
     try {
       const data = await api('/me');
+      const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
+      if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
       state = { family: data.family, group: data.group || null, route: data.route || null, isAdmin: !!data.isAdmin };
       if (!state.family) renderEntry(); else renderDashboard();
-    } catch (error) { APP.innerHTML = `<div class="card"><p>Ошибка: ${esc(error.message)}</p></div>`; }
+    } catch (error) {
+      const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
+      if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
+      APP.innerHTML = `<div class="card"><p>Ошибка: ${esc(error.message)}</p></div>`;
+    }
   }
   loadMe();
 })();

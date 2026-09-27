@@ -20,6 +20,17 @@ function familyWithChildren(family) {
       `SELECT family_a, family_b FROM wish_links WHERE family_a = ? OR family_b = ?`
     )
     .all(family.id, family.id);
+  const wishFamilyIds = wishLinks.map((w) => (w.family_a === family.id ? w.family_b : w.family_a));
+  const wishFamilies = wishFamilyIds.map((id) => {
+    const linkedFamily = db.prepare('SELECT id, tower, apartment_code FROM families WHERE id = ?').get(id);
+    if (!linkedFamily) return null;
+    return {
+      id: linkedFamily.id,
+      tower: linkedFamily.tower,
+      apartmentCode: linkedFamily.apartment_code,
+      childrenNames: db.prepare('SELECT name FROM children WHERE family_id = ? ORDER BY id').all(id).map((child) => child.name),
+    };
+  }).filter(Boolean);
   return {
     id: family.id,
     familyCode: family.family_code,
@@ -32,8 +43,13 @@ function familyWithChildren(family) {
     questDurationMin: family.quest_duration_min,
     cancelled: !!family.cancelled,
     children,
-    wishLinks: wishLinks.map((w) => (w.family_a === family.id ? w.family_b : w.family_a)),
+    wishLinks: wishFamilyIds,
+    wishFamilies,
   };
+}
+
+function orderedWishPair(familyA, familyB) {
+  return familyA < familyB ? [familyA, familyB] : [familyB, familyA];
 }
 
 function validFloor(value) {
@@ -118,6 +134,20 @@ router.post('/register', (req, res) => {
     return res.status(409).json({ error: 'Этот аккаунт уже привязан к семье', familyId: existing.id });
   }
 
+  const normalizedTower = String(tower).trim();
+  const normalizedApartmentCode = String(apartmentCode).trim();
+  const apartmentFamily = db.prepare(
+    `SELECT id FROM families
+     WHERE tower = ? AND UPPER(TRIM(apartment_code)) = UPPER(?) AND cancelled = 0
+     LIMIT 1`
+  ).get(normalizedTower, normalizedApartmentCode);
+  if (apartmentFamily) {
+    return res.status(409).json({
+      code: 'APARTMENT_EXISTS',
+      error: 'Эта квартира уже участвует. Попросите код семьи у родных.',
+    });
+  }
+
   const familyId = newId('fam');
   const familyCode = shortCode();
 
@@ -134,9 +164,9 @@ router.post('/register', (req, res) => {
     insertFamily.run({
       id: familyId,
       familyCode,
-      tower,
+      tower: normalizedTower,
       floor,
-      apartmentCode,
+      apartmentCode: normalizedApartmentCode,
       walking: walking ? 1 : 0,
       hosting: hosting ? 1 : 0,
       quest: quest ? 1 : 0,
@@ -149,7 +179,9 @@ router.post('/register', (req, res) => {
     }
     saveParentProfile(platform, platformUserId, familyId, req.platformUser, req.platformChatId);
     if (wishFamilyId) {
-      insertWish.run(familyId, wishFamilyId);
+      const linkedFamily = db.prepare('SELECT id FROM families WHERE id = ? AND cancelled = 0').get(wishFamilyId);
+      if (!linkedFamily) throw new Error('Выбранная семья не найдена');
+      insertWish.run(...orderedWishPair(familyId, linkedFamily.id));
     }
   });
   tx();
@@ -256,6 +288,7 @@ router.patch('/me', (req, res) => {
     questDurationMin,
     cancelled,
     children,
+    wishFamilyId,
   } = req.body;
 
   if (floor !== undefined && !validFloor(floor)) {
@@ -267,6 +300,11 @@ router.patch('/me', (req, res) => {
   if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
   if (apartmentCode !== undefined && !String(apartmentCode).trim()) {
     return res.status(400).json({ error: 'Номер квартиры обязателен' });
+  }
+  if (wishFamilyId !== undefined && wishFamilyId !== null) {
+    if (wishFamilyId === family.id) return res.status(400).json({ error: 'Нельзя выбрать свою семью' });
+    const linkedFamily = db.prepare('SELECT id FROM families WHERE id = ? AND cancelled = 0').get(wishFamilyId);
+    if (!linkedFamily) return res.status(400).json({ error: 'Выбранная семья не найдена' });
   }
 
   const tx = db.transaction(() => {
@@ -303,6 +341,14 @@ router.patch('/me', (req, res) => {
       }
     }
 
+    if (wishFamilyId !== undefined) {
+      db.prepare('DELETE FROM wish_links WHERE family_a = ? OR family_b = ?').run(family.id, family.id);
+      if (wishFamilyId) {
+        db.prepare('INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)')
+          .run(...orderedWishPair(family.id, wishFamilyId));
+      }
+    }
+
     // Адрес дублируется в уже сформированных маршрутах. Обновляем снимок,
     // чтобы новый этаж/квартира сразу появились у всех групп без пересчёта.
     const currentAddress = db.prepare('SELECT tower, floor, apartment_code FROM families WHERE id = ?').get(family.id);
@@ -314,6 +360,21 @@ router.patch('/me', (req, res) => {
 
   const updated = db.prepare('SELECT * FROM families WHERE id = ?').get(family.id);
   res.json({ family: familyWithChildren(updated) });
+});
+
+// Полное удаление семейной записи. Доступно любому аккаунту, который к ней привязан.
+router.delete('/me', (req, res) => {
+  const { platform, platformUserId } = req;
+  const family = getFamilyForUser(platform, platformUserId);
+  if (!family) return res.status(404).json({ error: 'Семья не найдена для этого аккаунта' });
+
+  db.transaction(() => {
+    db.prepare("DELETE FROM route_stops WHERE host_type = 'family' AND host_id = ?").run(family.id);
+    db.prepare('DELETE FROM door_status WHERE host_id = ?').run(family.id);
+    db.prepare('DELETE FROM families WHERE id = ?').run(family.id);
+  })();
+
+  res.json({ ok: true });
 });
 
 // ---- Отметка "не открыли дверь" (или "закрыто" для спецточки) ----
