@@ -1,20 +1,21 @@
 (function () {
   const APP = document.getElementById('app');
+  const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
   let password = sessionStorage.getItem('adminPassword') || '';
 
   function detectPlatform() {
-    if (window.WebApp?.initData) return 'max';
-    if (window.Telegram?.WebApp?.initData) return 'telegram';
+    if (MINI_APP_CONTEXT.platform === 'max') return 'max';
+    if (MINI_APP_CONTEXT.platform === 'telegram') return 'telegram';
     return 'none';
   }
   const PLATFORM = detectPlatform();
-  if (PLATFORM === 'telegram') {
+  if (PLATFORM === 'telegram' && window.Telegram?.WebApp) {
     window.Telegram.WebApp.ready();
     window.Telegram.WebApp.expand();
   }
   function getInitDataRaw() {
-    if (PLATFORM === 'telegram') return window.Telegram.WebApp.initData;
-    if (PLATFORM === 'max') return window.WebApp.initData;
+    if (PLATFORM === 'telegram') return window.Telegram?.WebApp?.initData || MINI_APP_CONTEXT.initData;
+    if (PLATFORM === 'max') return window.WebApp?.initData || MINI_APP_CONTEXT.initData;
     return '';
   }
   function esc(value) {

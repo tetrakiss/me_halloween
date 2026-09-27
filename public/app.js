@@ -1,31 +1,14 @@
-(async function () {
+(function () {
   const APP_BOOT_STARTED_AT = Date.now();
   const APP = document.getElementById('app');
+  const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
 
   function hashParams() {
     return new URLSearchParams(location.hash.replace(/^#/, ''));
   }
-  function maxInitDataFromUrl() {
-    return hashParams().get('WebAppData') || '';
-  }
-  function telegramInitDataFromUrl() {
-    const search = new URLSearchParams(location.search);
-    return search.get('tgWebAppData') || hashParams().get('tgWebAppData') || '';
-  }
-  async function waitForPlatformBridge() {
-    if (maxInitDataFromUrl() || telegramInitDataFromUrl()) return;
-    const deadline = Date.now() + 1200;
-    while (Date.now() < deadline) {
-      if (window.WebApp?.initData || window.Telegram?.WebApp?.initData) return;
-      await new Promise((resolve) => setTimeout(resolve, 40));
-    }
-  }
-
-  await waitForPlatformBridge();
-
   function detectPlatform() {
-    if (window.WebApp?.initData || maxInitDataFromUrl()) return 'max';
-    if (window.Telegram?.WebApp?.initData || telegramInitDataFromUrl()) return 'telegram';
+    if (MINI_APP_CONTEXT.platform === 'max') return 'max';
+    if (MINI_APP_CONTEXT.platform === 'telegram') return 'telegram';
     return 'dev';
   }
   const PLATFORM = detectPlatform();
@@ -34,8 +17,8 @@
     window.Telegram.WebApp.expand();
   }
   function getInitDataRaw() {
-    if (PLATFORM === 'telegram') return window.Telegram?.WebApp?.initData || telegramInitDataFromUrl();
-    if (PLATFORM === 'max') return window.WebApp?.initData || maxInitDataFromUrl();
+    if (PLATFORM === 'telegram') return window.Telegram?.WebApp?.initData || MINI_APP_CONTEXT.initData;
+    if (PLATFORM === 'max') return window.WebApp?.initData || MINI_APP_CONTEXT.initData;
     return '';
   }
   function getStartParam() {
