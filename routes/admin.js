@@ -2,12 +2,11 @@ const express = require('express');
 const { db, newId } = require('../db');
 const { buildGroups, buildRoutes } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
+const { isTelegramSuperAdmin } = require('../lib/admin-auth');
+const { notifyChangedGroups } = require('../lib/notifications');
 
 const router = express.Router();
-
-const SUPER_ADMIN_USERNAME = (process.env.SUPER_ADMIN_TELEGRAM_USERNAME || 'a_togulev')
-  .replace(/^@/, '')
-  .toLowerCase();
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
 // Доступ разрешён двумя способами:
 // 1) заголовок X-Admin-Password совпадает с ADMIN_PASSWORD (для всех админов);
@@ -24,8 +23,7 @@ router.use((req, res, next) => {
   const initData = req.header('x-init-data');
   if (platform === 'telegram' && initData) {
     const parsed = validateInitData(initData, process.env.TELEGRAM_BOT_TOKEN);
-    const username = parsed?.user?.username?.toLowerCase();
-    if (username && username === SUPER_ADMIN_USERNAME) {
+    if (isTelegramSuperAdmin(platform, parsed?.user)) {
       req.isSuperAdmin = true;
       return next();
     }
@@ -67,6 +65,29 @@ function loadSpecialPoints() {
     quest: !!sp.quest,
     questDurationMin: sp.quest_duration_min,
   }));
+}
+
+function loadGroupDetails(groupId) {
+  const group = db.prepare('SELECT * FROM groups WHERE id = ?').get(groupId);
+  if (!group) return null;
+  return {
+    id: group.id,
+    name: group.name || group.id,
+    memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ?').all(groupId).map((r) => r.family_id),
+    stops: db.prepare('SELECT * FROM route_stops WHERE group_id = ? ORDER BY seq').all(groupId).map((stop) => ({
+      id: stop.id,
+      hostId: stop.host_id,
+      hostType: stop.host_type,
+      seq: stop.seq,
+      tower: stop.tower,
+      floor: stop.floor,
+      apartmentCode: stop.apartment_code,
+      displayName: stop.display_name,
+      isQuest: !!stop.is_quest,
+      arrivalMin: stop.arrival_min,
+      departureMin: stop.departure_min,
+    })),
+  };
 }
 
 // ---- Спецточки маршрута (рестораны/магазины и т.п.) ----
@@ -128,23 +149,98 @@ router.get('/families', (req, res) => {
   res.json({
     families: families.map((f) => ({
       ...f,
+      familyCode: db.prepare('SELECT family_code FROM families WHERE id = ?').get(f.id).family_code,
+      parents: db.prepare(`SELECT id, platform, platform_user_id AS platformUserId,
+                           chat_id AS chatId, first_name AS firstName, last_name AS lastName,
+                           username, updated_at AS updatedAt
+                           FROM parent_links WHERE family_id = ? ORDER BY id`).all(f.id),
+      wishFamilyIds: db.prepare(`SELECT CASE WHEN family_a = ? THEN family_b ELSE family_a END AS familyId
+                                 FROM wish_links WHERE family_a = ? OR family_b = ?`).all(f.id, f.id, f.id).map((r) => r.familyId),
       currentGroupId: byFamily.get(f.id)?.group_id || null,
     })),
   });
 });
 
+router.patch('/families/:id', (req, res) => {
+  const current = db.prepare('SELECT * FROM families WHERE id = ?').get(req.params.id);
+  if (!current) return res.status(404).json({ error: 'Семья не найдена' });
+  const { tower, floor, apartmentCode, walking, hosting, quest, questDurationMin, cancelled, children } = req.body;
+  if (floor !== undefined && (!Number.isInteger(Number(floor)) || Number(floor) < 0)) {
+    return res.status(400).json({ error: 'Некорректный этаж' });
+  }
+  if (children !== undefined && (!Array.isArray(children) || children.length === 0)) {
+    return res.status(400).json({ error: 'Нужен хотя бы один ребёнок' });
+  }
+  if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
+  if (apartmentCode !== undefined && !String(apartmentCode).trim()) return res.status(400).json({ error: 'Квартира обязательна' });
+  if (Array.isArray(children) && children.some((child) => {
+    const age = Number(child.age);
+    return !String(child.name || '').trim() || !Number.isInteger(age) || age < 1 || age > 17;
+  })) return res.status(400).json({ error: 'Некорректные данные ребёнка' });
+
+  db.transaction(() => {
+    db.prepare(`UPDATE families SET tower = COALESCE(@tower, tower), floor = COALESCE(@floor, floor),
+      apartment_code = COALESCE(@apartmentCode, apartment_code), walking = COALESCE(@walking, walking),
+      hosting = COALESCE(@hosting, hosting), quest = COALESCE(@quest, quest),
+      quest_duration_min = @questDurationMin, cancelled = COALESCE(@cancelled, cancelled)
+      WHERE id = @id`).run({
+      id: req.params.id,
+      tower: tower === undefined ? null : String(tower).trim(),
+      floor: floor === undefined ? null : Number(floor),
+      apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
+      walking: walking === undefined ? null : walking ? 1 : 0,
+      hosting: hosting === undefined ? null : hosting ? 1 : 0,
+      quest: quest === undefined ? null : quest ? 1 : 0,
+      questDurationMin: quest === false ? null : questDurationMin === undefined ? current.quest_duration_min : Number(questDurationMin) || 20,
+      cancelled: cancelled === undefined ? null : cancelled ? 1 : 0,
+    });
+    if (Array.isArray(children)) {
+      db.prepare('DELETE FROM children WHERE family_id = ?').run(req.params.id);
+      const insert = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
+      for (const child of children) {
+        const name = String(child.name || '').trim();
+        const age = Number(child.age);
+        if (!name || !Number.isInteger(age) || age < 1 || age > 17) {
+          throw new Error('Некорректные данные ребёнка');
+        }
+        insert.run(req.params.id, name, age);
+      }
+    }
+  })();
+  res.json({ ok: true });
+});
+
 router.get('/groups', (req, res) => {
   const groups = db.prepare('SELECT * FROM groups').all();
   res.json({
-    groups: groups.map((g) => ({
-      ...g,
-      members: db
-        .prepare('SELECT family_id FROM group_members WHERE group_id = ?')
-        .all(g.id)
-        .map((r) => r.family_id),
-    })),
+    groups: groups.map((g) => ({ ...g, ...loadGroupDetails(g.id), name: g.name || g.id })),
   });
 });
+
+router.patch('/groups/:id', asyncRoute(async (req, res) => {
+  const name = String(req.body.name || '').trim();
+  if (!name) return res.status(400).json({ error: 'Название группы обязательно' });
+  const result = db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(name, req.params.id);
+  if (!result.changes) return res.status(404).json({ error: 'Группа не найдена' });
+  const group = loadGroupDetails(req.params.id);
+  const notifications = await notifyChangedGroups([group]);
+  res.json({ ok: true, notifications });
+}));
+
+router.put('/groups/:id/route', asyncRoute(async (req, res) => {
+  const stopIds = Array.isArray(req.body.stopIds) ? req.body.stopIds.map(Number) : [];
+  const existing = db.prepare('SELECT id FROM route_stops WHERE group_id = ? ORDER BY seq').all(req.params.id).map((r) => r.id);
+  if (stopIds.length !== existing.length || new Set(stopIds).size !== existing.length || existing.some((id) => !stopIds.includes(id))) {
+    return res.status(400).json({ error: 'Порядок должен содержать все точки маршрута ровно один раз' });
+  }
+  db.transaction(() => {
+    const update = db.prepare('UPDATE route_stops SET seq = ? WHERE id = ? AND group_id = ?');
+    stopIds.forEach((id, index) => update.run(index + 1, id, req.params.id));
+  })();
+  const group = loadGroupDetails(req.params.id);
+  const notifications = group ? await notifyChangedGroups([group]) : { sent: 0 };
+  res.json({ ok: true, notifications });
+}));
 
 // Ручная привязка семьи к группе — высший приоритет над алгоритмом.
 // groupId можно передать новый (например "manual_1") — группа создастся при recompute.
@@ -158,19 +254,20 @@ router.post('/override', (req, res) => {
 
 // Пересчитать группы и маршруты по текущему состоянию БД.
 // manual_group_id уважается алгоритмом (buildGroups сам выделяет такие семьи).
-router.post('/recompute', (req, res) => {
+router.post('/recompute', asyncRoute(async (req, res) => {
   const families = loadFamiliesForAlgo();
   const wishLinks = loadWishLinks();
   const specialPoints = loadSpecialPoints();
 
   const groups = buildGroups(families, wishLinks);
   const routes = buildRoutes(groups, families, specialPoints);
+  const oldNames = new Map(db.prepare('SELECT id, name FROM groups').all().map((g) => [g.id, g.name]));
 
   const tx = db.transaction(() => {
     db.exec('DELETE FROM route_stops; DELETE FROM group_members; DELETE FROM groups;');
 
     const insertGroup = db.prepare(
-      'INSERT INTO groups (id, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, ?)'
+      'INSERT INTO groups (id, name, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, ?, ?)'
     );
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const insertStop = db.prepare(`
@@ -182,7 +279,7 @@ router.post('/recompute', (req, res) => {
 
     for (const g of groups) {
       const route = routeByGroup.get(g.id);
-      insertGroup.run(g.id, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
+      insertGroup.run(g.id, oldNames.get(g.id) || g.id, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
       for (const familyId of g.memberFamilyIds) {
         insertMember.run(g.id, familyId);
       }
@@ -207,8 +304,18 @@ router.post('/recompute', (req, res) => {
   });
   tx();
 
-  res.json({ ok: true, groupCount: groups.length });
-});
+  const notificationGroups = groups.map((group) => {
+    const route = routes.find((item) => item.groupId === group.id);
+    return {
+      id: group.id,
+      name: oldNames.get(group.id) || group.id,
+      memberFamilyIds: group.memberFamilyIds,
+      stops: route?.stops || [],
+    };
+  });
+  const notifications = await notifyChangedGroups(notificationGroups);
+  res.json({ ok: true, groupCount: groups.length, notifications });
+}));
 
 router.get('/quest-slots', (req, res) => {
   const rows = db

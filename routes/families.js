@@ -1,5 +1,6 @@
 const express = require('express');
 const { db, shortCode, newId } = require('../db');
+const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 
 const router = express.Router();
 
@@ -33,6 +34,34 @@ function familyWithChildren(family) {
     children,
     wishLinks: wishLinks.map((w) => (w.family_a === family.id ? w.family_b : w.family_a)),
   };
+}
+
+function validFloor(value) {
+  const floor = Number(value);
+  return Number.isInteger(floor) && floor >= 0 && floor <= 200;
+}
+
+function validChildren(children) {
+  return Array.isArray(children) && children.length > 0 && children.every((child) => {
+    const age = Number(child.age);
+    return String(child.name || '').trim() && Number.isInteger(age) && age >= 1 && age <= 17;
+  });
+}
+
+function saveParentProfile(platform, platformUserId, familyId, user, chatId) {
+  db.prepare(`INSERT INTO parent_links
+      (platform, platform_user_id, family_id, chat_id, first_name, last_name, username, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`)
+    .run(
+      platform,
+      platformUserId,
+      familyId,
+      chatId || null,
+      user?.first_name || user?.name || null,
+      user?.last_name || null,
+      user?.username || null,
+      Date.now()
+    );
 }
 
 function routeForFamily(family) {
@@ -80,7 +109,7 @@ router.post('/register', (req, res) => {
     wishFamilyId,
   } = req.body;
 
-  if (!tower || !floor || !apartmentCode || !Array.isArray(children) || children.length === 0) {
+  if (!tower || !validFloor(floor) || !String(apartmentCode || '').trim() || !validChildren(children)) {
     return res.status(400).json({ error: 'tower, floor, apartmentCode и хотя бы один ребёнок обязательны' });
   }
 
@@ -97,9 +126,6 @@ router.post('/register', (req, res) => {
     VALUES (@id, @familyCode, @tower, @floor, @apartmentCode, @walking, @hosting, @quest, @questDurationMin, 0, @createdAt)
   `);
   const insertChild = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
-  const insertParentLink = db.prepare(
-    'INSERT INTO parent_links (platform, platform_user_id, family_id) VALUES (?, ?, ?)'
-  );
   const insertWish = db.prepare(
     'INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)'
   );
@@ -121,7 +147,7 @@ router.post('/register', (req, res) => {
       if (!ch.name || !ch.age) continue;
       insertChild.run(familyId, ch.name, Number(ch.age));
     }
-    insertParentLink.run(platform, platformUserId, familyId);
+    saveParentProfile(platform, platformUserId, familyId, req.platformUser, req.platformChatId);
     if (wishFamilyId) {
       insertWish.run(familyId, wishFamilyId);
     }
@@ -147,11 +173,7 @@ router.post('/join', (req, res) => {
     return res.status(409).json({ error: 'Этот аккаунт уже привязан к какой-то семье' });
   }
 
-  db.prepare('INSERT INTO parent_links (platform, platform_user_id, family_id) VALUES (?, ?, ?)').run(
-    platform,
-    platformUserId,
-    family.id
-  );
+  saveParentProfile(platform, platformUserId, family.id, req.platformUser, req.platformChatId);
 
   res.json({ family: familyWithChildren(family) });
 });
@@ -195,11 +217,16 @@ router.get('/search', (req, res) => {
 router.get('/me', (req, res) => {
   const { platform, platformUserId } = req;
   const family = getFamilyForUser(platform, platformUserId);
-  if (!family) return res.json({ family: null });
+  if (!family) {
+    return res.json({
+      family: null,
+      isAdmin: isTelegramSuperAdmin(platform, req.platformUser),
+    });
+  }
 
   const groupInfo = db
     .prepare(
-      `SELECT g.id, g.total_min FROM groups g
+      `SELECT g.id, g.name, g.total_min FROM groups g
        JOIN group_members gm ON gm.group_id = g.id
        WHERE gm.family_id = ?`
     )
@@ -207,8 +234,9 @@ router.get('/me', (req, res) => {
 
   res.json({
     family: familyWithChildren(family),
-    group: groupInfo ? { id: groupInfo.id } : null,
+    group: groupInfo ? { id: groupInfo.id, name: groupInfo.name || groupInfo.id } : null,
     route: groupInfo ? routeForFamily(family) : null,
+    isAdmin: isTelegramSuperAdmin(platform, req.platformUser),
   });
 });
 
@@ -218,23 +246,51 @@ router.patch('/me', (req, res) => {
   const family = getFamilyForUser(platform, platformUserId);
   if (!family) return res.status(404).json({ error: 'Семья не найдена для этого аккаунта' });
 
-  const { walking, hosting, quest, questDurationMin, cancelled, children } = req.body;
+  const {
+    tower,
+    floor,
+    apartmentCode,
+    walking,
+    hosting,
+    quest,
+    questDurationMin,
+    cancelled,
+    children,
+  } = req.body;
+
+  if (floor !== undefined && !validFloor(floor)) {
+    return res.status(400).json({ error: 'Укажите корректный этаж' });
+  }
+  if (children !== undefined && !validChildren(children)) {
+    return res.status(400).json({ error: 'Укажите имя и возраст каждого ребёнка' });
+  }
+  if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
+  if (apartmentCode !== undefined && !String(apartmentCode).trim()) {
+    return res.status(400).json({ error: 'Номер квартиры обязателен' });
+  }
 
   const tx = db.transaction(() => {
     db.prepare(
       `UPDATE families SET
+        tower = COALESCE(@tower, tower),
+        floor = COALESCE(@floor, floor),
+        apartment_code = COALESCE(@apartmentCode, apartment_code),
         walking = COALESCE(@walking, walking),
         hosting = COALESCE(@hosting, hosting),
         quest = COALESCE(@quest, quest),
-        quest_duration_min = COALESCE(@questDurationMin, quest_duration_min),
+        quest_duration_min = @questDurationMin,
         cancelled = COALESCE(@cancelled, cancelled)
        WHERE id = @id`
     ).run({
       id: family.id,
+      tower: tower === undefined ? null : String(tower).trim(),
+      floor: floor === undefined ? null : Number(floor),
+      apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
       hosting: hosting === undefined ? null : hosting ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
-      questDurationMin: questDurationMin === undefined ? null : questDurationMin,
+      questDurationMin:
+        quest === false ? null : questDurationMin === undefined ? family.quest_duration_min : Number(questDurationMin) || 20,
       cancelled: cancelled === undefined ? null : cancelled ? 1 : 0,
     });
 

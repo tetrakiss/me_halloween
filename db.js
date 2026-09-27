@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS parent_links (
   platform TEXT NOT NULL,
   platform_user_id TEXT NOT NULL,
   family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  chat_id TEXT,
+  first_name TEXT,
+  last_name TEXT,
+  username TEXT,
+  updated_at INTEGER,
   UNIQUE(platform, platform_user_id)
 );
 
@@ -61,6 +66,7 @@ CREATE TABLE IF NOT EXISTS special_points (
 
 CREATE TABLE IF NOT EXISTS groups (
   id TEXT PRIMARY KEY,
+  name TEXT,
   avg_age REAL,
   child_count INTEGER,
   is_manual INTEGER NOT NULL DEFAULT 0,
@@ -100,7 +106,31 @@ CREATE TABLE IF NOT EXISTS door_status (
   status TEXT NOT NULL,
   reported_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS recipient_notification_state (
+  platform TEXT NOT NULL,
+  platform_user_id TEXT NOT NULL,
+  group_id TEXT NOT NULL,
+  signature TEXT NOT NULL,
+  last_notified_at INTEGER NOT NULL,
+  PRIMARY KEY (platform, platform_user_id)
+);
 `);
+
+// Лёгкие миграции для уже существующей SQLite-базы.
+function ensureColumn(table, name, definition) {
+  const columns = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!columns.some((column) => column.name === name)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${name} ${definition}`);
+  }
+}
+
+ensureColumn('groups', 'name', 'TEXT');
+ensureColumn('parent_links', 'chat_id', 'TEXT');
+ensureColumn('parent_links', 'first_name', 'TEXT');
+ensureColumn('parent_links', 'last_name', 'TEXT');
+ensureColumn('parent_links', 'username', 'TEXT');
+ensureColumn('parent_links', 'updated_at', 'INTEGER');
 
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
