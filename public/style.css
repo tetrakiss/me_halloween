@@ -324,6 +324,14 @@ button.danger { background: linear-gradient(135deg, var(--danger), #b91c1c); }
 .button-row button { width: auto; }
 .top-actions { margin-bottom: 12px; justify-content: space-between; }
 .group-card { padding: 12px 0; border-bottom: 1px solid #4a3465; }
+.group-card h4 { margin: 14px 0 7px; }
+.group-summary { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; }
+.group-summary span { padding: 5px 9px; border-radius: 999px; background: rgba(255, 255, 255, .08); font-size: 12px; }
+.group-members, .waiting-list { padding: 0; margin: 0; list-style: none; }
+.group-members li, .waiting-family { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }
+.group-members small, .waiting-family small { display: block; margin-top: 3px; color: var(--muted); }
+.waiting-actions { display: flex; gap: 7px; align-items: center; flex-wrap: wrap; }
+.waiting-actions select { min-width: 170px; margin: 0; }
 .admin-route { padding-left: 22px; }
 .admin-route-stop, .plain-list li { margin: 7px 0; }
 .admin-route-stop { display: flex; justify-content: space-between; gap: 8px; align-items: center; }
@@ -341,4 +349,7 @@ button:disabled { opacity: .35; cursor: default; }
   .event-settings-heading { display: block; }
   .server-clock { margin: 10px 0; text-align: left; }
   .event-settings-controls { grid-template-columns: 1fr; }
+  .group-members li, .waiting-family { align-items: flex-start; flex-direction: column; }
+  .waiting-actions { width: 100%; }
+  .waiting-actions select { flex: 1 1 100%; }
 }

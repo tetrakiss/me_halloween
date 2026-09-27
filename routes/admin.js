@@ -1,6 +1,6 @@
 const express = require('express');
 const { db, newId, shortCode } = require('../db');
-const { buildGroups, buildRoutes } = require('../lib/grouping-routing');
+const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups } = require('../lib/notifications');
@@ -64,6 +64,7 @@ function loadFamiliesForAlgo() {
     quest: !!f.quest,
     questDurationMin: f.quest_duration_min,
     manualGroupId: f.manual_group_id,
+    groupingPaused: !!f.grouping_paused,
     cancelled: !!f.cancelled,
   }));
 }
@@ -107,6 +108,21 @@ function loadGroupDetails(groupId) {
       departureMin: stop.departure_min,
     })),
   };
+}
+
+function recalculateGroupStats(groupId) {
+  const stats = db.prepare(`SELECT COUNT(c.id) AS childCount, AVG(c.age) AS avgAge
+    FROM group_members gm
+    LEFT JOIN children c ON c.family_id = gm.family_id
+    WHERE gm.group_id = ?`).get(groupId);
+  db.prepare('UPDATE groups SET child_count = ?, avg_age = ? WHERE id = ?')
+    .run(stats.childCount || 0, stats.avgAge === null ? null : Math.round(stats.avgAge * 10) / 10, groupId);
+}
+
+function resequenceStoredRoute(groupId) {
+  const stops = db.prepare('SELECT id FROM route_stops WHERE group_id = ? ORDER BY seq, id').all(groupId);
+  const update = db.prepare('UPDATE route_stops SET seq = ? WHERE id = ?');
+  stops.forEach((stop, index) => update.run(index + 1, stop.id));
 }
 
 // ---- Спецточки маршрута (рестораны/магазины и т.п.) ----
@@ -304,6 +320,99 @@ router.get('/groups', (req, res) => {
   });
 });
 
+// Дозаполняет существующие группы семьями из очереди, не пересоздавая их и
+// не меняя названия. При большом остатке добавляет новые группы; начальная
+// семья выбирается случайно при каждом запуске.
+router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
+  const storedGroups = db.prepare('SELECT * FROM groups ORDER BY id').all().map((group) => ({
+    id: group.id,
+    name: group.name || group.id,
+    isManual: !!group.is_manual,
+    memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ? ORDER BY family_id')
+      .all(group.id).map((row) => row.family_id),
+  }));
+  if (!storedGroups.length) {
+    return res.status(400).json({ error: 'Сначала сформируйте хотя бы одну группу' });
+  }
+
+  const families = loadFamiliesForAlgo();
+  const result = fillExistingGroups(storedGroups, families, loadWishLinks());
+  if (!result.assignments.length) {
+    return res.json({
+      ok: true,
+      assignedFamilyCount: 0,
+      waitingFamilyCount: result.unassignedFamilyIds.length,
+      starterFamilyId: result.starterFamilyId,
+      createdGroupCount: 0,
+      notifications: { sent: 0, ignoredByCooldown: 0 },
+    });
+  }
+
+  const routes = buildRoutes(result.groups, families, loadSpecialPoints());
+  const routeByGroup = new Map(routes.map((route) => [route.groupId, route]));
+  db.transaction(() => {
+    const insertGroup = db.prepare(
+      'INSERT INTO groups (id, name, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, 0, ?)'
+    );
+    for (const groupId of result.createdGroupIds) {
+      const group = result.groups.find((item) => item.id === groupId);
+      const route = routeByGroup.get(groupId);
+      insertGroup.run(groupId, groupId, group.avgAge, group.childCount, route?.totalMin ?? null);
+    }
+    const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
+    const activateFamily = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?');
+    for (const assignment of result.assignments) {
+      insertMember.run(assignment.groupId, assignment.familyId);
+      activateFamily.run(assignment.familyId);
+    }
+
+    const updateGroup = db.prepare('UPDATE groups SET avg_age = ?, child_count = ?, total_min = ? WHERE id = ?');
+    for (const group of result.groups) {
+      updateGroup.run(group.avgAge, group.childCount, routeByGroup.get(group.id)?.totalMin ?? null, group.id);
+    }
+
+    db.prepare('DELETE FROM route_stops').run();
+    const insertStop = db.prepare(`
+      INSERT INTO route_stops (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+    for (const route of routes) {
+      for (const stop of route.stops) {
+        insertStop.run(
+          route.groupId,
+          stop.hostId,
+          stop.hostType,
+          stop.seq,
+          stop.tower,
+          stop.floor,
+          stop.apartmentCode,
+          stop.displayName,
+          stop.isQuest ? 1 : 0,
+          stop.arrival,
+          stop.departure
+        );
+      }
+    }
+  })();
+
+  // Перестроение маршрутов может затронуть и соседние группы из-за общей
+  // балансировки квартир, поэтому проверяем уведомления для всех групп.
+  const changedGroups = result.groups.map((group) => ({
+      ...group,
+      name: storedGroups.find((stored) => stored.id === group.id)?.name || group.id,
+      stops: routeByGroup.get(group.id)?.stops || [],
+    }));
+  const notifications = await notifyChangedGroups(changedGroups);
+  return res.json({
+    ok: true,
+    assignedFamilyCount: result.assignments.length,
+    waitingFamilyCount: result.unassignedFamilyIds.length,
+    starterFamilyId: result.starterFamilyId,
+    createdGroupCount: result.createdGroupIds.length,
+    notifications,
+  });
+}));
+
 router.patch('/groups/:id', asyncRoute(async (req, res) => {
   const name = String(req.body.name || '').trim();
   if (!name) return res.status(400).json({ error: 'Название группы обязательно' });
@@ -313,6 +422,72 @@ router.patch('/groups/:id', asyncRoute(async (req, res) => {
   const notifications = await notifyChangedGroups([group]);
   res.json({ ok: true, notifications });
 }));
+
+// Удаление группы не удаляет регистрации: её семьи переходят в явную очередь
+// ожидания и не попадут обратно в автоподбор, пока администратор их не вернёт.
+router.delete('/groups/:id', (req, res) => {
+  const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  const familyIds = db.prepare('SELECT family_id FROM group_members WHERE group_id = ?').all(req.params.id).map((row) => row.family_id);
+  db.transaction(() => {
+    const pause = db.prepare('UPDATE families SET grouping_paused = 1, manual_group_id = NULL WHERE id = ?');
+    familyIds.forEach((familyId) => pause.run(familyId));
+    db.prepare('DELETE FROM recipient_notification_state WHERE group_id = ?').run(req.params.id);
+    db.prepare('DELETE FROM groups WHERE id = ?').run(req.params.id);
+  })();
+  res.json({ ok: true, waitingFamilyCount: familyIds.length });
+});
+
+router.delete('/groups/:id/members/:familyId', asyncRoute(async (req, res) => {
+  const membership = db.prepare('SELECT 1 FROM group_members WHERE group_id = ? AND family_id = ?')
+    .get(req.params.id, req.params.familyId);
+  if (!membership) return res.status(404).json({ error: 'Семья не состоит в этой группе' });
+  db.transaction(() => {
+    db.prepare('DELETE FROM group_members WHERE group_id = ? AND family_id = ?').run(req.params.id, req.params.familyId);
+    db.prepare('UPDATE families SET grouping_paused = 1, manual_group_id = NULL WHERE id = ?').run(req.params.familyId);
+    recalculateGroupStats(req.params.id);
+  })();
+  const changedGroup = loadGroupDetails(req.params.id);
+  const notifications = changedGroup ? await notifyChangedGroups([changedGroup]) : { sent: 0 };
+  res.json({ ok: true, status: 'waiting', notifications });
+}));
+
+router.post('/groups/:id/members', asyncRoute(async (req, res) => {
+  const familyId = String(req.body.familyId || '');
+  const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id);
+  const family = db.prepare('SELECT id, walking, cancelled FROM families WHERE id = ?').get(familyId);
+  if (!group) return res.status(404).json({ error: 'Группа не найдена' });
+  if (!family) return res.status(404).json({ error: 'Семья не найдена' });
+  if (!family.walking || family.cancelled) return res.status(400).json({ error: 'Семья не участвует в обходе' });
+  const familyChildren = db.prepare('SELECT COUNT(*) AS count FROM children WHERE family_id = ?').get(familyId).count;
+  const currentChildren = db.prepare(`SELECT COUNT(c.id) AS count FROM group_members gm
+    JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = ? AND gm.family_id != ?`)
+    .get(req.params.id, familyId).count;
+  if (currentChildren + familyChildren > MAX_GROUP_SIZE) {
+    return res.status(400).json({ error: `В группе будет больше ${MAX_GROUP_SIZE} детей` });
+  }
+  const oldGroupIds = db.prepare('SELECT group_id FROM group_members WHERE family_id = ?').all(familyId).map((row) => row.group_id);
+  db.transaction(() => {
+    db.prepare('DELETE FROM group_members WHERE family_id = ?').run(familyId);
+    db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)').run(req.params.id, familyId);
+    db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = ? WHERE id = ?').run(req.params.id, familyId);
+    // После ручного назначения семья не должна получить собственную квартиру
+    // в маршруте новой группы. Полный набор точек обновится при пересчёте.
+    db.prepare("DELETE FROM route_stops WHERE group_id = ? AND host_type = 'family' AND host_id = ?")
+      .run(req.params.id, familyId);
+    resequenceStoredRoute(req.params.id);
+    [...new Set([...oldGroupIds, req.params.id])].forEach(recalculateGroupStats);
+  })();
+  const changedGroups = [...new Set([...oldGroupIds, req.params.id])].map(loadGroupDetails).filter(Boolean);
+  const notifications = await notifyChangedGroups(changedGroups);
+  res.json({ ok: true, notifications });
+}));
+
+router.post('/families/:id/grouping/resume', (req, res) => {
+  const result = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?').run(req.params.id);
+  if (!result.changes) return res.status(404).json({ error: 'Семья не найдена' });
+  res.json({ ok: true });
+});
 
 router.put('/groups/:id/route', asyncRoute(async (req, res) => {
   const stopIds = Array.isArray(req.body.stopIds) ? req.body.stopIds.map(Number) : [];
@@ -335,7 +510,7 @@ router.post('/override', (req, res) => {
   const { familyId, groupId } = req.body;
   if (!familyId) return res.status(400).json({ error: 'familyId обязателен' });
 
-  db.prepare('UPDATE families SET manual_group_id = ? WHERE id = ?').run(groupId || null, familyId);
+  db.prepare('UPDATE families SET manual_group_id = ?, grouping_paused = 0 WHERE id = ?').run(groupId || null, familyId);
   res.json({ ok: true });
 });
 

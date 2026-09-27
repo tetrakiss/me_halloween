@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS families (
   quest INTEGER NOT NULL DEFAULT 0,
   quest_duration_min INTEGER,
   manual_group_id TEXT,
+  grouping_paused INTEGER NOT NULL DEFAULT 0,
   cancelled INTEGER NOT NULL DEFAULT 0,
   created_at INTEGER NOT NULL
 );
@@ -131,6 +132,7 @@ function ensureColumn(table, name, definition) {
 }
 
 ensureColumn('groups', 'name', 'TEXT');
+ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('parent_links', 'chat_id', 'TEXT');
 ensureColumn('parent_links', 'first_name', 'TEXT');
 ensureColumn('parent_links', 'last_name', 'TEXT');

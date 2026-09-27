@@ -391,6 +391,9 @@
     };
   }
   function renderWaitingCard() {
+    if (state.family?.groupingPaused) {
+      return '<div class="card"><h3>⏸️ Ожидаете перераспределения</h3><p class="muted">Организатор убрал семью из прежней группы. Ваша запись сохранена; после назначения в новую группу здесь появится маршрут.</p></div>';
+    }
     return '<div class="card"><h3>⏳ Группа ещё не сформирована</h3><p class="muted">Когда организаторы соберут группы, здесь появится маршрут.</p></div>';
   }
   function renderRouteCard() {

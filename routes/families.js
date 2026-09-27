@@ -42,6 +42,7 @@ function familyWithChildren(family) {
     hosting: !!family.hosting,
     quest: !!family.quest,
     questDurationMin: family.quest_duration_min,
+    groupingPaused: !!family.grouping_paused,
     cancelled: !!family.cancelled,
     children,
     wishLinks: wishFamilyIds,

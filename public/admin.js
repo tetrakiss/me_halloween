@@ -52,15 +52,15 @@
     const username = parent.username ? `@${parent.username}` : 'без username';
     return `${esc(name)} · ${esc(username)} · ${esc(parent.platform)} ID ${esc(parent.platformUserId)}`;
   }
-  function groupOptions(groups, selected) {
-    return ['<option value="">— без ручной группы —</option>']
+  function groupOptions(groups, selected, emptyLabel = '— без ручной группы —') {
+    return [`<option value="">${esc(emptyLabel)}</option>`]
       .concat(groups.map((group) => `<option value="${esc(group.id)}" ${group.id === selected ? 'selected' : ''}>${esc(group.name || group.id)}</option>`)).join('');
   }
   function familyCard(family, groups) {
     const childrenText = family.children.map((child) => `${child.name}|${child.age}`).join('\n');
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-        <span>${family.cancelled ? '❌' : family.walking ? '🚶' : '⏸️'} ${family.hosting ? family.quest ? '🎭' : '🍬' : ''}</span></summary>
+        <span>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${family.hosting ? family.quest ? '🎭' : '🍬' : ''}</span></summary>
       <div class="admin-grid">
         <div><b>Код семьи:</b> ${esc(family.familyCode)}</div><div><b>ID:</b> ${esc(family.id)}</div>
         <div class="admin-wide"><b>Участники:</b><ul>${family.parents.map((parent) => `<li>${participantText(parent)}</li>`).join('') || '<li>Нет привязанных аккаунтов</li>'}</ul></div>
@@ -93,12 +93,28 @@
   }
   function groupCard(group, familiesById) {
     const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
+    const childCount = members.reduce((sum, family) => sum + family.children.length, 0);
+    const questCount = group.stops.filter((stop) => stop.isQuest).length;
+    const candyCount = group.stops.length - questCount;
     return `<div class="group-card" data-group-card="${esc(group.id)}">
       <div class="admin-grid"><div><label>Название группы</label><input type="text" data-group-name="${esc(group.id)}" value="${esc(group.name || group.id)}" /></div>
-      <div><button class="small" data-save-group-name="${esc(group.id)}">Сохранить название</button></div></div>
-      <p class="muted">${members.map((family) => `${esc(family.tower)} ${esc(family.apartmentCode)}`).join(' · ') || 'Нет участников'}</p>
+      <div class="button-row"><button class="small" data-save-group-name="${esc(group.id)}">Сохранить название</button>
+      <button class="danger small" data-delete-group="${esc(group.id)}">Удалить группу</button></div></div>
+      <div class="group-summary"><span>👧 ${childCount} детей</span><span>🎭 ${questCount} квестов</span><span>🍬 ${candyCount} с конфетами</span></div>
+      <h4>Состав группы</h4>
+      <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
+        <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small></div>
+        <button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
+      <h4>Маршрут</h4>
       <ol class="admin-route">${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Маршрут пуст</li>'}</ol>
     </div>`;
+  }
+  function waitingFamilyCard(family, groups) {
+    return `<li class="waiting-family" data-waiting-family="${esc(family.id)}"><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
+      <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small></div>
+      <div class="waiting-actions"><select data-waiting-group="${esc(family.id)}">${groupOptions(groups, '', '— выберите группу —')}</select>
+      <button class="small" data-assign-waiting="${esc(family.id)}">Назначить</button>
+      ${family.groupingPaused ? `<button class="secondary small" data-resume-grouping="${esc(family.id)}">Вернуть в автоподбор</button>` : ''}</div></li>`;
   }
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
@@ -107,8 +123,10 @@
         api('/families'), api('/groups'), api('/special-points'), api('/event-settings'),
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
+      const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
       APP.innerHTML = `<div class="button-row top-actions"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
+        <button id="distributeWaitingBtn" class="secondary small">🎲 Распределить ожидающих</button>
         <button id="recomputeBtn" class="small">🔄 Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div>
         <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
@@ -116,6 +134,9 @@
           <div class="event-settings-controls"><div><label>Дата и время начала</label><input type="datetime-local" id="eventStartLocal" value="${esc(eventSettings.eventStartLocal)}" /></div>
           <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div></div>
         <div class="card"><h3>👥 Группы (${groups.length})</h3>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p>Группы ещё не сформированы.</p>'}</div>
+        <div class="card"><h3>⏳ Ожидают назначения (${waitingFamilies.length})</h3>
+          <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
+          <ul class="waiting-list">${waitingFamilies.map((family) => waitingFamilyCard(family, groups)).join('') || '<li>Очередь пуста</li>'}</ul></div>
         <div class="card"><h3>🏪 Спецточки</h3><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
           <div><label>Этаж</label><input type="number" id="spFloor" value="0" /></div></div>
           <label>Название</label><input type="text" id="spName" placeholder="Название точки" /><button id="spAddBtn" class="secondary">+ Добавить</button>
@@ -135,7 +156,7 @@
       return { name: (name || '').trim(), age: Number(age) };
     });
   }
-  function bindDashboard({ groups }) {
+  function bindDashboard({ families, groups }) {
     document.getElementById('backBtn').onclick = () => { location.href = '/'; };
     document.getElementById('saveEventStartBtn').onclick = async () => {
       const button = document.getElementById('saveEventStartBtn');
@@ -174,6 +195,24 @@
         message.textContent = `Готово: ${result.groupCount} групп, отправлено уведомлений: ${result.notifications.sent}, пропущено по лимиту: ${result.notifications.ignoredByCooldown}`;
         setTimeout(renderDashboard, 900);
       } catch (error) { message.textContent = error.message; }
+    };
+    document.getElementById('distributeWaitingBtn').onclick = async () => {
+      const button = document.getElementById('distributeWaitingBtn');
+      const message = document.getElementById('adminActionMsg');
+      button.disabled = true;
+      message.textContent = 'Начинаем со случайной семьи и заполняем свободные места…';
+      try {
+        const result = await api('/groups/distribute-unassigned', { method: 'POST' });
+        const starter = families.find((family) => family.id === result.starterFamilyId);
+        const starterText = starter
+          ? ` Старт: ${starter.tower}, эт. ${starter.floor}, кв. ${starter.apartmentCode}.`
+          : '';
+        message.textContent = `Распределено семей: ${result.assignedFamilyCount}. Новых групп: ${result.createdGroupCount}. Осталось в очереди: ${result.waitingFamilyCount}.${starterText}`;
+        setTimeout(renderDashboard, 1100);
+      } catch (error) {
+        button.disabled = false;
+        message.textContent = error.message;
+      }
     };
     document.querySelectorAll('[data-save-family]').forEach((button) => {
       button.onclick = async () => {
@@ -218,6 +257,49 @@
         const id = button.dataset.saveGroupName; const name = document.querySelector(`[data-group-name="${CSS.escape(id)}"]`).value.trim();
         try { await api(`/groups/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name } }); button.textContent = 'Сохранено ✓'; }
         catch (error) { alert(error.message); }
+      };
+    });
+    document.querySelectorAll('[data-remove-member]').forEach((button) => {
+      button.onclick = async () => {
+        if (!confirm('Убрать эту семью из группы? Регистрация сохранится, семья перейдёт в очередь ожидания.')) return;
+        button.disabled = true;
+        try {
+          await api(`/groups/${encodeURIComponent(button.dataset.group)}/members/${encodeURIComponent(button.dataset.removeMember)}`, { method: 'DELETE' });
+          await renderDashboard();
+        } catch (error) { button.disabled = false; alert(error.message); }
+      };
+    });
+    document.querySelectorAll('[data-delete-group]').forEach((button) => {
+      button.onclick = async () => {
+        const group = groups.find((item) => item.id === button.dataset.deleteGroup);
+        if (!confirm(`Удалить группу «${group?.name || button.dataset.deleteGroup}»? Все её семьи перейдут в очередь ожидания.`)) return;
+        button.disabled = true;
+        try {
+          await api(`/groups/${encodeURIComponent(button.dataset.deleteGroup)}`, { method: 'DELETE' });
+          await renderDashboard();
+        } catch (error) { button.disabled = false; alert(error.message); }
+      };
+    });
+    document.querySelectorAll('[data-assign-waiting]').forEach((button) => {
+      button.onclick = async () => {
+        const familyId = button.dataset.assignWaiting;
+        const groupId = document.querySelector(`[data-waiting-group="${CSS.escape(familyId)}"]`).value;
+        if (!groupId) return void alert('Выберите группу');
+        button.disabled = true;
+        try {
+          await api(`/groups/${encodeURIComponent(groupId)}/members`, { method: 'POST', body: { familyId } });
+          await renderDashboard();
+        } catch (error) { button.disabled = false; alert(error.message); }
+      };
+    });
+    document.querySelectorAll('[data-resume-grouping]').forEach((button) => {
+      button.onclick = async () => {
+        button.disabled = true;
+        try {
+          await api(`/families/${encodeURIComponent(button.dataset.resumeGrouping)}/grouping/resume`, { method: 'POST' });
+          alert('Семья вернётся в группу при следующем формировании.');
+          await renderDashboard();
+        } catch (error) { button.disabled = false; alert(error.message); }
       };
     });
     document.querySelectorAll('[data-route-move]').forEach((button) => {
