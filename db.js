@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS families (
   floor INTEGER NOT NULL,
   apartment_code TEXT NOT NULL,
   walking INTEGER NOT NULL DEFAULT 1,
+  adult_chaperone INTEGER NOT NULL DEFAULT 0,
   hosting INTEGER NOT NULL DEFAULT 0,
   quest INTEGER NOT NULL DEFAULT 0,
   quest_duration_min INTEGER,
@@ -133,6 +134,7 @@ function ensureColumn(table, name, definition) {
 
 ensureColumn('groups', 'name', 'TEXT');
 ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('families', 'adult_chaperone', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('parent_links', 'chat_id', 'TEXT');
 ensureColumn('parent_links', 'first_name', 'TEXT');
 ensureColumn('parent_links', 'last_name', 'TEXT');

@@ -60,6 +60,7 @@ function loadFamiliesForAlgo() {
     apartmentCode: f.apartment_code,
     children: db.prepare('SELECT name, age FROM children WHERE family_id = ?').all(f.id),
     walking: !!f.walking,
+    adultChaperone: !!f.adult_chaperone,
     hosting: !!f.hosting,
     quest: !!f.quest,
     questDurationMin: f.quest_duration_min,
@@ -222,8 +223,8 @@ router.post('/test-data', (req, res) => {
 
   const tx = db.transaction(() => {
     const insertFamily = db.prepare(`
-      INSERT INTO families (id, family_code, tower, floor, apartment_code, walking, hosting, quest, quest_duration_min, cancelled, created_at)
-      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, 0, ?)
+      INSERT INTO families (id, family_code, tower, floor, apartment_code, walking, adult_chaperone, hosting, quest, quest_duration_min, cancelled, created_at)
+      VALUES (?, ?, ?, ?, ?, 1, ?, ?, ?, ?, 0, ?)
     `);
     const insertChild = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
     const insertWish = db.prepare('INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)');
@@ -238,6 +239,7 @@ router.post('/test-data', (req, res) => {
         randomItem(TEST_TOWERS),
         randomInt(1, 35),
         String(randomInt(10, 999)),
+        Math.random() < 0.55 ? 1 : 0,
         hosting ? 1 : 0,
         quest ? 1 : 0,
         quest ? randomItem([10, 15, 20]) : null,
@@ -283,7 +285,7 @@ router.delete('/test-data/all', (req, res) => {
 router.patch('/families/:id', (req, res) => {
   const current = db.prepare('SELECT * FROM families WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: 'Семья не найдена' });
-  const { tower, floor, apartmentCode, walking, hosting, quest, questDurationMin, cancelled, children } = req.body;
+  const { tower, floor, apartmentCode, walking, adultChaperone, hosting, quest, questDurationMin, cancelled, children } = req.body;
   if (floor !== undefined && (!Number.isInteger(Number(floor)) || Number(floor) < 0)) {
     return res.status(400).json({ error: 'Некорректный этаж' });
   }
@@ -300,6 +302,7 @@ router.patch('/families/:id', (req, res) => {
   db.transaction(() => {
     db.prepare(`UPDATE families SET tower = COALESCE(@tower, tower), floor = COALESCE(@floor, floor),
       apartment_code = COALESCE(@apartmentCode, apartment_code), walking = COALESCE(@walking, walking),
+      adult_chaperone = COALESCE(@adultChaperone, adult_chaperone),
       hosting = COALESCE(@hosting, hosting), quest = COALESCE(@quest, quest),
       quest_duration_min = @questDurationMin, cancelled = COALESCE(@cancelled, cancelled)
       WHERE id = @id`).run({
@@ -308,6 +311,7 @@ router.patch('/families/:id', (req, res) => {
       floor: floor === undefined ? null : Number(floor),
       apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
+      adultChaperone: adultChaperone === undefined ? null : adultChaperone ? 1 : 0,
       hosting: hosting === undefined && quest !== true ? null : hosting || quest ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
       questDurationMin: quest === false ? null : questDurationMin === undefined ? current.quest_duration_min : Number(questDurationMin) || 20,

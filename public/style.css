@@ -665,6 +665,9 @@ button.hosting-choice-family {
 .admin-family > :not(summary) { margin-inline: 14px; }
 .admin-family-meta { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .admin-family-meta i { padding: 4px 7px; border: 1px solid var(--border); border-radius: 999px; font-style: normal; }
+.chaperone-mark { display: inline-flex; align-items: center; padding: 4px 7px; border: 1px solid oklch(.72 .14 300 / .45); border-radius: 999px; background: oklch(.58 .14 300 / .12); color: oklch(.88 .10 300); font-size: 10.5px; font-weight: 600; white-space: nowrap; }
+.group-chaperone-count { border-color: oklch(.72 .14 300 / .4) !important; background: oklch(.58 .14 300 / .10) !important; color: oklch(.88 .10 300) !important; }
+.member-chaperone { color: oklch(.82 .11 300) !important; font-weight: 600; }
 .plain-list li { padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; background: var(--recess); }
 
 :focus-visible { outline: 2px solid var(--violet-2); outline-offset: 2px; }

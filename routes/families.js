@@ -39,6 +39,7 @@ function familyWithChildren(family) {
     floor: family.floor,
     apartmentCode: family.apartment_code,
     walking: !!family.walking,
+    adultChaperone: !!family.adult_chaperone,
     hosting: !!family.hosting,
     quest: !!family.quest,
     questDurationMin: family.quest_duration_min,
@@ -140,6 +141,7 @@ router.post('/register', (req, res) => {
     apartmentCode,
     children,
     walking = true,
+    adultChaperone = false,
     hosting = false,
     quest = false,
     questDurationMin,
@@ -173,8 +175,8 @@ router.post('/register', (req, res) => {
   const familyCode = shortCode();
 
   const insertFamily = db.prepare(`
-    INSERT INTO families (id, family_code, tower, floor, apartment_code, walking, hosting, quest, quest_duration_min, cancelled, created_at)
-    VALUES (@id, @familyCode, @tower, @floor, @apartmentCode, @walking, @hosting, @quest, @questDurationMin, 0, @createdAt)
+    INSERT INTO families (id, family_code, tower, floor, apartment_code, walking, adult_chaperone, hosting, quest, quest_duration_min, cancelled, created_at)
+    VALUES (@id, @familyCode, @tower, @floor, @apartmentCode, @walking, @adultChaperone, @hosting, @quest, @questDurationMin, 0, @createdAt)
   `);
   const insertChild = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
   const insertWish = db.prepare(
@@ -189,6 +191,7 @@ router.post('/register', (req, res) => {
       floor,
       apartmentCode: normalizedApartmentCode,
       walking: walking ? 1 : 0,
+      adultChaperone: adultChaperone ? 1 : 0,
       hosting: hosting || quest ? 1 : 0,
       quest: quest ? 1 : 0,
       questDurationMin: quest ? questDurationMin || 20 : null,
@@ -305,6 +308,7 @@ router.patch('/me', (req, res) => {
     floor,
     apartmentCode,
     walking,
+    adultChaperone,
     hosting,
     quest,
     questDurationMin,
@@ -336,6 +340,7 @@ router.patch('/me', (req, res) => {
         floor = COALESCE(@floor, floor),
         apartment_code = COALESCE(@apartmentCode, apartment_code),
         walking = COALESCE(@walking, walking),
+        adult_chaperone = COALESCE(@adultChaperone, adult_chaperone),
         hosting = COALESCE(@hosting, hosting),
         quest = COALESCE(@quest, quest),
         quest_duration_min = @questDurationMin,
@@ -347,6 +352,7 @@ router.patch('/me', (req, res) => {
       floor: floor === undefined ? null : Number(floor),
       apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
+      adultChaperone: adultChaperone === undefined ? null : adultChaperone ? 1 : 0,
       hosting: hosting === undefined && quest !== true ? null : hosting || quest ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
       questDurationMin:

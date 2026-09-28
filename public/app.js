@@ -414,8 +414,8 @@
   }
   function renderRegisterForm() {
     document.getElementById('tabContent').innerHTML = `<div class="panel wizard">
-      <div class="step-meta"><span class="step-count" id="stepCount">Шаг 1 из 5</span><span class="pill" id="stepHint">Адрес</span></div>
-      <div class="wizard-progress" aria-hidden="true">${[1, 2, 3, 4, 5].map((step) => `<span class="progress-seg ${step === 1 ? 'done' : ''}" data-progress="${step}"></span>`).join('')}</div>
+      <div class="step-meta"><span class="step-count" id="stepCount">Шаг 1 из 6</span><span class="pill" id="stepHint">Адрес</span></div>
+      <div class="wizard-progress" aria-hidden="true">${[1, 2, 3, 4, 5, 6].map((step) => `<span class="progress-seg ${step === 1 ? 'done' : ''}" data-progress="${step}"></span>`).join('')}</div>
 
       <section class="form-step active" data-step="1">
         <div><h2 class="step-title">Где вы живёте?</h2><p class="step-copy">Укажите адрес, чтобы мы сделали маршрут.</p></div>
@@ -448,25 +448,36 @@
       </section>
 
       <section class="form-step" data-step="4">
+        <div><span class="step-eyebrow">Сопровождение группы</span><h2 class="step-title">Кто-то из взрослых пойдёт с детьми?</h2><p class="step-copy">Отметьте, если хотя бы один взрослый из вашей семьи готов сопровождать группу по маршруту.</p></div>
+        <div class="choice-grid escort-choice-grid" role="radiogroup" aria-label="Готовность сопровождать группу">
+          <label class="choice escort-choice"><input type="radio" name="adultChaperone" value="yes" /><span class="choice-box"><span class="choice-icon" aria-hidden="true">🧑‍🤝‍🧑</span><b>Да, пойдём</b><span>Взрослый будет сопровождать группу</span></span></label>
+          <label class="choice escort-choice"><input type="radio" name="adultChaperone" value="no" checked /><span class="choice-box"><span class="choice-icon" aria-hidden="true">🏠</span><b>Нет</b><span>Сейчас не готовы сопровождать</span></span></label>
+        </div>
+        <div class="escort-note"><span aria-hidden="true">✦</span><p><b>Почему это важно</b>Организаторы увидят, в каких группах уже есть сопровождающие взрослые.</p></div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="3" aria-label="Вернуться к детям">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="5">Продолжить</button></div>
+      </section>
+
+      <section class="form-step" data-step="5">
         <div><h2 class="step-title">Последние детали</h2><p class="step-copy">Отметьте, что будет ждать участников у вашей двери.</p></div>
         <div class="subblock">
           <div class="switch-row"><span class="sw-t">Раздаём конфеты в квартире 🍬</span><label class="switch"><input id="hosting" type="checkbox" aria-label="Раздаём конфеты в квартире" /><span class="track"></span></label></div>
           <div class="switch-row"><span class="sw-t">У нас будет квест 🎭</span><label class="switch"><input id="quest" type="checkbox" aria-label="У нас будет квест" /><span class="track"></span></label></div>
           <div id="questDurationWrap" hidden><label class="fld"><span class="lbl">Длительность квеста, минут</span><input class="ctl" type="number" id="questDuration" value="20" min="5" max="40" /></label></div>
         </div>
-        <div class="step-actions"><button class="step-back" type="button" data-back="3" aria-label="Вернуться к детям">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="5">Проверить данные</button></div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="4" aria-label="Вернуться к сопровождению">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="6">Проверить данные</button></div>
       </section>
 
-      <section class="form-step" data-step="5">
+      <section class="form-step" data-step="6">
         <div><h2 class="step-title">Всё верно?</h2><p class="step-copy">Проверьте данные перед записью семьи. Любой раздел можно быстро изменить.</p></div>
         <div class="review-list">
           <article class="review-card"><div class="review-head"><span>Адрес</span><button class="review-edit" type="button" data-edit-step="1">Изменить</button></div><div class="review-value" id="reviewAddress">—</div></article>
           <article class="review-card"><div class="review-head"><span>Совместная группа</span><button class="review-edit" type="button" data-edit-step="2">Изменить</button></div><div class="review-value" id="reviewGroup">—</div><p class="review-note" id="reviewGroupNote"></p></article>
           <article class="review-card"><div class="review-head"><span>Дети</span><button class="review-edit" type="button" data-edit-step="3">Изменить</button></div><div class="review-kids" id="reviewKids"></div></article>
-          <article class="review-card"><div class="review-head"><span>Участие</span><button class="review-edit" type="button" data-edit-step="4">Изменить</button></div><div class="review-value" id="reviewOptions">—</div></article>
+          <article class="review-card"><div class="review-head"><span>Сопровождение</span><button class="review-edit" type="button" data-edit-step="4">Изменить</button></div><div class="review-value" id="reviewChaperone">—</div></article>
+          <article class="review-card"><div class="review-head"><span>Участие</span><button class="review-edit" type="button" data-edit-step="5">Изменить</button></div><div class="review-value" id="reviewOptions">—</div></article>
         </div>
         <div id="registerMsg" class="wizard-status" aria-live="polite"></div>
-        <div class="step-actions"><button class="step-back" type="button" data-back="4" aria-label="Вернуться к настройкам">${ICONS.back}</button><button class="btn btn-primary" id="submitRegister" type="button">Подтвердить и записаться</button></div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="5" aria-label="Вернуться к настройкам">${ICONS.back}</button><button class="btn btn-primary" id="submitRegister" type="button">Подтвердить и записаться</button></div>
       </section>
     </div>`;
     renderChildRows();
@@ -503,6 +514,7 @@
       apartmentCode: document.getElementById('apartmentCode').value.trim(),
       children: readChildren(),
       wantsCompanion: document.querySelector('input[name="groupChoice"]:checked')?.value === 'yes',
+      adultChaperone: document.querySelector('input[name="adultChaperone"]:checked')?.value === 'yes',
       hosting: document.getElementById('hosting').checked,
       quest: document.getElementById('quest').checked,
       questDurationMin: Number(document.getElementById('questDuration').value) || 20,
@@ -532,6 +544,7 @@
       document.getElementById('reviewGroup').textContent = data.wantsCompanion ? `${document.getElementById('wishTower').value} · квартира ${document.getElementById('wishApartment').value.trim()}` : 'Подберём автоматически';
       document.getElementById('reviewGroupNote').textContent = data.wantsCompanion ? 'Пожелание будет учтено при формировании групп.' : 'Учтём возраст детей и вашу башню.';
       document.getElementById('reviewKids').innerHTML = data.children.map((child) => `<span class="review-kid">${esc(child.name)} · ${child.age}</span>`).join('');
+      document.getElementById('reviewChaperone').textContent = data.adultChaperone ? 'Да, взрослый пойдёт с группой 🧑‍🤝‍🧑' : 'Нет, сопровождающего от семьи не будет';
       const options = [];
       if (data.hosting) options.push('Раздаём конфеты 🍬');
       if (data.quest) options.push(`Квест 🎭 · ${data.questDurationMin} мин`);
@@ -541,10 +554,10 @@
       currentRegistrationStep = step;
       document.querySelectorAll('.form-step').forEach((section) => section.classList.toggle('active', Number(section.dataset.step) === step));
       document.querySelectorAll('.progress-seg').forEach((segment) => segment.classList.toggle('done', Number(segment.dataset.progress) <= step));
-      const labels = ['Адрес', 'Группа', 'Дети', 'Участие', 'Проверка'];
-      document.getElementById('stepCount').textContent = `Шаг ${step} из 5`;
+      const labels = ['Адрес', 'Группа', 'Дети', 'Сопровождение', 'Участие', 'Проверка'];
+      document.getElementById('stepCount').textContent = `Шаг ${step} из 6`;
       document.getElementById('stepHint').textContent = labels[step - 1];
-      if (step === 5) renderReview();
+      if (step === 6) renderReview();
       document.getElementById('tabContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
     document.querySelectorAll('[data-next]').forEach((button) => { button.onclick = () => { if (validateStep(currentRegistrationStep)) showStep(Number(button.dataset.next)); }; });
@@ -559,7 +572,7 @@
       try {
         const response = await api('/register', { method: 'POST', body: {
           tower: data.tower, floor: data.floor, apartmentCode: data.apartmentCode, children: data.children,
-          walking: true, hosting: data.hosting, quest: data.quest, questDurationMin: data.questDurationMin,
+          walking: true, adultChaperone: data.adultChaperone, hosting: data.hosting, quest: data.quest, questDurationMin: data.questDurationMin,
           wishFamilyId: data.wantsCompanion ? wishFamilyId : null,
         } });
         renderRegisteredSuccess(response.family);
@@ -627,6 +640,7 @@
       <div class="family-summary">
         <div class="summary-item"><span>Адрес</span><b>${esc(family.tower)}, ${family.floor} этаж, кв. ${esc(family.apartmentCode)}</b></div>
         <div class="summary-item"><span>Дети</span><b>${children}</b></div>
+        <div class="summary-item summary-wide"><span>Сопровождение группы</span><b>${family.adultChaperone ? 'Взрослый пойдёт с группой 🧑‍🤝‍🧑' : 'Нет сопровождающего'}</b></div>
         <div class="summary-item"><span>Раздаём конфеты</span><b>${family.hosting ? 'Да 🍬' : 'Нет'}</b></div>
         <div class="summary-item"><span>Квест</span><b>${family.quest ? `Будет · ${family.questDurationMin || 20} мин` : 'Нет'}</b></div>
       </div><div class="state-actions"><button id="shareBtn" class="btn btn-ghost btn-sm">Поделиться кодом</button><button id="continueBtn" class="btn btn-primary btn-sm">К данным семьи</button></div></section>`;
@@ -649,6 +663,7 @@
       <div class="family-summary-grid" aria-label="Данные семьи">
         <div class="family-summary-item"><span>Адрес</span><b>${esc(family.tower)}<br>этаж ${family.floor}, кв. ${esc(family.apartmentCode)}</b></div>
         <div class="family-summary-item"><span>Дети</span><b>${children}</b></div>
+        <div class="family-summary-item family-summary-wide"><span>Сопровождение группы</span><b>${family.adultChaperone ? 'Взрослый пойдёт 🧑‍🤝‍🧑' : 'Нет сопровождающего'}</b></div>
         <div class="family-summary-item"><span>Раздаём конфеты</span><b>${family.hosting ? 'Да 🍬' : 'Нет'}</b></div>
         <div class="family-summary-item"><span>Квест</span><b>${family.quest ? `${family.questDurationMin || 20} минут` : 'Нет'}</b></div>
       </div>
@@ -704,6 +719,7 @@
       <section class="form-section"><h4>Дети</h4><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button></section>
       <section class="form-section"><h4>Участие</h4>
         <div class="toggle-row"><span><b>Участвуем в обходе</b><small>Дети идут по маршруту</small></span><input type="checkbox" id="editWalking" aria-label="Участвуем в обходе" ${family.walking ? 'checked' : ''} /></div>
+        <div class="toggle-row"><span><b>Взрослый сопровождает группу</b><small>Хотя бы один взрослый пойдёт по маршруту</small></span><input type="checkbox" id="editAdultChaperone" aria-label="Взрослый сопровождает группу" ${family.adultChaperone ? 'checked' : ''} /></div>
         <div class="toggle-row"><span><b>Раздаём конфеты в квартире</b><small>Выдаём конфеты участникам</small></span><input type="checkbox" id="editHosting" aria-label="Раздаём конфеты в квартире" ${family.hosting ? 'checked' : ''} /></div>
         <div class="toggle-row"><span><b>У нас будет квест</b><small>Точка с заданием</small></span><input type="checkbox" id="editQuest" aria-label="У нас будет квест" ${family.quest ? 'checked' : ''} /></div>
         <div id="editQuestWrap" ${family.quest ? '' : 'hidden'}><label class="form-field"><span>Длительность квеста</span><input type="number" id="editQuestDuration" value="${family.questDurationMin || 20}" min="5" max="40" /></label></div>
@@ -731,7 +747,7 @@
       try {
         await api('/me', { method: 'PATCH', body: {
           tower: document.getElementById('editTower').value, floor, apartmentCode: document.getElementById('editApartment').value.trim(), children,
-          walking: document.getElementById('editWalking').checked, hosting: document.getElementById('editHosting').checked,
+          walking: document.getElementById('editWalking').checked, adultChaperone: document.getElementById('editAdultChaperone').checked, hosting: document.getElementById('editHosting').checked,
           quest: document.getElementById('editQuest').checked, questDurationMin: Number(document.getElementById('editQuestDuration').value) || 20,
           wishFamilyId,
         } });

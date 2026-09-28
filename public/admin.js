@@ -61,9 +61,10 @@
   function familyCard(family, groups) {
     const childrenText = family.children.map((child) => `${child.name}|${child.age}`).join('\n');
     const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : '<span class="choice-missing-mark">⚠️ тип не выбран</span>';
+    const chaperoneMark = family.adultChaperone ? '<span class="chaperone-mark">🧑‍🤝‍🧑 сопровождает</span>' : '';
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-        <span class="admin-family-meta"><i>${family.children.length} дет.</i>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${hostingMark}</span></summary>
+        <span class="admin-family-meta"><i>${family.children.length} дет.</i>${family.cancelled ? '❌' : family.groupingPaused ? '⏳ вне группы' : family.walking ? '🚶' : '⏸️'} ${hostingMark} ${chaperoneMark}</span></summary>
       <div class="admin-grid">
         <div><b>Код семьи:</b> ${esc(family.familyCode)}</div><div><b>ID:</b> ${esc(family.id)}</div>
         <div class="admin-wide"><b>Участники:</b><ul>${family.parents.map((parent) => `<li>${participantText(parent)}</li>`).join('') || '<li>Нет привязанных аккаунтов</li>'}</ul></div>
@@ -74,6 +75,7 @@
       <label>Дети — по одному в строке: Имя|возраст</label><textarea data-field="children">${esc(childrenText)}</textarea>
       <div class="checkbox-grid">
         <label><input type="checkbox" data-field="walking" ${family.walking ? 'checked' : ''}/> Идёт</label>
+        <label><input type="checkbox" data-field="adultChaperone" ${family.adultChaperone ? 'checked' : ''}/> Сопровождает группу 🧑‍🤝‍🧑</label>
         <label><input type="checkbox" data-field="hosting" ${family.hosting ? 'checked' : ''}/> Раздаёт конфеты 🍬</label>
         <label><input type="checkbox" data-field="quest" ${family.quest ? 'checked' : ''}/> Квест</label>
         <label><input type="checkbox" data-field="cancelled" ${family.cancelled ? 'checked' : ''}/> Отмена</label>
@@ -98,16 +100,17 @@
   function groupCard(group, familiesById) {
     const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
     const childCount = members.reduce((sum, family) => sum + family.children.length, 0);
+    const chaperoneCount = members.filter((family) => family.adultChaperone).length;
     const questCount = group.stops.filter((stop) => stop.isQuest).length;
     const candyCount = group.stops.length - questCount;
     return `<div class="group-card" data-group-card="${esc(group.id)}">
       <div class="admin-grid"><div><label>Название группы</label><input type="text" data-group-name="${esc(group.id)}" value="${esc(group.name || group.id)}" /></div>
       <div class="button-row"><button class="small" data-save-group-name="${esc(group.id)}">Сохранить название</button>
       <button class="danger small" data-delete-group="${esc(group.id)}">Удалить группу</button></div></div>
-      <div class="group-summary"><span>👧 ${childCount} детей</span><span>🎭 ${questCount} квестов</span><span>🍬 ${candyCount} с конфетами</span></div>
+      <div class="group-summary"><span>👧 ${childCount} детей</span><span class="group-chaperone-count">🧑‍🤝‍🧑 ${chaperoneCount} сопровождающих</span><span>🎭 ${questCount} квестов</span><span>🍬 ${candyCount} с конфетами</span></div>
       <h4>Состав группы</h4>
       <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-        <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small></div>
+        <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
         <button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
       <h4>Маршрут</h4>
       <ol class="admin-route">${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Маршрут пуст</li>'}</ol>
@@ -115,7 +118,7 @@
   }
   function waitingFamilyCard(family, groups) {
     return `<li class="waiting-family" data-waiting-family="${esc(family.id)}"><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-      <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small></div>
+      <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
       <div class="waiting-actions"><select data-waiting-group="${esc(family.id)}">${groupOptions(groups, '', '— выберите группу —')}</select>
       <button class="small" data-assign-waiting="${esc(family.id)}">Назначить</button>
       ${family.groupingPaused ? `<button class="secondary small" data-resume-grouping="${esc(family.id)}">Вернуть в автоподбор</button>` : ''}</div></li>`;
@@ -146,6 +149,7 @@
     const metrics = [
       ['👧', children.length, 'Всего детей', `${participatingFamilies.length} семей участвуют`],
       ['👥', groups.length, 'Всего групп', `${assignedChildren} детей распределено`],
+      ['🧑‍🤝‍🧑', participatingFamilies.filter((family) => family.adultChaperone).length, 'Сопровождающих семей', 'готовы идти с группой'],
       ['🍬', hostingFamilies.filter((family) => !family.quest).length, 'Квартир с конфетами', 'обычная выдача'],
       ['🎭', hostingFamilies.filter((family) => family.quest).length, 'Квартир с квестами', 'остановки с заданием'],
       ['⏳', waitingFamilies.length, 'Ждут распределения', `${waitingChildren} детей`],
@@ -209,6 +213,7 @@
               <label><input type="checkbox" value="notWalking" /> Не идут в обход</label>
               <label><input type="checkbox" value="grouped" /> Уже в группе</label>
               <label><input type="checkbox" value="waiting" /> Ожидают группу</label>
+              <label><input type="checkbox" value="adultChaperone" /> Есть сопровождающий</label>
               <label><input type="checkbox" value="hosting" /> Раздают конфеты</label>
               <label><input type="checkbox" value="quest" /> Проводят квест</label>
               <label><input type="checkbox" value="unconfigured" /> Формат не заполнен</label>
@@ -257,6 +262,7 @@
       notWalking: !family.walking && !family.cancelled,
       grouped: !!family.currentGroupId && !family.cancelled,
       waiting: family.walking && !family.cancelled && !family.currentGroupId,
+      adultChaperone: family.adultChaperone && !family.cancelled,
       hosting: family.hosting && !family.quest && !family.cancelled,
       quest: family.quest && !family.cancelled,
       unconfigured: !family.cancelled && !family.hosting && !family.quest,
@@ -268,6 +274,7 @@
       const statusCategories = [
         ['walking', 'notWalking', 'cancelled'],
         ['grouped', 'waiting'],
+        ['adultChaperone'],
         ['hosting', 'quest', 'unconfigured'],
       ];
       const minAge = Number(familyFilterState.ageMin) || 1;
@@ -428,7 +435,7 @@
         try {
           await api(`/families/${encodeURIComponent(id)}`, { method: 'PATCH', body: {
             tower: field('tower').value, floor: Number(field('floor').value), apartmentCode: field('apartmentCode').value.trim(),
-            children: parseChildren(field('children').value), walking: field('walking').checked, hosting: field('hosting').checked,
+            children: parseChildren(field('children').value), walking: field('walking').checked, adultChaperone: field('adultChaperone').checked, hosting: field('hosting').checked,
             quest: field('quest').checked, cancelled: field('cancelled').checked, questDurationMin: Number(field('questDurationMin').value) || 20,
           } });
           message.textContent = 'Сохранено ✓';
