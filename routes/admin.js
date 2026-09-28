@@ -7,6 +7,7 @@ const { notifyChangedGroups } = require('../lib/notifications');
 const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
+const { removeFamilyAndRepair } = require('../lib/family-removal');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -19,14 +20,6 @@ function randomItem(items) {
 
 function randomInt(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
-
-function deleteFamilyCompletely(familyId) {
-  return db.transaction(() => {
-    db.prepare("DELETE FROM route_stops WHERE host_type = 'family' AND host_id = ?").run(familyId);
-    db.prepare('DELETE FROM door_status WHERE host_id = ?').run(familyId);
-    return db.prepare('DELETE FROM families WHERE id = ?').run(familyId).changes;
-  })();
 }
 
 // Доступ разрешён двумя способами:
@@ -289,11 +282,15 @@ router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
   res.send(buffer);
 }));
 
-router.delete('/families/:id', (req, res) => {
-  const deleted = deleteFamilyCompletely(req.params.id);
-  if (!deleted) return res.status(404).json({ error: 'Семья не найдена' });
-  res.json({ ok: true });
-});
+router.delete('/families/:id', asyncRoute(async (req, res) => {
+  const { eventStartAt } = getEventSettings();
+  const maintenance = removeFamilyAndRepair(db, req.params.id, {
+    eventStarted: !!eventStartAt && Date.now() >= eventStartAt,
+  });
+  if (!maintenance) return res.status(404).json({ error: 'Семья не найдена' });
+  const notifications = await notifyChangedGroups(maintenance.changedGroups);
+  res.json({ ok: true, maintenance: { ...maintenance, changedGroups: undefined }, notifications });
+}));
 
 router.get('/event-settings', (req, res) => {
   res.json(getEventSettings());

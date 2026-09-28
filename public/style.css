@@ -575,6 +575,7 @@ button.hosting-choice-family {
 .group-card { padding: 14px 0; border-bottom: 1px solid var(--border); }
 .group-card h4 { margin: 14px 0 7px; }
 .group-summary { display: flex; flex-wrap: wrap; gap: 7px; margin: 10px 0; }
+.group-capacity-warning { margin: 10px 0 2px; padding: 10px 12px; border: 1px solid oklch(0.76 0.17 58 / .42); border-radius: 13px; background: oklch(0.76 0.17 58 / .09); color: var(--fg-2); font-size: 12px; line-height: 1.45; }
 .group-summary span { padding: 5px 9px; border-radius: 999px; background: rgba(255, 255, 255, .08); font-size: 12px; }
 .group-members, .waiting-list { padding: 0; margin: 0; list-style: none; }
 .group-members li, .waiting-family { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px solid rgba(255, 255, 255, .08); }

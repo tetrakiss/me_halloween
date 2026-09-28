@@ -4,8 +4,11 @@ const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { getEventSettings } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { getParticipantStats } = require('../lib/participant-stats');
+const { removeFamilyAndRepair } = require('../lib/family-removal');
+const { notifyChangedGroups } = require('../lib/notifications');
 
 const router = express.Router();
+const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
 
 function getFamilyForUser(platform, platformUserId) {
   const link = db
@@ -441,19 +444,19 @@ router.patch('/me', (req, res) => {
 });
 
 // Полное удаление семейной записи. Доступно любому аккаунту, который к ней привязан.
-router.delete('/me', (req, res) => {
+router.delete('/me', asyncRoute(async (req, res) => {
   const { platform, platformUserId } = req;
   const family = getFamilyForUser(platform, platformUserId);
   if (!family) return res.status(404).json({ error: 'Семья не найдена для этого аккаунта' });
 
-  db.transaction(() => {
-    db.prepare("DELETE FROM route_stops WHERE host_type = 'family' AND host_id = ?").run(family.id);
-    db.prepare('DELETE FROM door_status WHERE host_id = ?').run(family.id);
-    db.prepare('DELETE FROM families WHERE id = ?').run(family.id);
-  })();
+  const { eventStartAt } = getEventSettings();
+  const maintenance = removeFamilyAndRepair(db, family.id, {
+    eventStarted: !!eventStartAt && Date.now() >= eventStartAt,
+  });
+  const notifications = await notifyChangedGroups(maintenance.changedGroups);
 
-  res.json({ ok: true });
-});
+  res.json({ ok: true, maintenance: { ...maintenance, changedGroups: undefined }, notifications });
+}));
 
 // ---- Отметка "не открыли дверь" (или "закрыто" для спецточки) ----
 router.post('/door-status', (req, res) => {

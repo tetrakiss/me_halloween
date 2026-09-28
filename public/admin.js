@@ -123,6 +123,7 @@
     const chaperoneCount = members.filter((family) => family.adultChaperone).length;
     const questCount = group.stops.filter((stop) => stop.isQuest).length;
     const candyCount = group.stops.length - questCount;
+    const needsAttention = childCount > 0 && childCount < 5;
     const startLocation = String(group.startLocation || '').trim();
     const startStop = `<li class="admin-route-stop admin-route-start"><span class="route-drag-handle route-start-icon">⌂</span><span class="admin-route-node">Старт</span><span class="admin-route-address"><strong>Место сбора группы</strong><small>${esc(startLocation || 'Пока не указано')}</small></span></li>`;
     return `<div class="group-card" data-group-card="${esc(group.id)}">
@@ -131,6 +132,7 @@
       <div class="button-row"><button class="small" data-save-group="${esc(group.id)}">Сохранить группу</button>
       <button class="danger small" data-delete-group="${esc(group.id)}">Удалить группу</button></div>
       <div class="group-summary"><span>👧 ${childCount} детей</span><span class="group-chaperone-count">🧑‍🤝‍🧑 ${chaperoneCount} сопровождающих</span><span>🎭 ${questCount} квестов</span><span>🍬 ${candyCount} с конфетами</span></div>
+      ${needsAttention ? `<div class="group-capacity-warning">⚠️ В группе осталось ${childCount} детей. Маршрут обновлён автоматически, но состав группы стоит проверить вручную.</div>` : ''}
       <h4>Состав группы</h4>
       <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
         <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
