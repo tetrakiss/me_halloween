@@ -154,17 +154,36 @@
       else showTutorialStep(tutorialStep + 1);
     };
     document.getElementById('tutorialSkip').onclick = finishTutorial;
-    let pointerStartX = null;
-    view.addEventListener('pointerdown', (event) => { pointerStartX = event.clientX; });
-    view.addEventListener('pointerup', (event) => {
-      if (pointerStartX === null) return;
-      const distance = event.clientX - pointerStartX;
-      pointerStartX = null;
-      if (Math.abs(distance) < 56) return;
-      if (distance < 0 && tutorialStep < TUTORIAL_SLIDES.length) showTutorialStep(tutorialStep + 1);
-      if (distance > 0 && tutorialStep > 1) showTutorialStep(tutorialStep - 1);
+    const stage = document.getElementById('tutorialStage');
+    let swipeStart = null;
+    const beginSwipe = (x, y) => { swipeStart = { x, y }; };
+    const finishSwipe = (x, y) => {
+      if (!swipeStart) return;
+      const distanceX = x - swipeStart.x;
+      const distanceY = y - swipeStart.y;
+      swipeStart = null;
+      if (Math.abs(distanceX) < 48 || Math.abs(distanceX) <= Math.abs(distanceY) * 1.25) return;
+      if (distanceX < 0 && tutorialStep < TUTORIAL_SLIDES.length) showTutorialStep(tutorialStep + 1);
+      if (distanceX > 0 && tutorialStep > 1) showTutorialStep(tutorialStep - 1);
+    };
+    stage.addEventListener('touchstart', (event) => {
+      if (event.touches.length !== 1) return;
+      beginSwipe(event.touches[0].clientX, event.touches[0].clientY);
+    }, { passive: true });
+    stage.addEventListener('touchend', (event) => {
+      if (event.changedTouches.length !== 1) return;
+      finishSwipe(event.changedTouches[0].clientX, event.changedTouches[0].clientY);
+    }, { passive: true });
+    stage.addEventListener('touchcancel', () => { swipeStart = null; }, { passive: true });
+    stage.addEventListener('pointerdown', (event) => {
+      if (event.pointerType === 'touch' || event.button !== 0) return;
+      beginSwipe(event.clientX, event.clientY);
     });
-    view.addEventListener('pointercancel', () => { pointerStartX = null; });
+    stage.addEventListener('pointerup', (event) => {
+      if (event.pointerType === 'touch') return;
+      finishSwipe(event.clientX, event.clientY);
+    });
+    stage.addEventListener('pointercancel', () => { swipeStart = null; });
     return view;
   }
   function showTutorialStep(step, save = true) {
