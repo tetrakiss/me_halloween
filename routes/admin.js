@@ -5,6 +5,7 @@ const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups } = require('../lib/notifications');
 const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
+const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -294,6 +295,22 @@ router.patch('/families/:id', (req, res) => {
   }
   if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
   if (apartmentCode !== undefined && !String(apartmentCode).trim()) return res.status(400).json({ error: 'Квартира обязательна' });
+  const nextTower = tower === undefined ? current.tower : String(tower).trim();
+  const nextFloor = floor === undefined ? current.floor : Number(floor);
+  const nextApartmentCode = apartmentCode === undefined ? current.apartment_code : String(apartmentCode).trim();
+  const nextCancelled = cancelled === undefined ? !!current.cancelled : !!cancelled;
+  if (!apartmentNumberKey(nextApartmentCode)) {
+    return res.status(400).json({ error: 'Номер квартиры должен содержать цифры' });
+  }
+  const apartmentConflict = !nextCancelled && findApartmentConflict(db, {
+    tower: nextTower,
+    floor: nextFloor,
+    apartmentCode: nextApartmentCode,
+    excludeFamilyId: current.id,
+  });
+  if (apartmentConflict) {
+    return res.status(409).json({ error: 'На этом этаже уже зарегистрирована квартира с таким номером.' });
+  }
   if (Array.isArray(children) && children.some((child) => {
     const age = Number(child.age);
     return !String(child.name || '').trim() || !Number.isInteger(age) || age < 1 || age > 17;

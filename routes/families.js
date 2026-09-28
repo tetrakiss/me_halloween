@@ -2,6 +2,7 @@ const express = require('express');
 const { db, shortCode, newId } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { getEventSettings } = require('../lib/event-settings');
+const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 
 const router = express.Router();
 
@@ -159,11 +160,15 @@ router.post('/register', (req, res) => {
 
   const normalizedTower = String(tower).trim();
   const normalizedApartmentCode = String(apartmentCode).trim();
-  const apartmentFamily = db.prepare(
-    `SELECT id FROM families
-     WHERE tower = ? AND UPPER(TRIM(apartment_code)) = UPPER(?) AND cancelled = 0
-     LIMIT 1`
-  ).get(normalizedTower, normalizedApartmentCode);
+  const normalizedFloor = Number(floor);
+  if (!apartmentNumberKey(normalizedApartmentCode)) {
+    return res.status(400).json({ error: 'Номер квартиры должен содержать цифры' });
+  }
+  const apartmentFamily = findApartmentConflict(db, {
+    tower: normalizedTower,
+    floor: normalizedFloor,
+    apartmentCode: normalizedApartmentCode,
+  });
   if (apartmentFamily) {
     return res.status(409).json({
       code: 'APARTMENT_EXISTS',
@@ -188,7 +193,7 @@ router.post('/register', (req, res) => {
       id: familyId,
       familyCode,
       tower: normalizedTower,
-      floor,
+      floor: normalizedFloor,
       apartmentCode: normalizedApartmentCode,
       walking: walking ? 1 : 0,
       adultChaperone: adultChaperone ? 1 : 0,
@@ -326,6 +331,25 @@ router.patch('/me', (req, res) => {
   if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
   if (apartmentCode !== undefined && !String(apartmentCode).trim()) {
     return res.status(400).json({ error: 'Номер квартиры обязателен' });
+  }
+  const nextTower = tower === undefined ? family.tower : String(tower).trim();
+  const nextFloor = floor === undefined ? family.floor : Number(floor);
+  const nextApartmentCode = apartmentCode === undefined ? family.apartment_code : String(apartmentCode).trim();
+  const nextCancelled = cancelled === undefined ? !!family.cancelled : !!cancelled;
+  if (!apartmentNumberKey(nextApartmentCode)) {
+    return res.status(400).json({ error: 'Номер квартиры должен содержать цифры' });
+  }
+  const apartmentConflict = !nextCancelled && findApartmentConflict(db, {
+    tower: nextTower,
+    floor: nextFloor,
+    apartmentCode: nextApartmentCode,
+    excludeFamilyId: family.id,
+  });
+  if (apartmentConflict) {
+    return res.status(409).json({
+      code: 'APARTMENT_EXISTS',
+      error: 'На этом этаже уже зарегистрирована квартира с таким номером.',
+    });
   }
   if (wishFamilyId !== undefined && wishFamilyId !== null) {
     if (wishFamilyId === family.id) return res.status(400).json({ error: 'Нельзя выбрать свою семью' });
