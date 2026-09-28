@@ -218,6 +218,27 @@ router.post('/register', (req, res) => {
   res.json({ family: familyWithChildren(db.prepare('SELECT * FROM families WHERE id = ?').get(familyId)) });
 });
 
+// ---- Ранняя проверка адреса в мастере регистрации ----
+router.get('/apartment-check', (req, res) => {
+  const { tower, floor, apartmentCode } = req.query;
+  if (!tower || !validFloor(floor) || !String(apartmentCode || '').trim()) {
+    return res.status(400).json({ error: 'Укажите башню, этаж и номер квартиры' });
+  }
+
+  const normalizedApartmentCode = String(apartmentCode).trim();
+  if (!apartmentNumberKey(normalizedApartmentCode)) {
+    return res.status(400).json({ error: 'Номер квартиры должен содержать цифры' });
+  }
+
+  const family = findApartmentConflict(db, {
+    tower: String(tower).trim(),
+    floor: Number(floor),
+    apartmentCode: normalizedApartmentCode,
+  });
+
+  res.json({ exists: !!family });
+});
+
 // ---- Присоединение второго родителя по коду семьи ----
 router.post('/join', (req, res) => {
   const { platform, platformUserId } = req;

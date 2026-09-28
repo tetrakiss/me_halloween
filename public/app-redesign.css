@@ -187,6 +187,13 @@
 .app-page .ctl[aria-invalid="true"] { border-color: var(--danger); box-shadow: 0 0 0 3px oklch(.68 .19 25 / .14); }
 .app-page .field-error { display: none; margin: -1px 0 0; color: oklch(.82 .13 30); font-size: 12px; line-height: 1.35; }
 .app-page .field-error.show { display: block; }
+.app-page .apartment-exists-notice { display: flex; flex-direction: column; gap: 13px; padding: 15px; border: 1px solid oklch(.76 .168 58 / .48); border-radius: 17px; background: oklch(.76 .168 58 / .10); animation: rise .24s var(--ease) both; }
+.app-page .apartment-exists-notice[hidden] { display: none; }
+.app-page .apartment-exists-head { display: flex; align-items: flex-start; gap: 11px; }
+.app-page .apartment-exists-head b { display: block; margin-bottom: 4px; color: var(--fg); font-size: 14px; }
+.app-page .apartment-exists-head p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
+.app-page .apartment-exists-icon { display: grid; width: 28px; height: 28px; flex: 0 0 auto; place-items: center; border-radius: 50%; background: var(--accent); color: oklch(.19 .02 60); font: 800 14px/1 var(--font-body); }
+.app-page .apartment-exists-notice .btn { width: 100%; min-height: 48px; }
 .app-page .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .app-page .choice-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .app-page .choice { position: relative; min-width: 0; margin: 0; }

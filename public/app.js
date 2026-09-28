@@ -423,7 +423,15 @@
         <div class="row">
           <label class="fld"><span class="lbl">Этаж</span><input class="ctl" type="number" id="floor" min="0" max="200" placeholder="Например 22" /><span class="field-error" id="floorError">Укажите этаж числом</span></label>
           <label class="fld"><span class="lbl">Квартира</span><input class="ctl" type="text" id="apartmentCode" placeholder="Например 2206Г" /><span class="field-error" id="apartmentError">Укажите номер квартиры</span></label>
-        </div><div class="step-actions first"><button class="btn btn-primary" type="button" data-next="2">Продолжить</button></div>
+        </div>
+        <div class="apartment-exists-notice" id="apartmentExistsNotice" hidden>
+          <div class="apartment-exists-head"><span class="apartment-exists-icon" aria-hidden="true">!</span><div><b>Эта квартира уже зарегистрирована</b><p>Чтобы не создавать дубликат, введите код семьи, который получил зарегистрировавшийся ранее взрослый.</p></div></div>
+          <label class="fld"><span class="lbl">Код семьи</span><input class="ctl" type="text" id="existingFamilyCode" placeholder="Например ABC123" autocomplete="off" autocapitalize="characters" /></label>
+          <div id="existingFamilyCodeMsg" class="wizard-status" aria-live="polite"></div>
+          <button class="btn btn-ghost" id="joinExistingFamilyBtn" type="button">Открыть семейную запись</button>
+        </div>
+        <div id="addressCheckMsg" class="wizard-status" aria-live="polite"></div>
+        <div class="step-actions first"><button class="btn btn-primary" type="button" data-next="2">Продолжить</button></div>
       </section>
 
       <section class="form-step" data-step="2">
@@ -519,6 +527,31 @@
       quest: document.getElementById('quest').checked,
       questDurationMin: Number(document.getElementById('questDuration').value) || 20,
     });
+    const apartmentNotice = document.getElementById('apartmentExistsNotice');
+    const addressCheckMessage = document.getElementById('addressCheckMsg');
+    const hideApartmentNotice = () => {
+      apartmentNotice.hidden = true;
+      addressCheckMessage.textContent = '';
+      document.getElementById('existingFamilyCodeMsg').textContent = '';
+    };
+    ['tower', 'floor', 'apartmentCode'].forEach((inputId) => {
+      document.getElementById(inputId).addEventListener(inputId === 'tower' ? 'change' : 'input', hideApartmentNotice);
+    });
+    document.getElementById('joinExistingFamilyBtn').onclick = async () => {
+      const familyCode = document.getElementById('existingFamilyCode').value.trim();
+      const message = document.getElementById('existingFamilyCodeMsg');
+      if (!familyCode) {
+        message.textContent = 'Введите код семьи';
+        return;
+      }
+      message.textContent = 'Проверяем код…';
+      try {
+        await api('/join', { method: 'POST', body: { familyCode } });
+        await loadMe();
+      } catch (error) {
+        message.textContent = error.message;
+      }
+    };
     const validateStep = (step) => {
       const data = registrationData();
       if (step === 1) {
@@ -560,7 +593,36 @@
       if (step === 6) renderReview();
       document.getElementById('tabContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
-    document.querySelectorAll('[data-next]').forEach((button) => { button.onclick = () => { if (validateStep(currentRegistrationStep)) showStep(Number(button.dataset.next)); }; });
+    const checkApartmentBeforeContinue = async (button) => {
+      const data = registrationData();
+      const originalLabel = button.textContent;
+      button.disabled = true;
+      button.textContent = 'Проверяем…';
+      addressCheckMessage.textContent = '';
+      try {
+        const result = await api(`/apartment-check?tower=${encodeURIComponent(data.tower)}&floor=${encodeURIComponent(data.floor)}&apartmentCode=${encodeURIComponent(data.apartmentCode)}`);
+        if (result.exists) {
+          apartmentNotice.hidden = false;
+          document.getElementById('existingFamilyCode').focus();
+          return false;
+        }
+        apartmentNotice.hidden = true;
+        return true;
+      } catch (error) {
+        addressCheckMessage.textContent = error.message;
+        return false;
+      } finally {
+        button.disabled = false;
+        button.textContent = originalLabel;
+      }
+    };
+    document.querySelectorAll('[data-next]').forEach((button) => {
+      button.onclick = async () => {
+        if (!validateStep(currentRegistrationStep)) return;
+        if (currentRegistrationStep === 1 && !(await checkApartmentBeforeContinue(button))) return;
+        showStep(Number(button.dataset.next));
+      };
+    });
     document.querySelectorAll('[data-back]').forEach((button) => { button.onclick = () => showStep(Number(button.dataset.back)); });
     document.querySelectorAll('[data-edit-step]').forEach((button) => { button.onclick = () => showStep(Number(button.dataset.editStep)); });
     showStep(currentRegistrationStep);
