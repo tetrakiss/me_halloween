@@ -6,7 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check db.js && node --check lib/grouping-routing.js && node --check lib/apartment-identity.js && node --check lib/excel-exports.js && node --check lib/validateInitData.js && node --check lib/admin-auth.js && node --check lib/notifications.js && node --check lib/event-settings.js && node --check routes/families.js && node --check routes/admin.js && node --check public/platform-sdk.js && node --check public/app.js && node --check public/admin.js"
+    "check": "node --check server.js && node --check db.js && node --check lib/grouping-routing.js && node --check lib/apartment-identity.js && node --check lib/participant-stats.js && node --check lib/excel-exports.js && node --check lib/validateInitData.js && node --check lib/admin-auth.js && node --check lib/notifications.js && node --check lib/event-settings.js && node --check routes/families.js && node --check routes/admin.js && node --check public/platform-sdk.js && node --check public/app.js && node --check public/admin.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

@@ -279,6 +279,8 @@ button:disabled { opacity: .38; cursor: default; transform: none; }
 .family-route-stop { position: relative; margin: 0; border-radius: 16px; background: var(--surface); }
 .family-route-stop .stop-num { position: absolute; left: -43px; width: 28px; height: 28px; border: 2px solid var(--border-2); border-radius: 50%; background: var(--ink); z-index: 1; }
 .family-route-stop:first-child .stop-num { border-color: var(--accent); color: var(--accent-hi); box-shadow: 0 0 0 4px oklch(0.76 0.17 58 / .12); }
+.family-route-start { border-color: oklch(0.76 0.17 58 / .36); background: oklch(0.76 0.17 58 / .07); }
+.family-route-start .stop-num { left: -54px; width: 50px; border-color: var(--accent); border-radius: 999px; color: var(--accent-hi); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 0 0 4px oklch(0.76 0.17 58 / .12); }
 .family-route-stop .stop-address { margin-top: 3px; color: var(--muted); font-family: "IBM Plex Mono", ui-monospace, monospace; font-size: 11.5px; }
 .route-stop-actions { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 6px; }
 .route-kind { color: var(--accent-hi); font-size: 11px; }
@@ -655,6 +657,9 @@ button.hosting-choice-family {
 .route-drag-handle { flex: 0 0 auto; color: var(--muted); font-size: 18px; line-height: 1; user-select: none; }
 .admin-route-node { position: absolute; left: -40px; display: grid; place-items: center; width: 29px; height: 29px; border: 2px solid var(--border-2); border-radius: 50%; background: var(--ink); color: var(--fg-2); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .admin-route-stop:first-child .admin-route-node { border-color: var(--accent); color: var(--accent-hi); box-shadow: 0 0 0 4px oklch(0.76 0.17 58 / .1); }
+.admin-route-start { border-color: oklch(0.76 0.17 58 / .36); background: oklch(0.76 0.17 58 / .07); }
+.admin-route-start .admin-route-node { left: -51px; width: 50px; border-color: var(--accent); border-radius: 999px; color: var(--accent-hi); font-size: 8px; letter-spacing: .04em; text-transform: uppercase; box-shadow: 0 0 0 4px oklch(0.76 0.17 58 / .1); }
+.route-start-icon { color: var(--accent-hi); }
 .admin-route-address { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }
 .admin-route-address strong { overflow: hidden; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-route-address small { color: var(--muted); font-size: 11px; }

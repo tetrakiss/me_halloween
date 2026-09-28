@@ -1,5 +1,5 @@
 const express = require('express');
-const { db, newId, shortCode } = require('../db');
+const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
@@ -96,6 +96,7 @@ function loadGroupDetails(groupId) {
   return {
     id: group.id,
     name: group.name || group.id,
+    startLocation: group.start_location || DEFAULT_GROUP_START_LOCATION,
     memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ?').all(groupId).map((r) => r.family_id),
     stops: db.prepare('SELECT * FROM route_stops WHERE group_id = ? ORDER BY seq').all(groupId).map((stop) => ({
       id: stop.id,
@@ -232,7 +233,7 @@ router.get('/export/participants.xlsx', asyncRoute(async (req, res) => {
 }));
 
 router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
-  const groups = db.prepare('SELECT id, name, child_count FROM groups ORDER BY id').all();
+  const groups = db.prepare('SELECT id, name, start_location, child_count FROM groups ORDER BY id').all();
   const memberFamilies = db.prepare(`
     SELECT f.tower, f.floor, f.apartment_code
     FROM group_members gm
@@ -260,8 +261,14 @@ router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
       memberChildren: childrenText,
     };
     const stops = routeStops.all(group.id);
-    if (!stops.length) return [{ ...base, stopType: 'Маршрут пуст' }];
-    return stops.map((stop) => ({
+    const startRow = {
+      ...base,
+      stage: 'Старт',
+      stopType: 'Место сбора',
+      displayName: group.start_location || DEFAULT_GROUP_START_LOCATION,
+    };
+    if (!stops.length) return [startRow, { ...base, stopType: 'Маршрут пуст' }];
+    return [startRow, ...stops.map((stop) => ({
       ...base,
       stage: stop.seq,
       stopType: stop.is_quest ? 'Квест' : 'Конфеты',
@@ -271,7 +278,7 @@ router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
       apartmentCode: stop.apartment_code || '',
       arrivalMin: stop.arrival_min,
       departureMin: stop.departure_min,
-    }));
+    }))];
   });
   const buffer = await routesWorkbookBuffer(rows);
   res.set({
@@ -452,6 +459,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
   const storedGroups = db.prepare('SELECT * FROM groups ORDER BY id').all().map((group) => ({
     id: group.id,
     name: group.name || group.id,
+    startLocation: group.start_location || DEFAULT_GROUP_START_LOCATION,
     isManual: !!group.is_manual,
     memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ? ORDER BY family_id')
       .all(group.id).map((row) => row.family_id),
@@ -477,12 +485,12 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
   const routeByGroup = new Map(routes.map((route) => [route.groupId, route]));
   db.transaction(() => {
     const insertGroup = db.prepare(
-      'INSERT INTO groups (id, name, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, 0, ?)'
+      'INSERT INTO groups (id, name, start_location, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, ?, 0, ?)'
     );
     for (const groupId of result.createdGroupIds) {
       const group = result.groups.find((item) => item.id === groupId);
       const route = routeByGroup.get(groupId);
-      insertGroup.run(groupId, groupId, group.avgAge, group.childCount, route?.totalMin ?? null);
+      insertGroup.run(groupId, groupId, DEFAULT_GROUP_START_LOCATION, group.avgAge, group.childCount, route?.totalMin ?? null);
     }
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const activateFamily = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?');
@@ -525,6 +533,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
   const changedGroups = result.groups.map((group) => ({
       ...group,
       name: storedGroups.find((stored) => stored.id === group.id)?.name || group.id,
+      startLocation: storedGroups.find((stored) => stored.id === group.id)?.startLocation || DEFAULT_GROUP_START_LOCATION,
       stops: routeByGroup.get(group.id)?.stops || [],
     }));
   const notifications = await notifyChangedGroups(changedGroups);
@@ -540,8 +549,11 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
 
 router.patch('/groups/:id', asyncRoute(async (req, res) => {
   const name = String(req.body.name || '').trim();
+  const startLocation = String(req.body.startLocation || '').trim();
   if (!name) return res.status(400).json({ error: 'Название группы обязательно' });
-  const result = db.prepare('UPDATE groups SET name = ? WHERE id = ?').run(name, req.params.id);
+  if (startLocation.length > 240) return res.status(400).json({ error: 'Место сбора слишком длинное' });
+  const result = db.prepare('UPDATE groups SET name = ?, start_location = ? WHERE id = ?')
+    .run(name, startLocation || DEFAULT_GROUP_START_LOCATION, req.params.id);
   if (!result.changes) return res.status(404).json({ error: 'Группа не найдена' });
   const group = loadGroupDetails(req.params.id);
   const notifications = await notifyChangedGroups([group]);
@@ -673,13 +685,13 @@ router.post('/recompute', asyncRoute(async (req, res) => {
 
   const groups = buildGroups(families, wishLinks);
   const routes = buildRoutes(groups, families, specialPoints);
-  const oldNames = new Map(db.prepare('SELECT id, name FROM groups').all().map((g) => [g.id, g.name]));
+  const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
 
   const tx = db.transaction(() => {
     db.exec('DELETE FROM route_stops; DELETE FROM group_members; DELETE FROM groups;');
 
     const insertGroup = db.prepare(
-      'INSERT INTO groups (id, name, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, ?, ?)'
+      'INSERT INTO groups (id, name, start_location, avg_age, child_count, is_manual, total_min) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const insertStop = db.prepare(`
@@ -691,7 +703,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
 
     for (const g of groups) {
       const route = routeByGroup.get(g.id);
-      insertGroup.run(g.id, oldNames.get(g.id) || g.id, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
+      const previous = oldGroups.get(g.id);
+      insertGroup.run(g.id, previous?.name || g.id, previous?.start_location || DEFAULT_GROUP_START_LOCATION, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
       for (const familyId of g.memberFamilyIds) {
         insertMember.run(g.id, familyId);
       }
@@ -720,7 +733,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
     const route = routes.find((item) => item.groupId === group.id);
     return {
       id: group.id,
-      name: oldNames.get(group.id) || group.id,
+      name: oldGroups.get(group.id)?.name || group.id,
+      startLocation: oldGroups.get(group.id)?.start_location || DEFAULT_GROUP_START_LOCATION,
       memberFamilyIds: group.memberFamilyIds,
       stops: route?.stops || [],
     };

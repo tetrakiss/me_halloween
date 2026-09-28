@@ -3,6 +3,8 @@ const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
 
+const DEFAULT_GROUP_START_LOCATION = 'Парковка Вена -2 этаж';
+
 const DB_PATH = process.env.DATABASE_PATH || path.join(__dirname, 'data', 'halloween.db');
 fs.mkdirSync(path.dirname(DB_PATH), { recursive: true });
 
@@ -69,6 +71,7 @@ CREATE TABLE IF NOT EXISTS special_points (
 CREATE TABLE IF NOT EXISTS groups (
   id TEXT PRIMARY KEY,
   name TEXT,
+  start_location TEXT NOT NULL DEFAULT 'Парковка Вена -2 этаж',
   avg_age REAL,
   child_count INTEGER,
   is_manual INTEGER NOT NULL DEFAULT 0,
@@ -133,6 +136,9 @@ function ensureColumn(table, name, definition) {
 }
 
 ensureColumn('groups', 'name', 'TEXT');
+ensureColumn('groups', 'start_location', "TEXT NOT NULL DEFAULT 'Парковка Вена -2 этаж'");
+db.prepare("UPDATE groups SET start_location = ? WHERE TRIM(COALESCE(start_location, '')) = ''")
+  .run(DEFAULT_GROUP_START_LOCATION);
 ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('families', 'adult_chaperone', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('parent_links', 'chat_id', 'TEXT');
@@ -153,4 +159,4 @@ function newId(prefix) {
   return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
 }
 
-module.exports = { db, shortCode, newId };
+module.exports = { db, shortCode, newId, DEFAULT_GROUP_START_LOCATION };

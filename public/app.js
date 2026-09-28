@@ -253,6 +253,16 @@
     const noun = mod10 === 1 && mod100 !== 11 ? 'ребёнок' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'ребёнка' : 'детей';
     return `${count} ${noun}`;
   }
+  function pluralApartments(count) {
+    const mod10 = count % 10; const mod100 = count % 100;
+    const noun = mod10 === 1 && mod100 !== 11 ? 'квартира' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'квартиры' : 'квартир';
+    return `${count} ${noun}`;
+  }
+  function participantStatsMarkup() {
+    const stats = eventState?.participantStats || { apartmentCount: 0, childCount: 0 };
+    const verb = stats.apartmentCount === 1 ? 'участвует' : 'участвуют';
+    return `<div class="cd-participants"><span>Уже ${verb}</span><strong>${pluralApartments(stats.apartmentCount)}</strong><i></i><strong>${pluralChildren(stats.childCount)}</strong></div>`;
+  }
   function celebrationMarkup() {
     const colors = ['var(--accent)', 'var(--violet-2)', 'var(--success)', 'oklch(.975 .018 95)', 'var(--accent-hi)'];
     return `<div class="celebration-layer" aria-hidden="true">${Array.from({ length: 12 }, (_, index) => {
@@ -287,7 +297,7 @@
         <div class="cd-tile"><span class="cd-n" data-countdown="hours">00</span><span class="cd-l" data-countdown-label="hours">часов</span></div>
         <div class="cd-tile"><span class="cd-n" data-countdown="minutes">00</span><span class="cd-l" data-countdown-label="minutes">минут</span></div>
         <div class="cd-tile"><span class="cd-n" data-countdown="seconds">00</span><span class="cd-l" data-countdown-label="seconds">секунд</span></div>
-      </div><p class="cd-sub" id="countdownStatus">Готовим <em>костюмы</em> и <em>конфеты</em></p></div></section>`;
+      </div><p class="cd-sub" id="countdownStatus">Готовим <em>костюмы</em> и <em>конфеты</em></p>${participantStatsMarkup()}</div></section>`;
   }
   function stopCountdown() {
     clearInterval(countdownTimer);
@@ -868,7 +878,7 @@
       <p>${paused ? 'Организатор убрал семью из прежней группы. После нового назначения здесь появится маршрут.' : 'Когда организаторы соберут группы, здесь появится порядок квартир и специальных точек.'}</p></section>`;
   }
   function renderRouteCard() {
-    const items = (state.route || []).map((stop) => {
+    const routeItems = (state.route || []).map((stop) => {
       const kind = stop.isQuest ? '🎭 Квест' : '🍬 Конфеты';
       const title = stop.isSpecial ? esc(stop.displayName) : esc(stop.tower);
       const address = stop.isSpecial ? `${esc(stop.tower)} · этаж ${stop.floor}` : `этаж ${stop.floor} · квартира ${esc(stop.apartmentCode)}`;
@@ -877,12 +887,16 @@
         ${stop.lastKnownStatus === 'no_answer' ? '<div class="stop-warning">⚠️ ранее не открыли</div>' : ''}</div>
         <div class="route-stop-actions"><span class="route-kind">${kind}</span><button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли</button></div></li>`;
     }).join('');
+    const startLocation = String(state.group?.startLocation || '').trim();
+    const startItem = `<li class="stop family-route-stop family-route-start">
+      <div class="stop-num">Старт</div><div class="stop-info"><div class="addr">Место сбора</div>
+      <div class="stop-address">${startLocation ? esc(startLocation) : 'Организатор пока не указал место'}</div></div></li>`;
     return `<section class="card family-route-card" id="familyRouteCard"><div class="family-section-head">
       <div><span class="form-kicker">Маршрут обхода</span><h3>${esc(groupTitle(state.group))}</h3></div>
       <span class="family-pill">${(state.route || []).length} точек</span></div>
       <p class="family-route-intro">Порядок, в котором ваша группа идёт по квартирам. Он обновляется после формирования групп.</p>
-      ${items ? `<div class="family-route-cap"><span>⌂</span><small>Начало маршрута</small></div><ul class="route-list family-route-list">${items}</ul>
-        <div class="family-route-cap family-route-cap-end"><span>✓</span><small>Маршрут завершён</small></div>` : '<p>Маршрут пока пуст.</p>'}</section>`;
+      <ul class="route-list family-route-list">${startItem}${routeItems}</ul>
+      ${routeItems ? '<div class="family-route-cap family-route-cap-end"><span>✓</span><small>Маршрут завершён</small></div>' : '<p class="muted">Квартиры маршрута пока не добавлены.</p>'}</section>`;
   }
   async function loadMe() {
     const isBoot = isInitialLoad;

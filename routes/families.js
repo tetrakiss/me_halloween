@@ -1,8 +1,9 @@
 const express = require('express');
-const { db, shortCode, newId } = require('../db');
+const { db, shortCode, newId, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { getEventSettings } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
+const { getParticipantStats } = require('../lib/participant-stats');
 
 const router = express.Router();
 
@@ -130,7 +131,7 @@ function incomingVisitsForFamily(family) {
 
 // Серверное время — единственный источник времени для обратного отсчёта.
 router.get('/event', (req, res) => {
-  res.json(getEventSettings());
+  res.json({ ...getEventSettings(), participantStats: getParticipantStats(db) });
 });
 
 // ---- Регистрация новой семьи ----
@@ -308,7 +309,7 @@ router.get('/me', (req, res) => {
 
   const groupInfo = db
     .prepare(
-      `SELECT g.id, g.name, g.total_min FROM groups g
+      `SELECT g.id, g.name, g.start_location, g.total_min FROM groups g
        JOIN group_members gm ON gm.group_id = g.id
        WHERE gm.family_id = ?`
     )
@@ -316,7 +317,11 @@ router.get('/me', (req, res) => {
 
   res.json({
     family: familyWithChildren(family),
-    group: groupInfo ? { id: groupInfo.id, name: groupInfo.name || groupInfo.id } : null,
+    group: groupInfo ? {
+      id: groupInfo.id,
+      name: groupInfo.name || groupInfo.id,
+      startLocation: groupInfo.start_location || DEFAULT_GROUP_START_LOCATION,
+    } : null,
     route: groupInfo ? routeForFamily(family) : null,
     incomingVisits: incomingVisitsForFamily(family),
     isAdmin: isTelegramSuperAdmin(platform, req.platformUser),
