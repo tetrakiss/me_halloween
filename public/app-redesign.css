@@ -107,6 +107,26 @@
 }
 .app-page .cd-brand h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
 .app-page .cd-brand p { margin: 1px 0 0; color: var(--muted); font: 500 10.5px/1.3 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
+.app-page .cd-help {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  min-height: 44px;
+  flex: 0 0 auto;
+  margin: 0 0 0 auto;
+  padding: 0;
+  place-items: center;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease), transform .16s var(--ease);
+}
+.app-page .cd-help:hover { border-color: var(--accent); background: var(--surface); color: var(--fg); }
+.app-page .cd-help:active { transform: scale(.95); }
+.app-page .cd-help svg { display: block; width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
 .app-page .cd-head { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 12px; }
 .app-page .cd-head b { color: var(--fg-2); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
 .app-page .cd-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: od-cd-pulse 2s var(--ease) infinite; }
@@ -249,7 +269,95 @@
 .app-page .family-route-stop .stop-num { position: absolute; top: 50%; left: -42px; width: 28px; height: 28px; border: 2px solid var(--border-2); border-radius: 50%; background: var(--ink); color: var(--fg-2); font-family: var(--font-mono); transform: translateY(-50%); }
 .app-page .family-route-stop:first-child .stop-num { border-color: var(--accent); box-shadow: 0 0 0 4px oklch(.76 .17 58 / .12); color: var(--accent-hi); }
 
+/* First-run guide from the supplied tutorial handoff. */
+.app-page.tutorial-open { overflow: hidden; }
+.app-page .tutorial-view {
+  position: fixed;
+  inset: 0;
+  z-index: 9500;
+  display: flex;
+  width: min(100%, 430px);
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin-inline: auto;
+  flex-direction: column;
+  overflow: hidden;
+  background:
+    radial-gradient(95% 50% at 50% 0%, oklch(.39 .11 300 / .26), transparent 72%),
+    var(--ink);
+  box-shadow: 0 0 70px oklch(.06 .02 288 / .9);
+}
+.app-page .tutorial-view[hidden] { display: none; }
+.app-page .tutorial-top {
+  display: flex;
+  min-height: 58px;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: max(5px, env(safe-area-inset-top)) 16px 7px;
+}
+.app-page .tutorial-brand { display: flex; min-width: 0; align-items: center; gap: 9px; }
+.app-page .tutorial-brand .mark { width: 34px; height: 34px; }
+.app-page .tutorial-brand .mark iframe { transform: translate(-50%, -50%) scale(.119); }
+.app-page .tutorial-brand b { display: block; font-family: var(--font-display); font-size: 14px; letter-spacing: -.02em; }
+.app-page .tutorial-brand div > span { display: block; margin-top: 1px; color: var(--muted); font: 500 8.5px/1.25 var(--font-mono); letter-spacing: .12em; text-transform: uppercase; }
+.app-page .tutorial-skip {
+  width: auto;
+  min-width: 92px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg-2);
+  font: 600 13px/1.2 var(--font-body);
+  cursor: pointer;
+  transition: background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease);
+}
+.app-page .tutorial-skip:hover { border-color: var(--border); background: var(--surface); color: var(--fg); }
+.app-page .tutorial-progress-wrap { display: flex; flex: 0 0 auto; align-items: center; gap: 11px; padding: 0 16px 10px; }
+.app-page .tutorial-progress { display: grid; flex: 1; grid-template-columns: repeat(9, 1fr); gap: 4px; }
+.app-page .tutorial-progress span { height: 3px; border-radius: 999px; background: var(--surface-2); transition: background .2s var(--ease), box-shadow .2s var(--ease); }
+.app-page .tutorial-progress span.done { background: var(--accent); box-shadow: 0 0 8px oklch(.76 .168 58 / .3); }
+.app-page .tutorial-count { min-width: 34px; flex: 0 0 auto; color: var(--muted); font: 500 9px/1.2 var(--font-mono); letter-spacing: .08em; text-align: right; }
+.app-page .tutorial-stage { position: relative; min-height: 0; flex: 1 1 auto; overflow: hidden; }
+.app-page .tutorial-slide { display: none; height: 100%; min-height: 0; overflow-y: auto; padding: 0 16px 18px; scrollbar-width: none; }
+.app-page .tutorial-slide::-webkit-scrollbar { width: 0; }
+.app-page .tutorial-slide.active { display: block; animation: tutorial-in .38s var(--ease) both; }
+.app-page .tutorial-visual { position: relative; height: 278px; overflow: hidden; border: 1px solid oklch(.55 .10 300 / .5); border-radius: 25px; background: var(--surface); box-shadow: var(--shadow-2); }
+.app-page .tutorial-visual img { display: block; width: 100%; height: 100%; object-fit: cover; object-position: center 50%; }
+.app-page .tutorial-visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 64%, oklch(.12 .02 288 / .65)); pointer-events: none; }
+.app-page .tutorial-number { position: absolute; right: 13px; bottom: 12px; z-index: 2; min-width: 38px; padding: 6px 9px; border: 1px solid oklch(.85 .08 300 / .28); border-radius: 999px; background: oklch(.15 .02 288 / .84); box-shadow: var(--shadow-1); color: var(--fg-2); font: 500 9px/1.2 var(--font-mono); letter-spacing: .1em; text-align: center; backdrop-filter: blur(10px); }
+.app-page .tutorial-copy { padding: 18px 2px 5px; }
+.app-page .tutorial-kicker { display: block; margin-bottom: 7px; color: var(--accent-hi); font: 500 9.5px/1 var(--font-mono); letter-spacing: .15em; text-transform: uppercase; }
+.app-page .tutorial-copy h1 { margin: 0; font-family: var(--font-display); font-size: 28px; line-height: 1.05; letter-spacing: -.045em; text-wrap: balance; }
+.app-page .tutorial-copy p { max-width: 330px; margin: 11px 0 0; color: var(--fg-2); font-size: 14px; line-height: 1.53; }
+.app-page .tutorial-actions { display: grid; flex: 0 0 auto; grid-template-columns: 50px 1fr; gap: 10px; padding: 10px 16px max(24px, env(safe-area-inset-bottom)); border-top: 1px solid var(--border); background: oklch(.145 .016 285 / .92); backdrop-filter: blur(18px); }
+.app-page .tutorial-back {
+  display: grid;
+  width: 50px;
+  min-height: 52px;
+  margin: 0;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--border-2);
+  border-radius: 15px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--fg-2);
+  cursor: pointer;
+  transition: background .16s var(--ease), border-color .16s var(--ease), color .16s var(--ease), opacity .16s var(--ease);
+}
+.app-page .tutorial-back:hover:not(:disabled) { border-color: var(--violet); background: var(--surface); color: var(--fg); }
+.app-page .tutorial-back:disabled { opacity: .3; cursor: default; }
+.app-page .tutorial-back svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.app-page .tutorial-next { min-height: 52px; }
+
 @keyframes od-step-in { from { opacity: 0; transform: translateX(9px); } to { opacity: 1; transform: none; } }
+@keyframes tutorial-in { from { opacity: 0; filter: blur(2px); transform: translateX(14px); } to { opacity: 1; filter: blur(0); transform: none; } }
 @keyframes od-cd-spin { to { transform: rotate(360deg); } }
 @keyframes od-cd-sweep { 0% { left: -45%; } 55%, 100% { left: 120%; } }
 @keyframes od-cd-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(1.5); } }
@@ -271,8 +379,15 @@
   .app-page .row { gap: 9px; }
 }
 
+@media (max-height: 720px) {
+  .app-page .tutorial-visual { height: 230px; }
+  .app-page .tutorial-copy { padding-top: 14px; }
+  .app-page .tutorial-copy h1 { font-size: 25px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .app-page .batfly { display: none; }
   .app-page .cd::before, .app-page .cd::after, .app-page .spark, .app-page .cd-dot,
   .app-page .magic-orbit, .app-page .mote, .app-page .cd-n.magic-pop { animation: none !important; }
+  .app-page .tutorial-slide.active { animation: none !important; }
 }

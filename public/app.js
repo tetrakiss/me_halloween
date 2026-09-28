@@ -98,6 +98,123 @@
   const joinCodeFromUrl = urlJoin || startJoin;
   let activeTab = joinCodeFromUrl ? 'join' : 'register';
 
+  const TUTORIAL_DONE_KEY = 'monsteropolyTutorialDone';
+  const TUTORIAL_STEP_KEY = 'monsteropolyTutorialStep';
+  const TUTORIAL_SLIDES = [
+    { title: 'Добро пожаловать в Монстрополию', copy: 'Это приложение помогает зарегистрироваться на праздник Halloween в нашем жилом комплексе. Мы называем его Монстрополией.', image: 'assets/tutorial-01.png', alt: 'Семьи в костюмах идут на праздник среди башен Метрополии' },
+    { title: 'Как всё проходит', copy: 'В назначенное время встречаемся на подземной парковке и делимся на небольшие группы. Состав группы и маршрут по квартирам появятся в приложении.', image: 'assets/tutorial-02.png', alt: 'Участники Монстрополии собираются на подземной парковке' },
+    { title: 'Небольшие группы', copy: 'Мы учитываем ваши пожелания и возраст детей. В группе — до 8 детей, чтобы всем было удобно в лифтах. Нужны минимум два сопровождающих. Если вы готовы помочь, сообщите организаторам.', image: 'assets/tutorial-03.png', alt: 'Небольшая группа детей и сопровождающих помещается в лифте' },
+    { title: 'Конфеты и квесты', copy: 'На маршруте будут квартиры таких же участников. В одних просто откроют дверь и раздадут конфеты — взрослым, возможно, предложат напиток. В других устроят мини-квест: чтобы получить угощение, детям нужно выполнить задание.', image: 'assets/tutorial-04.png', alt: 'Дети выполняют мини-квест у украшенной двери квартиры' },
+    { title: 'Если дверь не открыли', copy: 'Планы иногда меняются. Не расстраивайтесь — переходите к следующей точке. Отметьте недоступную квартиру в приложении, чтобы другие участники не шли туда зря.', image: 'assets/tutorial-05.png', alt: 'Группа спокойно идёт дальше по маршруту от закрытой двери' },
+    { title: 'Сколько готовить конфет', copy: 'В приложении будет видно, сколько детей придёт к вам. Количество угощений выбираете вы: дети будут рады и паре конфет, но большая горсть запомнится лучше.', image: 'assets/tutorial-06.png', alt: 'Участница готовит миски и пакеты с конфетами для детей' },
+    { title: 'Хотите устроить квест?', copy: 'Если не знаете, с чего начать, спросите в общем чате. Опытные участники поделятся идеями. По опыту прошлых лет именно квесты оставляют у детей самые яркие впечатления.', image: 'assets/tutorial-07.png', alt: 'Участники обсуждают идеи для хэллоуинского квеста' },
+    { title: 'Проверьте данные', copy: 'Перед отправкой проверьте башню, этаж и квартиру. Если планы изменятся, участие всегда можно отменить, удалив данные. Пожалуйста, сделайте это заранее — не позднее чем за 3 дня до праздника.', image: 'assets/tutorial-08.png', alt: 'Участница проверяет регистрационные данные семьи' },
+    { title: 'Что дальше?', copy: 'Ждём остальных участников, получаем маршрут и готовим костюмы и конфеты. До встречи в Монстрополии!', image: 'assets/tutorial-09.png', alt: 'Семья готовит костюмы и конфеты перед началом Монстрополии' },
+  ];
+  let tutorialStep = 1;
+  let tutorialReopened = false;
+  let tutorialReturnScroll = 0;
+  let tutorialLastFocus = null;
+
+  function tutorialStorageGet(key) {
+    try { return localStorage.getItem(key); } catch { return null; }
+  }
+  function tutorialStorageSet(key, value) {
+    try { localStorage.setItem(key, value); } catch { /* Storage may be disabled in an embedded webview. */ }
+  }
+  function tutorialStorageRemove(key) {
+    try { localStorage.removeItem(key); } catch { /* Storage may be disabled in an embedded webview. */ }
+  }
+  function tutorialHelpButton() {
+    return `<button class="cd-help" id="countdownHelp" type="button" aria-label="Открыть руководство по Монстрополии" title="О празднике">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M9.8 9a2.35 2.35 0 0 1 4.5 1c0 1.7-2.3 2.05-2.3 3.55M12 17h.01"></path></svg>
+    </button>`;
+  }
+  function tutorialMarkup() {
+    const slides = TUTORIAL_SLIDES.map((slide, index) => `<article class="tutorial-slide${index === 0 ? ' active' : ''}" data-tutorial-slide="${index + 1}" aria-hidden="${index === 0 ? 'false' : 'true'}">
+      <div class="tutorial-visual"><img src="${slide.image}" alt="${esc(slide.alt)}" ${index ? 'loading="lazy"' : ''}><span class="tutorial-number">${String(index + 1).padStart(2, '0')}</span></div>
+      <div class="tutorial-copy"><span class="tutorial-kicker">Знакомство · ${index + 1}</span><h1>${esc(slide.title)}</h1><p>${esc(slide.copy)}</p></div>
+    </article>`).join('');
+    return `<section class="tutorial-view" id="tutorialView" role="dialog" aria-modal="true" aria-label="Знакомство с Монстрополией" hidden>
+      <header class="tutorial-top"><div class="tutorial-brand"><span class="mark" aria-hidden="true"><iframe src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe></span><div><b>Монстрополия</b><span>Halloween 2026</span></div></div>
+        <button class="tutorial-skip" id="tutorialSkip" type="button">Пропустить</button></header>
+      <div class="tutorial-progress-wrap"><div class="tutorial-progress" id="tutorialProgress">${TUTORIAL_SLIDES.map((_, index) => `<span${index === 0 ? ' class="done"' : ''}></span>`).join('')}</div><span class="tutorial-count" id="tutorialCount">1 / ${TUTORIAL_SLIDES.length}</span></div>
+      <div class="tutorial-stage" id="tutorialStage">${slides}</div>
+      <footer class="tutorial-actions"><button class="tutorial-back" id="tutorialBack" type="button" aria-label="Вернуться к предыдущему экрану" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"></path></svg></button><button class="btn btn-primary tutorial-next" id="tutorialNext" type="button">Продолжить</button></footer>
+    </section>`;
+  }
+  function ensureTutorial() {
+    let view = document.getElementById('tutorialView');
+    if (view) return view;
+    document.body.insertAdjacentHTML('beforeend', tutorialMarkup());
+    view = document.getElementById('tutorialView');
+    document.getElementById('tutorialBack').onclick = () => showTutorialStep(tutorialStep - 1);
+    document.getElementById('tutorialNext').onclick = () => {
+      if (tutorialStep === TUTORIAL_SLIDES.length) finishTutorial();
+      else showTutorialStep(tutorialStep + 1);
+    };
+    document.getElementById('tutorialSkip').onclick = finishTutorial;
+    let pointerStartX = null;
+    view.addEventListener('pointerdown', (event) => { pointerStartX = event.clientX; });
+    view.addEventListener('pointerup', (event) => {
+      if (pointerStartX === null) return;
+      const distance = event.clientX - pointerStartX;
+      pointerStartX = null;
+      if (Math.abs(distance) < 56) return;
+      if (distance < 0 && tutorialStep < TUTORIAL_SLIDES.length) showTutorialStep(tutorialStep + 1);
+      if (distance > 0 && tutorialStep > 1) showTutorialStep(tutorialStep - 1);
+    });
+    view.addEventListener('pointercancel', () => { pointerStartX = null; });
+    return view;
+  }
+  function showTutorialStep(step, save = true) {
+    const view = ensureTutorial();
+    tutorialStep = Math.max(1, Math.min(TUTORIAL_SLIDES.length, step));
+    view.querySelectorAll('[data-tutorial-slide]').forEach((slide, index) => {
+      const active = index + 1 === tutorialStep;
+      slide.classList.toggle('active', active);
+      slide.setAttribute('aria-hidden', String(!active));
+      if (active) slide.scrollTop = 0;
+    });
+    view.querySelectorAll('#tutorialProgress span').forEach((segment, index) => segment.classList.toggle('done', index < tutorialStep));
+    document.getElementById('tutorialCount').textContent = `${tutorialStep} / ${TUTORIAL_SLIDES.length}`;
+    document.getElementById('tutorialBack').disabled = tutorialStep === 1;
+    document.getElementById('tutorialNext').textContent = tutorialStep === TUTORIAL_SLIDES.length ? (tutorialReopened ? 'Вернуться' : 'Начать') : 'Продолжить';
+    if (save && !tutorialReopened) tutorialStorageSet(TUTORIAL_STEP_KEY, String(tutorialStep));
+  }
+  function openTutorial({ reopened = true } = {}) {
+    const view = ensureTutorial();
+    tutorialReopened = reopened;
+    tutorialLastFocus = document.activeElement;
+    const scroller = document.querySelector('.app-scroll');
+    tutorialReturnScroll = scroller?.scrollTop || 0;
+    const savedStep = Number(tutorialStorageGet(TUTORIAL_STEP_KEY));
+    showTutorialStep(reopened ? 1 : (savedStep || 1), !reopened);
+    view.hidden = false;
+    document.body.classList.add('tutorial-open');
+    document.querySelector('.app-shell')?.setAttribute('aria-hidden', 'true');
+    document.getElementById('tutorialNext').focus({ preventScroll: true });
+  }
+  function finishTutorial() {
+    const view = document.getElementById('tutorialView');
+    if (!view) return;
+    tutorialStorageSet(TUTORIAL_DONE_KEY, '1');
+    tutorialStorageRemove(TUTORIAL_STEP_KEY);
+    view.hidden = true;
+    document.body.classList.remove('tutorial-open');
+    document.querySelector('.app-shell')?.removeAttribute('aria-hidden');
+    const scroller = document.querySelector('.app-scroll');
+    if (scroller) scroller.scrollTop = tutorialReturnScroll;
+    if (tutorialLastFocus?.isConnected) tutorialLastFocus.focus({ preventScroll: true });
+  }
+  function bindTutorialButton() {
+    const button = document.getElementById('countdownHelp');
+    if (button) button.onclick = () => openTutorial({ reopened: true });
+  }
+  function maybeOpenTutorial() {
+    if (tutorialStorageGet(TUTORIAL_DONE_KEY) !== '1') openTutorial({ reopened: false });
+  }
+
   const ICONS = {
     admin: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5M4 5h9M4 19h9"/></svg>',
     home: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.6 10.8 12 4l8.4 6.8M5.9 9.4V20h12.2V9.4M10 20v-4.2a2 2 0 0 1 4 0V20"/></svg>',
@@ -138,7 +255,7 @@
       <span class="batfly b1" aria-hidden="true">${bat}</span><span class="batfly b2" aria-hidden="true">${bat}</span>
       <i class="spark s1" aria-hidden="true">${spark}</i><i class="spark s2" aria-hidden="true">${spark}</i><i class="spark s3" aria-hidden="true">${spark}</i>`;
     const brand = `<div class="cd-brand"><span class="mark" aria-hidden="true"><iframe src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe></span>
-      <div><h1>Монстрополия</h1><p>Halloween 2026</p></div></div>`;
+      <div><h1>Монстрополия</h1><p>Halloween 2026</p></div>${tutorialHelpButton()}</div>`;
     if (!eventState?.eventStartAt) {
       return `<section class="cd cd-unset">${magic}<div class="cd-inner">${brand}<div class="cd-empty"><div>
         <div class="cd-head"><span class="cd-dot"></span><b>Начало мероприятия</b></div><h2>Скоро начинаем</h2>
@@ -243,6 +360,7 @@
     if (activeTab === 'register') renderRegisterForm();
     else renderJoinForm();
     bindCountdown();
+    bindTutorialButton();
   }
   function renderJoinForm() {
     document.getElementById('tabContent').innerHTML = `<section class="panel sect">
@@ -540,6 +658,7 @@
     </section>${renderIncomingVisitsCard()}${state.group ? renderRouteCard() : renderWaitingCard()}`;
     bindAdminButton();
     bindCountdown();
+    bindTutorialButton();
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('editFamilyBtn').onclick = renderEditForm;
     document.getElementById('deleteFamilyBtn').onclick = renderDeleteConfirmation;
@@ -690,6 +809,7 @@
       };
       await finishInitialLoading(isBoot);
       if (!state.family) renderEntry(); else renderDashboard();
+      if (isBoot) maybeOpenTutorial();
     } catch (error) {
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
       if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
