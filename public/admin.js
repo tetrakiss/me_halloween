@@ -2,7 +2,7 @@
   const APP = document.getElementById('app');
   const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
   let password = sessionStorage.getItem('adminPassword') || '';
-  const familyFilterState = { query: '', tower: '', statuses: new Set() };
+  const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
 
   function detectPlatform() {
     if (MINI_APP_CONTEXT.platform === 'max') return 'max';
@@ -90,7 +90,7 @@
     const address = stop.hostType === 'special'
       ? `${stop.tower} · этаж ${stop.floor}`
       : `этаж ${stop.floor} · квартира ${stop.apartmentCode}`;
-    return `<li class="admin-route-stop"><span class="admin-route-node">${index + 1}</span><span class="admin-route-address"><strong>${stop.isQuest ? '🎭' : '🍬'} ${esc(title)}</strong><small>${esc(address)}</small></span>
+    return `<li class="admin-route-stop" draggable="true" data-route-stop-id="${stop.id}" data-group="${esc(groupId)}"><span class="route-drag-handle" title="Перетащить">⠿</span><span class="admin-route-node">${index + 1}</span><span class="admin-route-address"><strong>${stop.isQuest ? '🎭' : '🍬'} ${esc(title)}</strong><small>${esc(address)}</small></span>
       <span class="route-controls"><button class="secondary tiny" data-route-move="up" data-group="${esc(groupId)}" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
       <button class="secondary tiny" data-route-move="down" data-group="${esc(groupId)}" data-index="${index}" ${index === total - 1 ? 'disabled' : ''}>↓</button></span></li>`;
   }
@@ -160,7 +160,7 @@
         <div class="age-chart-caption"><span>Возраст, лет</span><span>Высота столбца — количество детей</span></div>
       </article>
       ${unconfiguredFamilies.length ? `<button class="hosting-filter-button" data-activate-family-filter="unconfigured">
-        <span><i>⚠️</i><b>Не заполнен формат участия</b><small>${unconfiguredFamilies.length} семей — показать в общем списке</small></span><strong>Показать →</strong>
+        <span><i>⚠️</i><b>Не выбран тип приёма гостей</b><small>${unconfiguredFamilies.length} семей — показать в общем списке</small></span><strong>Показать →</strong>
       </button>` : ''}
     </section>`;
   }
@@ -200,9 +200,11 @@
         <div class="card admin-collection" id="familiesSection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div><span class="metric-total" id="familyFilterCount">${families.length}</span></div>
           <div class="family-filter-bar">
             <div class="family-filter-primary"><label class="family-filter-search"><span>Поиск</span><input id="familyFilterQuery" type="text" placeholder="Башня, квартира или имя ребёнка" /></label>
-            <label class="family-filter-tower"><span>Башня</span><select id="familyFilterTower"><option value="">Все башни</option>${towerOptions()}</select></label></div>
+            <label class="family-filter-tower"><span>Башня</span><select id="familyFilterTower"><option value="">Все башни</option>${towerOptions()}</select></label>
+            <label class="family-filter-age"><span>Возраст ребёнка</span><span class="family-filter-age-inputs"><input id="familyFilterAgeMin" type="number" min="1" max="17" placeholder="от" /><input id="familyFilterAgeMax" type="number" min="1" max="17" placeholder="до" /></span></label></div>
             <fieldset class="family-filter-fieldset"><legend>Статусы — можно выбрать несколько</legend><div class="family-filter-chips">
               <label><input type="checkbox" value="walking" /> Идут в обход</label>
+              <label><input type="checkbox" value="notWalking" /> Не идут в обход</label>
               <label><input type="checkbox" value="grouped" /> Уже в группе</label>
               <label><input type="checkbox" value="waiting" /> Ожидают группу</label>
               <label><input type="checkbox" value="hosting" /> Раздают конфеты</label>
@@ -233,12 +235,15 @@
     const familyById = new Map(families.map((family) => [family.id, family]));
     const filterQuery = document.getElementById('familyFilterQuery');
     const filterTower = document.getElementById('familyFilterTower');
+    const filterAgeMin = document.getElementById('familyFilterAgeMin');
+    const filterAgeMax = document.getElementById('familyFilterAgeMax');
     const filterStatusInputs = [...document.querySelectorAll('.family-filter-chips input')];
     const filterCount = document.getElementById('familyFilterCount');
     const filterSummary = document.getElementById('familyFilterSummary');
     const filterEmpty = document.getElementById('familyFilterEmpty');
     const matchesStatus = (family, status) => ({
       walking: family.walking && !family.cancelled,
+      notWalking: !family.walking && !family.cancelled,
       grouped: !!family.currentGroupId && !family.cancelled,
       waiting: family.walking && !family.cancelled && !family.currentGroupId,
       hosting: family.hosting && !family.quest && !family.cancelled,
@@ -249,14 +254,27 @@
     const applyFamilyFilters = () => {
       const query = familyFilterState.query.trim().toLocaleLowerCase('ru');
       const activeStatuses = [...familyFilterState.statuses];
+      const statusCategories = [
+        ['walking', 'notWalking', 'cancelled'],
+        ['grouped', 'waiting'],
+        ['hosting', 'quest', 'unconfigured'],
+      ];
+      const minAge = Number(familyFilterState.ageMin) || 1;
+      const maxAge = Number(familyFilterState.ageMax) || 17;
       let visibleCount = 0;
       document.querySelectorAll('[data-family-card]').forEach((card) => {
         const family = familyById.get(card.dataset.familyCard);
         const haystack = [family.tower, family.floor, family.apartmentCode, family.familyCode,
           ...family.children.map((child) => child.name)].join(' ').toLocaleLowerCase('ru');
+        const matchesStatuses = statusCategories.every((category) => {
+          const selected = category.filter((status) => familyFilterState.statuses.has(status));
+          return !selected.length || selected.some((status) => matchesStatus(family, status));
+        });
+        const matchesAge = family.children.some((child) => Number(child.age) >= minAge && Number(child.age) <= maxAge);
         const matches = (!query || haystack.includes(query))
           && (!familyFilterState.tower || family.tower === familyFilterState.tower)
-          && (!activeStatuses.length || activeStatuses.some((status) => matchesStatus(family, status)));
+          && matchesStatuses
+          && matchesAge;
         card.hidden = !matches;
         if (matches) visibleCount += 1;
       });
@@ -264,15 +282,20 @@
       const filterParts = [];
       if (familyFilterState.query) filterParts.push('поиск');
       if (familyFilterState.tower) filterParts.push(familyFilterState.tower);
+      if (familyFilterState.ageMin || familyFilterState.ageMax) filterParts.push(`возраст ${minAge}–${maxAge}`);
       if (activeStatuses.length) filterParts.push(`${activeStatuses.length} стат.`);
       filterSummary.textContent = filterParts.length ? `Найдено семей: ${visibleCount} · ${filterParts.join(' · ')}` : 'Показаны все семьи';
       filterEmpty.hidden = visibleCount !== 0;
     };
     filterQuery.value = familyFilterState.query;
     filterTower.value = familyFilterState.tower;
+    filterAgeMin.value = familyFilterState.ageMin;
+    filterAgeMax.value = familyFilterState.ageMax;
     filterStatusInputs.forEach((input) => { input.checked = familyFilterState.statuses.has(input.value); });
     filterQuery.oninput = () => { familyFilterState.query = filterQuery.value; applyFamilyFilters(); };
     filterTower.onchange = () => { familyFilterState.tower = filterTower.value; applyFamilyFilters(); };
+    filterAgeMin.oninput = () => { familyFilterState.ageMin = filterAgeMin.value; applyFamilyFilters(); };
+    filterAgeMax.oninput = () => { familyFilterState.ageMax = filterAgeMax.value; applyFamilyFilters(); };
     filterStatusInputs.forEach((input) => {
       input.onchange = () => {
         if (input.checked) familyFilterState.statuses.add(input.value); else familyFilterState.statuses.delete(input.value);
@@ -282,9 +305,13 @@
     document.getElementById('clearFamilyFilters').onclick = () => {
       familyFilterState.query = '';
       familyFilterState.tower = '';
+      familyFilterState.ageMin = '';
+      familyFilterState.ageMax = '';
       familyFilterState.statuses.clear();
       filterQuery.value = '';
       filterTower.value = '';
+      filterAgeMin.value = '';
+      filterAgeMax.value = '';
       filterStatusInputs.forEach((input) => { input.checked = false; });
       applyFamilyFilters();
     };
@@ -467,13 +494,52 @@
         } catch (error) { button.disabled = false; alert(error.message); }
       };
     });
+    const saveRouteOrder = async (group) => {
+      await api(`/groups/${encodeURIComponent(group.id)}/route`, {
+        method: 'PUT',
+        body: { stopIds: group.stops.map((stop) => stop.id) },
+      });
+      await renderDashboard();
+    };
+    let draggedRouteStop = null;
+    document.querySelectorAll('[data-route-stop-id]').forEach((item) => {
+      item.ondragstart = (event) => {
+        draggedRouteStop = { groupId: item.dataset.group, stopId: Number(item.dataset.routeStopId) };
+        item.classList.add('is-dragging');
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', String(item.dataset.routeStopId));
+      };
+      item.ondragover = (event) => {
+        if (draggedRouteStop?.groupId !== item.dataset.group) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'move';
+        item.classList.add('is-drag-target');
+      };
+      item.ondragleave = () => item.classList.remove('is-drag-target');
+      item.ondrop = async (event) => {
+        event.preventDefault();
+        item.classList.remove('is-drag-target');
+        if (!draggedRouteStop || draggedRouteStop.groupId !== item.dataset.group) return;
+        const group = groups.find((entry) => entry.id === item.dataset.group);
+        const from = group.stops.findIndex((stop) => stop.id === draggedRouteStop.stopId);
+        const to = group.stops.findIndex((stop) => stop.id === Number(item.dataset.routeStopId));
+        if (from < 0 || to < 0 || from === to) return;
+        const [moved] = group.stops.splice(from, 1);
+        group.stops.splice(to, 0, moved);
+        try { await saveRouteOrder(group); } catch (error) { alert(error.message); await renderDashboard(); }
+      };
+      item.ondragend = () => {
+        draggedRouteStop = null;
+        document.querySelectorAll('.admin-route-stop').forEach((stop) => stop.classList.remove('is-dragging', 'is-drag-target'));
+      };
+    });
     document.querySelectorAll('[data-route-move]').forEach((button) => {
       button.onclick = async () => {
         const group = groups.find((item) => item.id === button.dataset.group); const index = Number(button.dataset.index);
         const target = button.dataset.routeMove === 'up' ? index - 1 : index + 1;
         [group.stops[index], group.stops[target]] = [group.stops[target], group.stops[index]];
-        try { await api(`/groups/${encodeURIComponent(group.id)}/route`, { method: 'PUT', body: { stopIds: group.stops.map((stop) => stop.id) } }); renderDashboard(); }
-        catch (error) { alert(error.message); }
+        try { await saveRouteOrder(group); }
+        catch (error) { alert(error.message); await renderDashboard(); }
       };
     });
     document.getElementById('spAddBtn').onclick = async () => {

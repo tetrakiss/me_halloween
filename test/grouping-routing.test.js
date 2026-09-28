@@ -230,3 +230,19 @@ test('квесты и обычные квартиры распределяютс
   assert.ok(Math.max(...candyCounts) - Math.min(...candyCounts) <= 1);
   assert.ok(routes.every((route) => route.stops.some((stop) => stop.isQuest) && route.stops.some((stop) => !stop.isQuest)));
 });
+
+test('одна квартира не повторяется на одном этапе у разных групп', () => {
+  const towers = ['A', 'B', 'C', 'D'];
+  const hosts = Array.from({ length: 20 }, (_, index) => family(`host${index + 1}`, 8, towers[index % towers.length], {
+    floor: 1 + Math.floor(index / towers.length),
+    apartmentCode: String(200 + index),
+    hosting: true,
+  }));
+  const walkers = Array.from({ length: 6 }, (_, index) => family(`walker${index + 1}`, 8, towers[index % towers.length]));
+  const groups = walkers.map((walker, index) => ({ id: `group_${index + 1}`, memberFamilyIds: [walker.id] }));
+  const routes = buildRoutes(groups, [...hosts, ...walkers]);
+  for (let stage = 0; stage < TARGET_ROUTE_STOPS; stage += 1) {
+    const hostIds = routes.map((route) => route.stops[stage]?.hostId).filter(Boolean);
+    assert.equal(new Set(hostIds).size, hostIds.length);
+  }
+});

@@ -87,6 +87,7 @@
   let countdownTimer = null;
   let childRows = [{ name: '', age: '' }];
   let wishFamilyId = null;
+  let currentRegistrationStep = 1;
   const skipReturnSplash = sessionStorage.getItem('skipNextAppSplash') === '1';
   sessionStorage.removeItem('skipNextAppSplash');
   const MIN_LOADING_MS = skipReturnSplash ? 0 : 2000;
@@ -104,6 +105,9 @@
     key: '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="8.5" cy="8.5" r="4.5"/><path d="M11.8 11.8 20 20M16.5 15.5l-2.4 2.4M19 18l-1.6 1.6"/></svg>',
     close: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>',
     plus: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+    back: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
+    copy: '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="11" height="11" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg>',
+    check: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5 9.5 17 19 7"/></svg>',
   };
   function sectionTitle(icon, text, aside = '') {
     return `<div class="form-section-head"><h4><span class="section-icon">${icon}</span>${text}</h4>${aside}</div>`;
@@ -113,32 +117,41 @@
     const noun = mod10 === 1 && mod100 !== 11 ? 'ребёнок' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'ребёнка' : 'детей';
     return `${count} ${noun}`;
   }
+  function celebrationMarkup() {
+    const colors = ['var(--accent)', 'var(--violet-2)', 'var(--success)', 'oklch(.975 .018 95)', 'var(--accent-hi)'];
+    return `<div class="celebration-layer" aria-hidden="true">${Array.from({ length: 12 }, (_, index) => {
+      const x = [4, 12, 21, 30, 39, 48, 57, 65, 73, 82, 91, 96][index];
+      const drift = index % 2 ? -(16 + index * 2) : 18 + index;
+      const rotation = index % 2 ? `${-330 - index * 8}deg` : `${350 + index * 7}deg`;
+      return `<i class="confetti" style="--x:${x}%;--c:${colors[index % colors.length]};--delay:${(index * .03).toFixed(2)}s;--drift:${drift}px;--r:${rotation}"></i>`;
+    }).join('')}</div>`;
+  }
 
   function adminButton() {
-    return state.isAdmin ? `<button id="adminBtn" class="secondary admin-entry-button">${ICONS.admin}Администрирование</button>` : '';
+    return state.isAdmin ? `<button id="adminBtn" class="btn btn-ghost btn-sm admin-entry-button">${ICONS.admin}Администрирование</button>` : '';
   }
   function countdownCard() {
-    const magic = `<span class="countdown-magic" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
-      <span class="countdown-bat bat-one" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7.6C10.4 5.3 8 4.5 5.6 5c.6 1 1 2.2.9 3.4-1-.4-2.1-.3-3 .3 1.5 1 2.5 2.7 2.9 4.6 1.6-.9 3.5-.8 5.6.4 2.1-1.2 4-1.3 5.6-.4.4-1.9 1.4-3.6 2.9-4.6-.9-.6-2-.7-3-.3-.1-1.2.3-2.4.9-3.4-2.4-.5-4.8.3-6.4 2.6Z"/></svg></span>
-      <span class="countdown-bat bat-two" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 7.6C10.4 5.3 8 4.5 5.6 5c.6 1 1 2.2.9 3.4-1-.4-2.1-.3-3 .3 1.5 1 2.5 2.7 2.9 4.6 1.6-.9 3.5-.8 5.6.4 2.1-1.2 4-1.3 5.6-.4.4-1.9 1.4-3.6 2.9-4.6-.9-.6-2-.7-3-.3-.1-1.2.3-2.4.9-3.4-2.4-.5-4.8.3-6.4 2.6Z"/></svg></span>
-      <i class="countdown-spark spark-one" aria-hidden="true">✦</i><i class="countdown-spark spark-two" aria-hidden="true">✦</i><i class="countdown-spark spark-three" aria-hidden="true">✦</i>`;
+    const bat = '<svg viewBox="0 0 24 24"><path d="M12 7.6c-1.6-2.3-4-3.1-6.4-2.6.6 1 1 2.2.9 3.4-1-.4-2.1-.3-3 .3 1.5 1 2.5 2.7 2.9 4.6 1.6-.9 3.5-.8 5.6.4 2.1-1.2 4-1.3 5.6-.4.4-1.9 1.4-3.6 2.9-4.6-.9-.6-2-.7-3-.3-.1-1.2.3-2.4.9-3.4-2.4-.5-4.8.3-6.4 2.6z"/></svg>';
+    const spark = '<svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 2.5l1.6 6 6 1.6-6 1.6-1.6 6-1.6-6-6-1.6 6-1.6z"/></svg>';
+    const magic = `<span class="magic-orbit" aria-hidden="true"></span>
+      <i class="mote m1" aria-hidden="true"></i><i class="mote m2" aria-hidden="true"></i><i class="mote m3" aria-hidden="true"></i><i class="mote m4" aria-hidden="true"></i>
+      <span class="batfly b1" aria-hidden="true">${bat}</span><span class="batfly b2" aria-hidden="true">${bat}</span>
+      <i class="spark s1" aria-hidden="true">${spark}</i><i class="spark s2" aria-hidden="true">${spark}</i><i class="spark s3" aria-hidden="true">${spark}</i>`;
+    const brand = `<div class="cd-brand"><span class="mark" aria-hidden="true"><iframe src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe></span>
+      <div><h1>Монстрополия</h1><p>Halloween 2026</p></div></div>`;
     if (!eventState?.eventStartAt) {
-      return `<section class="countdown-card family-countdown countdown-unset">
-        ${magic}
-        <div class="countdown-content"><div class="countdown-kicker"><span class="countdown-dot"></span> Монстрополия</div>
-        <h2>Скоро начинаем</h2><p>Организаторы скоро укажут время начала мероприятия.</p></div></section>`;
+      return `<section class="cd cd-unset">${magic}<div class="cd-inner">${brand}<div class="cd-empty"><div>
+        <div class="cd-head"><span class="cd-dot"></span><b>Начало мероприятия</b></div><h2>Скоро начинаем</h2>
+        <p class="cd-sub">Организаторы скоро укажут время начала.</p></div></div></div></section>`;
     }
-    return `<section class="countdown-card family-countdown" id="eventCountdown" aria-live="polite">
-      ${magic}
-      <div class="countdown-content"><div class="countdown-kicker"><span class="countdown-dot"></span> До начала мероприятия</div>
-      <div class="countdown-grid">
-        <div class="countdown-unit countdown-days"><strong data-countdown="days">00</strong><span>дней</span></div>
-        <div class="countdown-unit"><strong data-countdown="hours">00</strong><span>часов</span></div>
-        <div class="countdown-unit"><strong data-countdown="minutes">00</strong><span>минут</span></div>
-        <div class="countdown-unit"><strong data-countdown="seconds">00</strong><span>секунд</span></div>
-      </div>
-      <div class="countdown-status" id="countdownStatus">Готовим <em>костюмы</em> и <em>конфеты</em></div></div>
-    </section>`;
+    return `<section class="cd" id="eventCountdown" aria-live="polite">${magic}<div class="cd-inner">${brand}
+      <div class="cd-head"><span class="cd-dot"></span><b>До начала мероприятия</b></div>
+      <div class="cd-tiles" role="timer" aria-label="Обратный отсчёт до начала мероприятия">
+        <div class="cd-tile cd-tile-days"><span class="cd-n" data-countdown="days">00</span><span class="cd-l" data-countdown-label="days">дней</span></div>
+        <div class="cd-tile"><span class="cd-n" data-countdown="hours">00</span><span class="cd-l" data-countdown-label="hours">часов</span></div>
+        <div class="cd-tile"><span class="cd-n" data-countdown="minutes">00</span><span class="cd-l" data-countdown-label="minutes">минут</span></div>
+        <div class="cd-tile"><span class="cd-n" data-countdown="seconds">00</span><span class="cd-l" data-countdown-label="seconds">секунд</span></div>
+      </div><p class="cd-sub" id="countdownStatus">Готовим <em>костюмы</em> и <em>конфеты</em></p></div></section>`;
   }
   function stopCountdown() {
     clearInterval(countdownTimer);
@@ -162,11 +175,21 @@
         const formatted = String(value).padStart(2, '0');
         if (element && previous[key] !== formatted) {
           element.textContent = formatted;
-          element.classList.remove('countdown-tick');
+          element.classList.remove('magic-pop');
           void element.offsetWidth;
-          element.classList.add('countdown-tick');
+          element.classList.add('magic-pop');
           previous[key] = formatted;
         }
+      });
+      const words = {
+        days: ['день', 'дня', 'дней'], hours: ['час', 'часа', 'часов'],
+        minutes: ['минута', 'минуты', 'минут'], seconds: ['секунда', 'секунды', 'секунд'],
+      };
+      Object.entries(values).forEach(([key, value]) => {
+        const mod10 = value % 10; const mod100 = value % 100;
+        const word = mod10 === 1 && mod100 !== 11 ? words[key][0] : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? words[key][1] : words[key][2];
+        const label = card.querySelector(`[data-countdown-label="${key}"]`);
+        if (label) label.textContent = word;
       });
       if (remaining === 0) {
         card.classList.add('countdown-live');
@@ -215,20 +238,19 @@
       <button id="tabJoin" class="${activeTab === 'join' ? 'active' : ''}" aria-selected="${activeTab === 'join'}">У нас есть код</button>
       </div><div id="tabContent"></div>`;
     bindAdminButton();
-    document.getElementById('tabRegister').onclick = () => { activeTab = 'register'; renderEntry(); };
+    document.getElementById('tabRegister').onclick = () => { activeTab = 'register'; currentRegistrationStep = 1; renderEntry(); };
     document.getElementById('tabJoin').onclick = () => { activeTab = 'join'; renderEntry(); };
     if (activeTab === 'register') renderRegisterForm();
     else renderJoinForm();
     bindCountdown();
   }
   function renderJoinForm() {
-    document.getElementById('tabContent').innerHTML = `<div class="form-card form-panel">
-      <section class="form-section">${sectionTitle(ICONS.key, 'Присоединиться к семье')}
-        <p class="form-help">Введите код, который получил уже зарегистрированный член семьи. Он открывает одну семейную запись и в Telegram, и в MAX.</p>
-        <label class="form-field"><span>Код семьи <i>*</i></span><input type="text" id="joinCode" placeholder="Например ABC123" value="${esc(joinCodeFromUrl)}" autocomplete="off" /></label>
-        <div id="joinMsg" class="search-hint form-status" aria-live="polite"></div>
-      </section>
-      <div class="form-actions"><button id="joinBtn">Присоединиться</button></div></div>`;
+    document.getElementById('tabContent').innerHTML = `<section class="panel sect">
+      <div class="sect-head"><h2><span class="h-ico">${ICONS.key}</span>Присоединиться к семье</h2></div>
+      <p class="sect-p">Введите код, который получил уже зарегистрированный член семьи. Этот же код нужен, если вы зарегистрировались через Telegram, а теперь хотите открыть данные семьи в MAX — новую запись создавать не нужно.</p>
+      <label class="fld"><span class="lbl">Код семьи</span><input class="ctl" type="text" id="joinCode" placeholder="Например ABC123" value="${esc(joinCodeFromUrl)}" autocomplete="off" autocapitalize="characters" /></label>
+      <div id="joinMsg" class="wizard-status" aria-live="polite"></div>
+      <button id="joinBtn" class="btn btn-primary">Присоединиться</button></section>`;
     document.getElementById('joinBtn').onclick = async () => {
       const code = document.getElementById('joinCode').value.trim();
       if (!code) return void (document.getElementById('joinMsg').textContent = 'Введите код');
@@ -244,10 +266,10 @@
   }
   function renderChildRows() {
     const container = document.getElementById('childrenList');
-    container.innerHTML = childRows.map((child, index) => `<div class="child-row">
-      <input type="text" placeholder="Имя ребёнка" aria-label="Имя ребёнка ${index + 1}" data-child-name="${index}" value="${esc(child.name)}" />
-      <input type="number" placeholder="Возраст" aria-label="Возраст ребёнка ${index + 1}" data-child-age="${index}" value="${esc(child.age)}" min="1" max="17" />
-      <button type="button" class="secondary small child-remove" data-remove="${index}" aria-label="Убрать ребёнка">${ICONS.close}</button></div>`).join('');
+    container.innerHTML = childRows.map((child, index) => `<div class="kidrow child-row">
+      <input class="ctl kid-name" type="text" placeholder="Имя" aria-label="Имя ребёнка ${index + 1}" data-child-name="${index}" value="${esc(child.name)}" />
+      <input class="ctl kid-age" type="number" placeholder="Возраст" aria-label="Возраст ребёнка ${index + 1}" data-child-age="${index}" value="${esc(child.age)}" min="1" max="17" />
+      <button type="button" class="kid-rm child-remove" data-remove="${index}" aria-label="Убрать ребёнка">${ICONS.close}</button></div>`).join('');
     const count = document.getElementById('childCount');
     if (count) count.textContent = pluralChildren(childRows.length);
     container.querySelectorAll('[data-remove]').forEach((button) => {
@@ -273,27 +295,62 @@
     return raw || 'Ваш маршрут';
   }
   function renderRegisterForm() {
-    document.getElementById('tabContent').innerHTML = `<div class="form-card form-panel">
-      <section class="form-section">${sectionTitle(ICONS.home, 'Записать нашу семью')}
-        <p class="form-help">Расскажите, откуда вы стартуете и кто отправится за конфетами.</p>
-        <div class="form-row form-row-address">
-          <label class="form-field address-tower"><span>Башня <i>*</i></span><select id="tower">${towerOptions()}</select></label>
-          <label class="form-field"><span>Этаж <i>*</i></span><input type="number" id="floor" min="0" max="200" placeholder="22" /></label>
-          <label class="form-field"><span>Квартира <i>*</i></span><input type="text" id="apartmentCode" placeholder="2206Г" /></label>
+    document.getElementById('tabContent').innerHTML = `<div class="panel wizard">
+      <div class="step-meta"><span class="step-count" id="stepCount">Шаг 1 из 5</span><span class="pill" id="stepHint">Адрес</span></div>
+      <div class="wizard-progress" aria-hidden="true">${[1, 2, 3, 4, 5].map((step) => `<span class="progress-seg ${step === 1 ? 'done' : ''}" data-progress="${step}"></span>`).join('')}</div>
+
+      <section class="form-step active" data-step="1">
+        <div><h2 class="step-title">Где вы живёте?</h2><p class="step-copy">Укажите адрес, чтобы мы сделали маршрут.</p></div>
+        <label class="fld"><span class="lbl">Башня</span><select class="ctl" id="tower">${towerOptions()}</select></label>
+        <div class="row">
+          <label class="fld"><span class="lbl">Этаж</span><input class="ctl" type="number" id="floor" min="0" max="200" placeholder="Например 22" /><span class="field-error" id="floorError">Укажите этаж числом</span></label>
+          <label class="fld"><span class="lbl">Квартира</span><input class="ctl" type="text" id="apartmentCode" placeholder="Например 2206Г" /><span class="field-error" id="apartmentError">Укажите номер квартиры</span></label>
+        </div><div class="step-actions first"><button class="btn btn-primary" type="button" data-next="2">Продолжить</button></div>
+      </section>
+
+      <section class="form-step" data-step="2">
+        <div><h2 class="step-title">Хотите быть в группе с определённой семьёй?</h2><p class="step-copy">Если да — найдём уже зарегистрированную квартиру.</p></div>
+        <div class="choice-grid" role="radiogroup" aria-label="Выбор совместной группы">
+          <label class="choice"><input type="radio" name="groupChoice" value="no" checked /><span class="choice-box"><b>Нет</b><span>Подберём группу автоматически</span></span></label>
+          <label class="choice"><input type="radio" name="groupChoice" value="yes" /><span class="choice-box"><b>Да</b><span>Найти знакомую семью</span></span></label>
         </div>
-        <div class="form-subblock"><strong>Хотим идти с семьёй (необязательно)</strong><p class="form-help">Выберите башню и начните вводить квартиру зарегистрированной семьи.</p>
-        <div class="form-row form-row-stack"><label class="form-field"><span>Башня</span><select id="wishTower">${towerOptions()}</select></label>
-        <label class="form-field"><span>Квартира</span><input type="text" id="wishApartment" placeholder="Номер квартиры" list="wishApartmentList" /></label></div>
-        <datalist id="wishApartmentList"></datalist><div id="wishHint" class="search-hint form-status" aria-live="polite"></div></div>
+        <div class="group-search" id="groupSearch">
+          <label class="fld"><span class="lbl">Башня семьи</span><select class="ctl" id="wishTower">${towerOptions()}</select></label>
+          <label class="fld"><span class="lbl">Номер квартиры</span><input class="ctl" type="text" id="wishApartment" placeholder="Например 684" list="wishApartmentList" /><span class="field-error" id="wishError">Выберите зарегистрированную семью</span></label>
+          <datalist id="wishApartmentList"></datalist><div id="wishHint" class="search-hint" aria-live="polite"></div>
+        </div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="1" aria-label="Вернуться к адресу">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="3">Продолжить</button></div>
       </section>
-      <section class="form-section">${sectionTitle(ICONS.ghost, 'Дети', '<span class="family-pill" id="childCount">1 ребёнок</span>')}<div id="childrenList"></div><button type="button" id="addChild" class="secondary small add-child-button">${ICONS.plus}Добавить ребёнка</button></section>
-      <section class="form-section participation-section">
-        <div class="toggle-row"><span><b>Раздаём конфеты в квартире</b><small>Будем выдавать конфеты участникам</small></span><input type="checkbox" id="hosting" aria-label="Раздаём конфеты в квартире" /></div>
-        <div class="toggle-row"><span><b>У нас будет квест</b><small>Добавить точку с заданием</small></span><input type="checkbox" id="quest" aria-label="У нас будет квест" /></div>
-        <div id="questDurationWrap" hidden><label class="form-field"><span>Длительность квеста</span><input type="number" id="questDuration" value="20" min="5" max="40" /></label></div>
+
+      <section class="form-step" data-step="3">
+        <div class="sect-head"><div><h2 class="step-title">Добавьте детей</h2><p class="step-copy">Имя и возраст помогут сформировать подходящую группу.</p></div><span class="pill" id="childCount">1 ребёнок</span></div>
+        <div class="kids" id="childrenList"></div><button type="button" id="addChild" class="btn btn-ghost add-kid">${ICONS.plus}Добавить ребёнка</button>
+        <p class="field-error" id="kidsError">Заполните имя и возраст каждого ребёнка от 1 до 17 лет</p>
+        <div class="step-actions"><button class="step-back" type="button" data-back="2" aria-label="Вернуться к выбору группы">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="4">Продолжить</button></div>
       </section>
-      <div id="registerMsg" class="search-hint form-status" aria-live="polite"></div>
-      <div class="form-actions"><button id="submitRegister">Записаться 🎃</button></div></div>`;
+
+      <section class="form-step" data-step="4">
+        <div><h2 class="step-title">Последние детали</h2><p class="step-copy">Отметьте, что будет ждать участников у вашей двери.</p></div>
+        <div class="subblock">
+          <div class="switch-row"><span class="sw-t">Раздаём конфеты в квартире 🍬</span><label class="switch"><input id="hosting" type="checkbox" aria-label="Раздаём конфеты в квартире" /><span class="track"></span></label></div>
+          <div class="switch-row"><span class="sw-t">У нас будет квест 🎭</span><label class="switch"><input id="quest" type="checkbox" aria-label="У нас будет квест" /><span class="track"></span></label></div>
+          <div id="questDurationWrap" hidden><label class="fld"><span class="lbl">Длительность квеста, минут</span><input class="ctl" type="number" id="questDuration" value="20" min="5" max="40" /></label></div>
+        </div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="3" aria-label="Вернуться к детям">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="5">Проверить данные</button></div>
+      </section>
+
+      <section class="form-step" data-step="5">
+        <div><h2 class="step-title">Всё верно?</h2><p class="step-copy">Проверьте данные перед записью семьи. Любой раздел можно быстро изменить.</p></div>
+        <div class="review-list">
+          <article class="review-card"><div class="review-head"><span>Адрес</span><button class="review-edit" type="button" data-edit-step="1">Изменить</button></div><div class="review-value" id="reviewAddress">—</div></article>
+          <article class="review-card"><div class="review-head"><span>Совместная группа</span><button class="review-edit" type="button" data-edit-step="2">Изменить</button></div><div class="review-value" id="reviewGroup">—</div><p class="review-note" id="reviewGroupNote"></p></article>
+          <article class="review-card"><div class="review-head"><span>Дети</span><button class="review-edit" type="button" data-edit-step="3">Изменить</button></div><div class="review-kids" id="reviewKids"></div></article>
+          <article class="review-card"><div class="review-head"><span>Участие</span><button class="review-edit" type="button" data-edit-step="4">Изменить</button></div><div class="review-value" id="reviewOptions">—</div></article>
+        </div>
+        <div id="registerMsg" class="wizard-status" aria-live="polite"></div>
+        <div class="step-actions"><button class="step-back" type="button" data-back="4" aria-label="Вернуться к настройкам">${ICONS.back}</button><button class="btn btn-primary" id="submitRegister" type="button">Подтвердить и записаться</button></div>
+      </section>
+    </div>`;
     renderChildRows();
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('hosting').onchange = (event) => {
@@ -306,21 +363,88 @@
       if (event.target.checked) document.getElementById('hosting').checked = true;
       document.getElementById('questDurationWrap').hidden = !event.target.checked;
     };
+    document.querySelectorAll('input[name="groupChoice"]').forEach((radio) => {
+      radio.onchange = () => {
+        document.getElementById('groupSearch').classList.toggle('active', radio.value === 'yes' && radio.checked);
+        if (radio.value === 'no' && radio.checked) {
+          wishFamilyId = null;
+          document.getElementById('wishApartment').value = '';
+          document.getElementById('wishHint').textContent = '';
+        }
+      };
+    });
     bindWishSearch();
-    document.getElementById('submitRegister').onclick = async () => {
-      const floor = Number(document.getElementById('floor').value);
-      const children = readChildren();
-      const message = document.getElementById('registerMsg');
-      if (!document.getElementById('floor').value || !Number.isInteger(floor) || floor < 0 || !document.getElementById('apartmentCode').value.trim() || !children.length) {
-        message.textContent = 'Укажите этаж, номер квартиры и хотя бы одного ребёнка'; return;
+    const setError = (inputId, errorId, visible) => {
+      document.getElementById(inputId)?.setAttribute('aria-invalid', visible ? 'true' : 'false');
+      document.getElementById(errorId)?.classList.toggle('show', visible);
+    };
+    const registrationData = () => ({
+      tower: document.getElementById('tower').value,
+      floor: Number(document.getElementById('floor').value),
+      floorRaw: document.getElementById('floor').value,
+      apartmentCode: document.getElementById('apartmentCode').value.trim(),
+      children: readChildren(),
+      wantsCompanion: document.querySelector('input[name="groupChoice"]:checked')?.value === 'yes',
+      hosting: document.getElementById('hosting').checked,
+      quest: document.getElementById('quest').checked,
+      questDurationMin: Number(document.getElementById('questDuration').value) || 20,
+    });
+    const validateStep = (step) => {
+      const data = registrationData();
+      if (step === 1) {
+        const badFloor = !data.floorRaw || !Number.isInteger(data.floor) || data.floor < 0 || data.floor > 200;
+        const badApartment = !data.apartmentCode;
+        setError('floor', 'floorError', badFloor); setError('apartmentCode', 'apartmentError', badApartment);
+        return !badFloor && !badApartment;
       }
+      if (step === 2) {
+        const invalid = data.wantsCompanion && (!document.getElementById('wishApartment').value.trim() || !wishFamilyId);
+        setError('wishApartment', 'wishError', invalid); return !invalid;
+      }
+      if (step === 3) {
+        syncChildRows();
+        const invalid = !childRows.length || childRows.some((child) => !child.name.trim() || !Number.isInteger(Number(child.age)) || Number(child.age) < 1 || Number(child.age) > 17);
+        document.getElementById('kidsError').classList.toggle('show', invalid); return !invalid;
+      }
+      return true;
+    };
+    const renderReview = () => {
+      const data = registrationData();
+      document.getElementById('reviewAddress').textContent = `${data.tower} · этаж ${data.floor} · квартира ${data.apartmentCode}`;
+      document.getElementById('reviewGroup').textContent = data.wantsCompanion ? `${document.getElementById('wishTower').value} · квартира ${document.getElementById('wishApartment').value.trim()}` : 'Подберём автоматически';
+      document.getElementById('reviewGroupNote').textContent = data.wantsCompanion ? 'Пожелание будет учтено при формировании групп.' : 'Учтём возраст детей и вашу башню.';
+      document.getElementById('reviewKids').innerHTML = data.children.map((child) => `<span class="review-kid">${esc(child.name)} · ${child.age}</span>`).join('');
+      const options = [];
+      if (data.hosting) options.push('Раздаём конфеты 🍬');
+      if (data.quest) options.push(`Квест 🎭 · ${data.questDurationMin} мин`);
+      document.getElementById('reviewOptions').textContent = options.length ? options.join(' · ') : 'Тип приёма гостей не выбран';
+    };
+    const showStep = (step) => {
+      currentRegistrationStep = step;
+      document.querySelectorAll('.form-step').forEach((section) => section.classList.toggle('active', Number(section.dataset.step) === step));
+      document.querySelectorAll('.progress-seg').forEach((segment) => segment.classList.toggle('done', Number(segment.dataset.progress) <= step));
+      const labels = ['Адрес', 'Группа', 'Дети', 'Участие', 'Проверка'];
+      document.getElementById('stepCount').textContent = `Шаг ${step} из 5`;
+      document.getElementById('stepHint').textContent = labels[step - 1];
+      if (step === 5) renderReview();
+      document.getElementById('tabContent').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+    document.querySelectorAll('[data-next]').forEach((button) => { button.onclick = () => { if (validateStep(currentRegistrationStep)) showStep(Number(button.dataset.next)); }; });
+    document.querySelectorAll('[data-back]').forEach((button) => { button.onclick = () => showStep(Number(button.dataset.back)); });
+    document.querySelectorAll('[data-edit-step]').forEach((button) => { button.onclick = () => showStep(Number(button.dataset.editStep)); });
+    showStep(currentRegistrationStep);
+    document.getElementById('submitRegister').onclick = async () => {
+      if (![1, 2, 3].every((step) => validateStep(step))) return;
+      const data = registrationData();
+      const message = document.getElementById('registerMsg');
+      message.textContent = 'Сохраняем запись…';
       try {
-        const data = await api('/register', { method: 'POST', body: {
-          tower: document.getElementById('tower').value, floor, apartmentCode: document.getElementById('apartmentCode').value.trim(), children,
-          walking: true, hosting: document.getElementById('hosting').checked, quest: document.getElementById('quest').checked,
-          questDurationMin: Number(document.getElementById('questDuration').value) || 20, wishFamilyId,
+        const response = await api('/register', { method: 'POST', body: {
+          tower: data.tower, floor: data.floor, apartmentCode: data.apartmentCode, children: data.children,
+          walking: true, hosting: data.hosting, quest: data.quest, questDurationMin: data.questDurationMin,
+          wishFamilyId: data.wantsCompanion ? wishFamilyId : null,
         } });
-        renderRegisteredSuccess(data.family);
+        renderRegisteredSuccess(response.family);
       } catch (error) {
         if (error.code === 'APARTMENT_EXISTS') renderApartmentExists();
         else message.textContent = error.message;
@@ -376,9 +500,18 @@
   }
   function renderRegisteredSuccess(family) {
     stopCountdown();
-    APP.innerHTML = `<div class="card state-card success-card"><div class="state-icon">✓</div><span class="form-kicker">Анкета сохранена</span><h3>Семья участвует!</h3><p>Нажмите на код, чтобы скопировать его для второго члена семьи:</p>
-      <button class="family-code code-button" id="familyCodeBtn">${esc(family.familyCode)}</button>
-      <div class="form-actions"><button id="continueBtn">Дальше</button><button id="shareBtn" class="secondary">Поделиться кодом</button></div></div>`;
+    const children = (family.children || []).map((child) => `${esc(child.name)}, ${child.age}`).join('<br>');
+    APP.innerHTML = `<section class="family-state active celebrate">${celebrationMarkup()}
+      <div class="success-card"><span class="success-seal" aria-hidden="true">${ICONS.check}</span><span class="success-kicker">Регистрация завершена</span>
+        <h2>Ваша семья в игре</h2><p>Сохраните код: по нему близкие смогут присоединиться с другого устройства.</p></div>
+      <div class="code-card"><span class="code-label">Код семьи</span><div class="code-row"><strong class="family-code">${esc(family.familyCode)}</strong>
+        <button class="copy-code" id="familyCodeBtn" aria-label="Скопировать код семьи">${ICONS.copy}</button></div></div>
+      <div class="family-summary">
+        <div class="summary-item"><span>Адрес</span><b>${esc(family.tower)}, ${family.floor} этаж, кв. ${esc(family.apartmentCode)}</b></div>
+        <div class="summary-item"><span>Дети</span><b>${children}</b></div>
+        <div class="summary-item"><span>Раздаём конфеты</span><b>${family.hosting ? 'Да 🍬' : 'Нет'}</b></div>
+        <div class="summary-item"><span>Квест</span><b>${family.quest ? `Будет · ${family.questDurationMin || 20} мин` : 'Нет'}</b></div>
+      </div><div class="state-actions"><button id="shareBtn" class="btn btn-ghost btn-sm">Поделиться кодом</button><button id="continueBtn" class="btn btn-primary btn-sm">К данным семьи</button></div></section>`;
     document.getElementById('familyCodeBtn').onclick = () => copyFamilyCode(family.familyCode);
     document.getElementById('shareBtn').onclick = async () => {
       const text = `Присоединяйся к нашей записи в «Монстрополию»! Код семьи: ${family.familyCode}`;
@@ -390,7 +523,7 @@
     const family = state.family;
     const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>');
     APP.innerHTML = `${countdownCard()}${adminButton()}<section class="family-home">
-      <div class="family-success-card"><span class="family-success-kicker">Регистрация завершена</span>
+      <div class="family-success-card"><span class="success-seal" aria-hidden="true">${ICONS.check}</span><span class="family-success-kicker">Регистрация завершена</span>
         <h2>Ваша семья в игре</h2><p>Данные сохранены. По семейному коду близкие смогут присоединиться с другого устройства.</p></div>
       <div class="family-code-card"><span>Код семьи</span><div class="family-code-row">
         <strong class="family-code-value">${esc(family.familyCode)}</strong>
@@ -398,7 +531,7 @@
       <div class="family-summary-grid" aria-label="Данные семьи">
         <div class="family-summary-item"><span>Адрес</span><b>${esc(family.tower)}<br>этаж ${family.floor}, кв. ${esc(family.apartmentCode)}</b></div>
         <div class="family-summary-item"><span>Дети</span><b>${children}</b></div>
-        <div class="family-summary-item"><span>Открытая дверь</span><b>${family.hosting ? 'Да, выдаём конфеты' : 'Нет'}</b></div>
+        <div class="family-summary-item"><span>Раздаём конфеты</span><b>${family.hosting ? 'Да 🍬' : 'Нет'}</b></div>
         <div class="family-summary-item"><span>Квест</span><b>${family.quest ? `${family.questDurationMin || 20} минут` : 'Нет'}</b></div>
       </div>
       <div class="family-state-actions"><button id="editFamilyBtn" class="secondary">Изменить</button>

@@ -540,10 +540,11 @@ button.hosting-choice-family {
 .hosting-filter-button small { color: var(--muted); font-size: 11px; font-weight: 500; }
 .hosting-filter-button > strong { flex: 0 0 auto; color: var(--accent-hi); font-size: 12px; }
 .family-filter-bar { margin: 0 0 14px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--recess); }
-.family-filter-primary { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(180px, .55fr); gap: 10px; }
+.family-filter-primary { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(170px, .55fr) minmax(180px, .55fr); gap: 10px; }
 .family-filter-primary label { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .family-filter-primary label > span { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .family-filter-primary input, .family-filter-primary select { width: 100%; margin: 0; }
+.family-filter-age-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .family-filter-fieldset { min-width: 0; margin: 13px 0 0; padding: 0; border: 0; }
 .family-filter-fieldset legend { margin-bottom: 8px; color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
 .family-filter-chips { display: flex; flex-wrap: wrap; gap: 7px; }
@@ -642,6 +643,11 @@ button.hosting-choice-family {
 .admin-route { position: relative; margin: 16px 0 0; padding: 0 0 0 40px; list-style: none; }
 .admin-route::before { content: ""; position: absolute; top: 19px; bottom: 19px; left: 14px; width: 2px; background: repeating-linear-gradient(to bottom, var(--border-2) 0 5px, transparent 5px 11px); }
 .admin-route-stop { position: relative; display: flex; align-items: center; gap: 10px; min-height: 58px; margin: 8px 0; padding: 10px 10px 10px 14px; border: 1px solid var(--border); border-radius: 15px; background: var(--surface); }
+.admin-route-stop[draggable="true"] { cursor: grab; transition: opacity .15s var(--ease), transform .15s var(--ease), border-color .15s var(--ease); }
+.admin-route-stop[draggable="true"]:active { cursor: grabbing; }
+.admin-route-stop.is-dragging { opacity: .38; transform: scale(.985); }
+.admin-route-stop.is-drag-target { border-color: var(--accent); transform: translateY(2px); }
+.route-drag-handle { flex: 0 0 auto; color: var(--muted); font-size: 18px; line-height: 1; user-select: none; }
 .admin-route-node { position: absolute; left: -40px; display: grid; place-items: center; width: 29px; height: 29px; border: 2px solid var(--border-2); border-radius: 50%; background: var(--ink); color: var(--fg-2); font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .admin-route-stop:first-child .admin-route-node { border-color: var(--accent); color: var(--accent-hi); box-shadow: 0 0 0 4px oklch(0.76 0.17 58 / .1); }
 .admin-route-address { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 3px; }

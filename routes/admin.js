@@ -511,9 +511,26 @@ router.post('/families/:id/grouping/resume', (req, res) => {
 
 router.put('/groups/:id/route', asyncRoute(async (req, res) => {
   const stopIds = Array.isArray(req.body.stopIds) ? req.body.stopIds.map(Number) : [];
-  const existing = db.prepare('SELECT id FROM route_stops WHERE group_id = ? ORDER BY seq').all(req.params.id).map((r) => r.id);
-  if (stopIds.length !== existing.length || new Set(stopIds).size !== existing.length || existing.some((id) => !stopIds.includes(id))) {
+  const existingStops = db.prepare('SELECT id, host_id, host_type FROM route_stops WHERE group_id = ? ORDER BY seq').all(req.params.id);
+  const existingIds = existingStops.map((stop) => stop.id);
+  if (stopIds.length !== existingIds.length || new Set(stopIds).size !== existingIds.length || existingIds.some((id) => !stopIds.includes(id))) {
     return res.status(400).json({ error: 'Порядок должен содержать все точки маршрута ровно один раз' });
+  }
+  const stopById = new Map(existingStops.map((stop) => [stop.id, stop]));
+  const findStageConflict = db.prepare(`
+    SELECT rs.group_id, COALESCE(g.name, rs.group_id) AS group_name
+    FROM route_stops rs JOIN groups g ON g.id = rs.group_id
+    WHERE rs.group_id != ? AND rs.seq = ? AND rs.host_type = ? AND rs.host_id = ?
+    LIMIT 1
+  `);
+  for (let index = 0; index < stopIds.length; index += 1) {
+    const stop = stopById.get(stopIds[index]);
+    const conflict = findStageConflict.get(req.params.id, index + 1, stop.host_type, stop.host_id);
+    if (conflict) {
+      return res.status(409).json({
+        error: `Этап ${index + 1} уже занят этой точкой у группы «${conflict.group_name}». Выберите другой порядок.`,
+      });
+    }
   }
   db.transaction(() => {
     const update = db.prepare('UPDATE route_stops SET seq = ? WHERE id = ? AND group_id = ?');
