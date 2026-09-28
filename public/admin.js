@@ -3,6 +3,7 @@
   const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
   let password = sessionStorage.getItem('adminPassword') || '';
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
+  let familyFiltersOpen = false;
 
   function detectPlatform() {
     if (MINI_APP_CONTEXT.platform === 'max') return 'max';
@@ -197,8 +198,9 @@
           <div id="spMsg" class="search-hint"></div><ul class="plain-list">${specialPoints.map((point) => `<li>${point.quest ? '🎭' : '🍬'} ${esc(point.name)} — ${esc(point.tower)}, эт. ${point.floor}
           <button class="secondary tiny" data-toggle-sp="${esc(point.id)}" data-active="${point.active}">${point.active ? 'Выключить' : 'Включить'}</button>
           <button class="danger tiny" data-delete-sp="${esc(point.id)}">Удалить</button></li>`).join('') || '<li>Нет спецточек</li>'}</ul></div>
-        <div class="card admin-collection" id="familiesSection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div><span class="metric-total" id="familyFilterCount">${families.length}</span></div>
-          <div class="family-filter-bar">
+        <div class="card admin-collection" id="familiesSection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div>
+          <div class="family-filter-heading-actions"><span class="metric-total" id="familyFilterCount">${families.length}</span><button id="toggleFamilyFilters" class="secondary tiny family-filter-toggle" type="button" aria-expanded="${familyFiltersOpen}"><span id="familyFilterToggleText">Фильтры</span><i aria-hidden="true">⌄</i></button></div></div>
+          <div class="family-filter-bar" id="familyFilterPanel" ${familyFiltersOpen ? '' : 'hidden'}>
             <div class="family-filter-primary"><label class="family-filter-search"><span>Поиск</span><input id="familyFilterQuery" type="text" placeholder="Башня, квартира или имя ребёнка" /></label>
             <label class="family-filter-tower"><span>Башня</span><select id="familyFilterTower"><option value="">Все башни</option>${towerOptions()}</select></label>
             <label class="family-filter-age"><span>Возраст ребёнка</span><span class="family-filter-age-inputs"><input id="familyFilterAgeMin" type="number" min="1" max="17" placeholder="от" /><input id="familyFilterAgeMax" type="number" min="1" max="17" placeholder="до" /></span></label></div>
@@ -241,6 +243,15 @@
     const filterCount = document.getElementById('familyFilterCount');
     const filterSummary = document.getElementById('familyFilterSummary');
     const filterEmpty = document.getElementById('familyFilterEmpty');
+    const filterPanel = document.getElementById('familyFilterPanel');
+    const filterToggle = document.getElementById('toggleFamilyFilters');
+    const filterToggleText = document.getElementById('familyFilterToggleText');
+    const setFilterPanelOpen = (open) => {
+      familyFiltersOpen = open;
+      filterPanel.hidden = !open;
+      filterToggle.setAttribute('aria-expanded', String(open));
+    };
+    filterToggle.onclick = () => setFilterPanelOpen(!familyFiltersOpen);
     const matchesStatus = (family, status) => ({
       walking: family.walking && !family.cancelled,
       notWalking: !family.walking && !family.cancelled,
@@ -285,6 +296,8 @@
       if (familyFilterState.ageMin || familyFilterState.ageMax) filterParts.push(`возраст ${minAge}–${maxAge}`);
       if (activeStatuses.length) filterParts.push(`${activeStatuses.length} стат.`);
       filterSummary.textContent = filterParts.length ? `Найдено семей: ${visibleCount} · ${filterParts.join(' · ')}` : 'Показаны все семьи';
+      filterToggleText.textContent = filterParts.length ? `Фильтры · ${filterParts.length}` : 'Фильтры';
+      filterToggle.classList.toggle('has-active-filters', filterParts.length > 0);
       filterEmpty.hidden = visibleCount !== 0;
     };
     filterQuery.value = familyFilterState.query;
@@ -319,6 +332,7 @@
       button.onclick = () => {
         familyFilterState.statuses.add(button.dataset.activateFamilyFilter);
         filterStatusInputs.forEach((input) => { input.checked = familyFilterState.statuses.has(input.value); });
+        setFilterPanelOpen(true);
         applyFamilyFilters();
         document.getElementById('familiesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       };

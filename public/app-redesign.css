@@ -82,6 +82,7 @@
   border-bottom: 1px solid oklch(.72 .08 292 / .26);
 }
 .app-page .mark {
+  position: relative;
   display: grid;
   width: 46px;
   height: 46px;
@@ -92,7 +93,18 @@
   background: radial-gradient(circle at 34% 28%, oklch(.975 .018 95), oklch(.905 .045 82) 58%, oklch(.815 .062 72));
   box-shadow: inset 0 0 0 1px oklch(.97 .03 92 / .45), 0 8px 24px -12px oklch(.80 .10 80 / .78), 0 0 30px -10px oklch(.72 .16 300 / .7);
 }
-.app-page .mark iframe { width: 100%; height: 100%; border: 0; border-radius: inherit; pointer-events: none; }
+.app-page .mark iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 286px;
+  height: 286px;
+  max-width: none;
+  border: 0;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) scale(.161);
+  pointer-events: none;
+}
 .app-page .cd-brand h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -.03em; }
 .app-page .cd-brand p { margin: 1px 0 0; color: var(--muted); font: 500 10.5px/1.3 var(--font-mono); letter-spacing: .14em; text-transform: uppercase; }
 .app-page .cd-head { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 12px; }

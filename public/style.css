@@ -540,6 +540,11 @@ button.hosting-choice-family {
 .hosting-filter-button small { color: var(--muted); font-size: 11px; font-weight: 500; }
 .hosting-filter-button > strong { flex: 0 0 auto; color: var(--accent-hi); font-size: 12px; }
 .family-filter-bar { margin: 0 0 14px; padding: 14px; border: 1px solid var(--border); border-radius: 16px; background: var(--recess); }
+.family-filter-heading-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+.family-filter-toggle { display: inline-flex; align-items: center; gap: 7px; min-width: 112px; justify-content: center; }
+.family-filter-toggle i { font-style: normal; font-size: 16px; line-height: 1; transition: transform .18s var(--ease); }
+.family-filter-toggle[aria-expanded="true"] i { transform: rotate(180deg); }
+.family-filter-toggle.has-active-filters { border-color: oklch(0.76 0.17 58 / .58); background: var(--warm-fill); color: var(--accent-hi); }
 .family-filter-primary { display: grid; grid-template-columns: minmax(230px, 1fr) minmax(170px, .55fr) minmax(180px, .55fr); gap: 10px; }
 .family-filter-primary label { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .family-filter-primary label > span { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
