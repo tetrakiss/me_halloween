@@ -2,6 +2,7 @@
   const APP = document.getElementById('app');
   const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
   let password = sessionStorage.getItem('adminPassword') || '';
+  const familyFilterState = { query: '', tower: '', statuses: new Set() };
 
   function detectPlatform() {
     if (MINI_APP_CONTEXT.platform === 'max') return 'max';
@@ -158,18 +159,9 @@
         <div class="age-chart-scroll"><div class="age-chart" role="img" aria-label="Распределение детей от одного года до семнадцати лет">${ageBars}</div></div>
         <div class="age-chart-caption"><span>Возраст, лет</span><span>Высота столбца — количество детей</span></div>
       </article>
-      <article class="hosting-choice-card ${unconfiguredFamilies.length ? 'has-warning' : ''}">
-        <div class="hosting-choice-icon">${unconfiguredFamilies.length ? '⚠️' : '✅'}</div><div class="hosting-choice-content">
-          <div class="overview-heading"><div><span class="overview-kicker">Проверка анкет</span>
-            <h3>${unconfiguredFamilies.length ? 'Не выбран тип приёма гостей' : 'Во всех анкетах указан тип приёма'}</h3></div>
-            <span class="chart-total">${unconfiguredFamilies.length}</span></div>
-          ${unconfiguredFamilies.length ? `<p class="muted">Эти семьи не отметили ни раздачу конфет, ни квест. Нажмите на адрес, чтобы открыть анкету.</p>
-            <div class="hosting-choice-list">${unconfiguredFamilies.map((family) => `<button class="hosting-choice-family" data-open-family="${esc(family.id)}">
-              <strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
-              <span>${family.children.length} детей</span></button>`).join('')}</div>`
-            : '<p class="muted">Все семейные записи проверены.</p>'}
-        </div>
-      </article>
+      ${unconfiguredFamilies.length ? `<button class="hosting-filter-button" data-activate-family-filter="unconfigured">
+        <span><i>⚠️</i><b>Не заполнен формат участия</b><small>${unconfiguredFamilies.length} семей — показать в общем списке</small></span><strong>Показать →</strong>
+      </button>` : ''}
     </section>`;
   }
   async function renderDashboard() {
@@ -182,9 +174,13 @@
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
       APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
-        <button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
         <button id="distributeWaitingBtn" class="secondary small" ${waitingFamilies.length ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${waitingFamilies.length}</span></button>
         <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div></section>
+        <section class="admin-section test-data-section"><div class="admin-section-head"><div><span class="section-kicker">Тестовые данные</span><h2>Управление базой семей</h2></div><span class="test-data-badge">${families.length} семей</span></div>
+          <div class="test-data-actions"><button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
+          <button id="deleteAllFamiliesBtn" class="danger small">⌫ Удалить все семьи, группы и маршруты</button></div>
+          <p class="test-data-warning">Удаление очищает семьи, детей, участников, группы и маршруты. Спецточки и время начала сохраняются.</p>
+          <div id="testDataMsg" class="search-hint" aria-live="polite"></div></section>
         ${dashboardOverview(families, groups, waitingFamilies)}
         <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
@@ -201,8 +197,23 @@
           <div id="spMsg" class="search-hint"></div><ul class="plain-list">${specialPoints.map((point) => `<li>${point.quest ? '🎭' : '🍬'} ${esc(point.name)} — ${esc(point.tower)}, эт. ${point.floor}
           <button class="secondary tiny" data-toggle-sp="${esc(point.id)}" data-active="${point.active}">${point.active ? 'Выключить' : 'Включить'}</button>
           <button class="danger tiny" data-delete-sp="${esc(point.id)}">Удалить</button></li>`).join('') || '<li>Нет спецточек</li>'}</ul></div>
-        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div><span class="metric-total">${families.length}</span></div>
-          <p class="muted">Раскройте семью, чтобы увидеть все аккаунты и изменить анкету.</p>${families.map((family) => familyCard(family, groups)).join('')}</div>`;
+        <div class="card admin-collection" id="familiesSection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div><span class="metric-total" id="familyFilterCount">${families.length}</span></div>
+          <div class="family-filter-bar">
+            <div class="family-filter-primary"><label class="family-filter-search"><span>Поиск</span><input id="familyFilterQuery" type="text" placeholder="Башня, квартира или имя ребёнка" /></label>
+            <label class="family-filter-tower"><span>Башня</span><select id="familyFilterTower"><option value="">Все башни</option>${towerOptions()}</select></label></div>
+            <fieldset class="family-filter-fieldset"><legend>Статусы — можно выбрать несколько</legend><div class="family-filter-chips">
+              <label><input type="checkbox" value="walking" /> Идут в обход</label>
+              <label><input type="checkbox" value="grouped" /> Уже в группе</label>
+              <label><input type="checkbox" value="waiting" /> Ожидают группу</label>
+              <label><input type="checkbox" value="hosting" /> Раздают конфеты</label>
+              <label><input type="checkbox" value="quest" /> Проводят квест</label>
+              <label><input type="checkbox" value="unconfigured" /> Формат не заполнен</label>
+              <label><input type="checkbox" value="cancelled" /> Отменены</label>
+            </div></fieldset>
+            <div class="family-filter-result"><span id="familyFilterSummary">Показаны все семьи</span><button id="clearFamilyFilters" class="secondary tiny" type="button">Сбросить фильтры</button></div>
+          </div>
+          <p class="muted">Раскройте семью, чтобы увидеть все аккаунты и изменить анкету.</p><div id="familyCards">${families.map((family) => familyCard(family, groups)).join('')}</div>
+          <p id="familyFilterEmpty" class="family-filter-empty" hidden>По выбранным фильтрам семьи не найдены.</p></div>`;
       bindDashboard({ families, groups });
     } catch (error) {
       renderLogin(PLATFORM === 'telegram' ? 'Этот Telegram-аккаунт не является супер-пользователем' : error.message);
@@ -219,14 +230,73 @@
       sessionStorage.setItem('skipNextAppSplash', '1');
       location.href = `/${location.search}${location.hash}`;
     };
-    document.querySelectorAll('[data-open-family]').forEach((button) => {
-      button.onclick = () => {
-        const card = document.querySelector(`[data-family-card="${CSS.escape(button.dataset.openFamily)}"]`);
-        if (!card) return;
-        card.open = true;
-        card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const familyById = new Map(families.map((family) => [family.id, family]));
+    const filterQuery = document.getElementById('familyFilterQuery');
+    const filterTower = document.getElementById('familyFilterTower');
+    const filterStatusInputs = [...document.querySelectorAll('.family-filter-chips input')];
+    const filterCount = document.getElementById('familyFilterCount');
+    const filterSummary = document.getElementById('familyFilterSummary');
+    const filterEmpty = document.getElementById('familyFilterEmpty');
+    const matchesStatus = (family, status) => ({
+      walking: family.walking && !family.cancelled,
+      grouped: !!family.currentGroupId && !family.cancelled,
+      waiting: family.walking && !family.cancelled && !family.currentGroupId,
+      hosting: family.hosting && !family.quest && !family.cancelled,
+      quest: family.quest && !family.cancelled,
+      unconfigured: !family.cancelled && !family.hosting && !family.quest,
+      cancelled: family.cancelled,
+    })[status];
+    const applyFamilyFilters = () => {
+      const query = familyFilterState.query.trim().toLocaleLowerCase('ru');
+      const activeStatuses = [...familyFilterState.statuses];
+      let visibleCount = 0;
+      document.querySelectorAll('[data-family-card]').forEach((card) => {
+        const family = familyById.get(card.dataset.familyCard);
+        const haystack = [family.tower, family.floor, family.apartmentCode, family.familyCode,
+          ...family.children.map((child) => child.name)].join(' ').toLocaleLowerCase('ru');
+        const matches = (!query || haystack.includes(query))
+          && (!familyFilterState.tower || family.tower === familyFilterState.tower)
+          && (!activeStatuses.length || activeStatuses.some((status) => matchesStatus(family, status)));
+        card.hidden = !matches;
+        if (matches) visibleCount += 1;
+      });
+      filterCount.textContent = `${visibleCount} / ${families.length}`;
+      const filterParts = [];
+      if (familyFilterState.query) filterParts.push('поиск');
+      if (familyFilterState.tower) filterParts.push(familyFilterState.tower);
+      if (activeStatuses.length) filterParts.push(`${activeStatuses.length} стат.`);
+      filterSummary.textContent = filterParts.length ? `Найдено семей: ${visibleCount} · ${filterParts.join(' · ')}` : 'Показаны все семьи';
+      filterEmpty.hidden = visibleCount !== 0;
+    };
+    filterQuery.value = familyFilterState.query;
+    filterTower.value = familyFilterState.tower;
+    filterStatusInputs.forEach((input) => { input.checked = familyFilterState.statuses.has(input.value); });
+    filterQuery.oninput = () => { familyFilterState.query = filterQuery.value; applyFamilyFilters(); };
+    filterTower.onchange = () => { familyFilterState.tower = filterTower.value; applyFamilyFilters(); };
+    filterStatusInputs.forEach((input) => {
+      input.onchange = () => {
+        if (input.checked) familyFilterState.statuses.add(input.value); else familyFilterState.statuses.delete(input.value);
+        applyFamilyFilters();
       };
     });
+    document.getElementById('clearFamilyFilters').onclick = () => {
+      familyFilterState.query = '';
+      familyFilterState.tower = '';
+      familyFilterState.statuses.clear();
+      filterQuery.value = '';
+      filterTower.value = '';
+      filterStatusInputs.forEach((input) => { input.checked = false; });
+      applyFamilyFilters();
+    };
+    document.querySelectorAll('[data-activate-family-filter]').forEach((button) => {
+      button.onclick = () => {
+        familyFilterState.statuses.add(button.dataset.activateFamilyFilter);
+        filterStatusInputs.forEach((input) => { input.checked = familyFilterState.statuses.has(input.value); });
+        applyFamilyFilters();
+        document.getElementById('familiesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      };
+    });
+    applyFamilyFilters();
     document.querySelectorAll('[data-family-card]').forEach((card) => {
       const hosting = card.querySelector('[data-field="hosting"]');
       const quest = card.querySelector('[data-field="quest"]');
@@ -251,7 +321,7 @@
     };
     document.getElementById('addTestDataBtn').onclick = async () => {
       const button = document.getElementById('addTestDataBtn');
-      const message = document.getElementById('adminActionMsg');
+      const message = document.getElementById('testDataMsg');
       button.disabled = true;
       message.textContent = 'Создаём случайные анкеты…';
       try {
@@ -260,6 +330,23 @@
         setTimeout(renderDashboard, 700);
       } catch (error) {
         button.disabled = false;
+        message.textContent = error.message;
+      }
+    };
+    document.getElementById('deleteAllFamiliesBtn').onclick = async () => {
+      if (!confirm('Удалить ВСЕ семьи, группы и маршруты? Это действие нельзя отменить.')) return;
+      const button = document.getElementById('deleteAllFamiliesBtn');
+      const message = document.getElementById('testDataMsg');
+      button.disabled = true;
+      document.getElementById('addTestDataBtn').disabled = true;
+      message.textContent = 'Удаляем семейные данные…';
+      try {
+        const result = await api('/test-data/all', { method: 'DELETE' });
+        message.textContent = `Удалено: ${result.deleted.families} семей, ${result.deleted.children} детей, ${result.deleted.groups} групп, ${result.deleted.routes} точек маршрутов`;
+        setTimeout(renderDashboard, 900);
+      } catch (error) {
+        button.disabled = false;
+        document.getElementById('addTestDataBtn').disabled = false;
         message.textContent = error.message;
       }
     };
