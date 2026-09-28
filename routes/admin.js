@@ -260,25 +260,24 @@ router.post('/test-data', (req, res) => {
   res.json({ ok: true, created: createdFamilyIds.length });
 });
 
-// Полная очистка семейных данных для повторного тестового прогона.
-// Спецточки и настройки мероприятия сохраняются.
-router.delete('/families', (req, res) => {
-  const result = db.transaction(() => {
-    const familyCount = db.prepare('SELECT COUNT(*) AS count FROM families').get().count;
-    const groupCount = db.prepare('SELECT COUNT(*) AS count FROM groups').get().count;
-    const routeStopCount = db.prepare('SELECT COUNT(*) AS count FROM route_stops').get().count;
-
+// Полная очистка данных участников для нового тестового прогона.
+// Настройки события и спецточки намеренно сохраняются.
+router.delete('/test-data/all', (req, res) => {
+  const deleted = {
+    families: db.prepare('SELECT COUNT(*) AS count FROM families').get().count,
+    children: db.prepare('SELECT COUNT(*) AS count FROM children').get().count,
+    groups: db.prepare('SELECT COUNT(*) AS count FROM groups').get().count,
+    routes: db.prepare('SELECT COUNT(*) AS count FROM route_stops').get().count,
+  };
+  db.transaction(() => {
     db.prepare('DELETE FROM door_status').run();
     db.prepare('DELETE FROM recipient_notification_state').run();
     db.prepare('DELETE FROM route_stops').run();
     db.prepare('DELETE FROM group_members').run();
     db.prepare('DELETE FROM groups').run();
     db.prepare('DELETE FROM families').run();
-
-    return { familyCount, groupCount, routeStopCount };
   })();
-
-  res.json({ ok: true, deleted: result });
+  res.json({ ok: true, deleted });
 });
 
 router.patch('/families/:id', (req, res) => {

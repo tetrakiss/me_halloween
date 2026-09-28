@@ -341,8 +341,8 @@
       document.getElementById('addTestDataBtn').disabled = true;
       message.textContent = 'Удаляем семейные данные…';
       try {
-        const result = await api('/families', { method: 'DELETE' });
-        message.textContent = `Удалено: ${result.deleted.familyCount} семей, ${result.deleted.groupCount} групп, ${result.deleted.routeStopCount} точек маршрутов`;
+        const result = await api('/test-data/all', { method: 'DELETE' });
+        message.textContent = `Удалено: ${result.deleted.families} семей, ${result.deleted.children} детей, ${result.deleted.groups} групп, ${result.deleted.routes} точек маршрутов`;
         setTimeout(renderDashboard, 900);
       } catch (error) {
         button.disabled = false;
