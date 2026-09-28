@@ -6,6 +6,7 @@ const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups } = require('../lib/notifications');
 const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
+const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -197,6 +198,89 @@ router.get('/families', (req, res) => {
     })),
   });
 });
+
+router.get('/export/participants.xlsx', asyncRoute(async (req, res) => {
+  const rows = db.prepare(`
+    SELECT c.name AS child_name, c.age, f.tower, f.floor,
+           f.apartment_code, f.family_code, f.walking, f.hosting,
+           f.quest, f.cancelled, g.name AS group_name, g.id AS group_id
+    FROM children c
+    JOIN families f ON f.id = c.family_id
+    LEFT JOIN group_members gm ON gm.family_id = f.id
+    LEFT JOIN groups g ON g.id = gm.group_id
+    ORDER BY f.cancelled, f.tower COLLATE NOCASE, f.floor,
+             f.apartment_code COLLATE NOCASE, c.age, c.name COLLATE NOCASE
+  `).all().map((row) => ({
+    childName: row.child_name,
+    age: row.age,
+    tower: row.tower,
+    floor: row.floor,
+    apartmentCode: row.apartment_code,
+    familyCode: row.family_code,
+    groupName: row.group_name || row.group_id || 'Не распределён',
+    walking: row.walking ? 'Да' : 'Нет',
+    hostingType: row.quest ? 'Квест' : row.hosting ? 'Раздаёт конфеты' : 'Не выбран',
+    status: row.cancelled ? 'Отменена' : 'Активна',
+  }));
+  const buffer = await participantsWorkbookBuffer(rows);
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': 'attachment; filename="halloween-participants.xlsx"',
+    'Content-Length': buffer.length,
+  });
+  res.send(buffer);
+}));
+
+router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
+  const groups = db.prepare('SELECT id, name, child_count FROM groups ORDER BY id').all();
+  const memberFamilies = db.prepare(`
+    SELECT f.tower, f.floor, f.apartment_code
+    FROM group_members gm
+    JOIN families f ON f.id = gm.family_id
+    WHERE gm.group_id = ?
+    ORDER BY f.tower COLLATE NOCASE, f.floor, f.apartment_code COLLATE NOCASE
+  `);
+  const memberChildren = db.prepare(`
+    SELECT c.name, c.age
+    FROM group_members gm
+    JOIN children c ON c.family_id = gm.family_id
+    WHERE gm.group_id = ?
+    ORDER BY c.age, c.name COLLATE NOCASE
+  `);
+  const routeStops = db.prepare('SELECT * FROM route_stops WHERE group_id = ? ORDER BY seq');
+  const rows = groups.flatMap((group) => {
+    const familiesText = memberFamilies.all(group.id)
+      .map((family) => `${family.tower}, эт. ${family.floor}, кв. ${family.apartment_code}`).join('; ');
+    const children = memberChildren.all(group.id);
+    const childrenText = children.map((child) => `${child.name}, ${child.age}`).join('; ');
+    const base = {
+      groupName: group.name || group.id,
+      childCount: group.child_count ?? children.length,
+      memberFamilies: familiesText,
+      memberChildren: childrenText,
+    };
+    const stops = routeStops.all(group.id);
+    if (!stops.length) return [{ ...base, stopType: 'Маршрут пуст' }];
+    return stops.map((stop) => ({
+      ...base,
+      stage: stop.seq,
+      stopType: stop.is_quest ? 'Квест' : 'Конфеты',
+      displayName: stop.display_name || (stop.host_type === 'family' ? 'Квартира' : ''),
+      tower: stop.tower,
+      floor: stop.floor,
+      apartmentCode: stop.apartment_code || '',
+      arrivalMin: stop.arrival_min,
+      departureMin: stop.departure_min,
+    }));
+  });
+  const buffer = await routesWorkbookBuffer(rows);
+  res.set({
+    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'Content-Disposition': 'attachment; filename="halloween-routes.xlsx"',
+    'Content-Length': buffer.length,
+  });
+  res.send(buffer);
+}));
 
 router.delete('/families/:id', (req, res) => {
   const deleted = deleteFamilyCompletely(req.params.id);

@@ -246,3 +246,29 @@ test('одна квартира не повторяется на одном эт
     assert.equal(new Set(hostIds).size, hostIds.length);
   }
 });
+
+test('единственная принимающая семья попадает в маршрут собственной группы как резервная точка', () => {
+  const onlyFamily = family('only', 8, 'A', {
+    children: [
+      { name: 'Первый ребёнок', age: 8 },
+      { name: 'Второй ребёнок', age: 10 },
+    ],
+    hosting: true,
+  });
+  const [route] = buildRoutes([{ id: 'group_1', memberFamilyIds: [onlyFamily.id] }], [onlyFamily]);
+  assert.equal(route.stops.length, 1);
+  assert.equal(route.stops[0].hostId, onlyFamily.id);
+  assert.equal(route.stops[0].seq, 1);
+});
+
+test('собственная квартира не попадает в маршрут, когда внешних точек достаточно', () => {
+  const memberHost = family('member', 8, 'A', { hosting: true });
+  const externalHosts = Array.from({ length: TARGET_ROUTE_STOPS }, (_, index) => family(`host${index + 1}`, 8, 'B', {
+    hosting: true,
+    floor: index + 1,
+    apartmentCode: String(300 + index),
+  }));
+  const [route] = buildRoutes([{ id: 'group_1', memberFamilyIds: [memberHost.id] }], [memberHost, ...externalHosts]);
+  assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
+  assert.ok(route.stops.every((stop) => stop.hostId !== memberHost.id));
+});

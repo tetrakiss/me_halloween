@@ -25,16 +25,36 @@
       '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;',
     })[char]);
   }
-  async function api(path, { method = 'GET', body } = {}) {
-    const headers = { 'Content-Type': 'application/json' };
+  function adminHeaders(includeJson = true) {
+    const headers = includeJson ? { 'Content-Type': 'application/json' } : {};
     if (PLATFORM === 'telegram') {
       headers['X-Platform'] = 'telegram';
       headers['X-Init-Data'] = getInitDataRaw();
     } else headers['X-Admin-Password'] = password;
+    return headers;
+  }
+  async function api(path, { method = 'GET', body } = {}) {
+    const headers = adminHeaders();
     const response = await fetch(`/admin-api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.error || 'Ошибка запроса');
     return data;
+  }
+  async function downloadExport(path, filename) {
+    const response = await fetch(`/admin-api${path}`, { headers: adminHeaders(false) });
+    if (!response.ok) {
+      const data = await response.json().catch(() => ({}));
+      throw new Error(data.error || 'Не удалось сформировать Excel-файл');
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   function towerOptions(selected) {
     return window.TOWERS.map((tower) => `<option value="${esc(tower)}" ${tower === selected ? 'selected' : ''}>${esc(tower)}</option>`).join('');
@@ -180,7 +200,9 @@
       APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="distributeWaitingBtn" class="secondary small" ${waitingFamilies.length ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${waitingFamilies.length}</span></button>
-        <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button></div><div id="adminActionMsg" class="search-hint"></div></section>
+        <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button>
+        <button id="exportParticipantsBtn" class="secondary small">⇩ Участники Excel</button>
+        <button id="exportRoutesBtn" class="secondary small">⇩ Маршруты Excel</button></div><div id="adminActionMsg" class="search-hint"></div></section>
         <section class="admin-section test-data-section"><div class="admin-section-head"><div><span class="section-kicker">Тестовые данные</span><h2>Управление базой семей</h2></div><span class="test-data-badge">${families.length} семей</span></div>
           <div class="test-data-actions"><button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
           <button id="deleteAllFamiliesBtn" class="danger small">⌫ Удалить все семьи, группы и маршруты</button></div>
@@ -409,6 +431,24 @@
         setTimeout(renderDashboard, 900);
       } catch (error) { message.textContent = error.message; }
     };
+    const bindExportButton = (id, path, filename, loadingText) => {
+      document.getElementById(id).onclick = async () => {
+        const button = document.getElementById(id);
+        const message = document.getElementById('adminActionMsg');
+        button.disabled = true;
+        message.textContent = loadingText;
+        try {
+          await downloadExport(path, filename);
+          message.textContent = `Excel-файл «${filename}» готов`;
+        } catch (error) {
+          message.textContent = error.message;
+        } finally {
+          button.disabled = false;
+        }
+      };
+    };
+    bindExportButton('exportParticipantsBtn', '/export/participants.xlsx', 'halloween-participants.xlsx', 'Собираем список участников…');
+    bindExportButton('exportRoutesBtn', '/export/routes.xlsx', 'halloween-routes.xlsx', 'Собираем маршруты…');
     document.getElementById('distributeWaitingBtn').onclick = async () => {
       const button = document.getElementById('distributeWaitingBtn');
       const message = document.getElementById('adminActionMsg');
