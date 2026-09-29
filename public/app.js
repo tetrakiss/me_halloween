@@ -152,7 +152,7 @@
       <div class="tutorial-copy"><span class="tutorial-kicker">Знакомство · ${index + 1}</span><h1>${esc(slide.title)}</h1><p>${esc(slide.copy)}</p></div>
     </article>`).join('');
     return `<section class="tutorial-view" id="tutorialView" role="dialog" aria-modal="true" aria-label="Знакомство с Монстрополией" hidden>
-      <header class="tutorial-top"><div class="tutorial-brand"><span class="mark" aria-hidden="true"><iframe src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe></span><div><b>Монстрополия</b><span>Halloween 2026</span></div></div>
+      <header class="tutorial-top"><div class="tutorial-brand"><span class="mark" aria-hidden="true"><img src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" decoding="async"></span><div><b>Монстрополия</b><span>Halloween 2026</span></div></div>
         <button class="tutorial-skip" id="tutorialSkip" type="button">Пропустить</button></header>
       <div class="tutorial-progress-wrap"><div class="tutorial-progress" id="tutorialProgress">${TUTORIAL_SLIDES.map((_, index) => `<span${index === 0 ? ' class="done"' : ''}></span>`).join('')}</div><span class="tutorial-count" id="tutorialCount">1 / ${TUTORIAL_SLIDES.length}</span></div>
       <div class="tutorial-stage" id="tutorialStage">${slides}</div>
@@ -305,7 +305,7 @@
       <i class="mote m1" aria-hidden="true"></i><i class="mote m2" aria-hidden="true"></i><i class="mote m3" aria-hidden="true"></i><i class="mote m4" aria-hidden="true"></i>
       <span class="batfly b1" aria-hidden="true">${bat}</span><span class="batfly b2" aria-hidden="true">${bat}</span>
       <i class="spark s1" aria-hidden="true">${spark}</i><i class="spark s2" aria-hidden="true">${spark}</i><i class="spark s3" aria-hidden="true">${spark}</i>`;
-    const brand = `<div class="cd-brand"><span class="mark" aria-hidden="true"><iframe src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe></span>
+    const brand = `<div class="cd-brand"><span class="mark" aria-hidden="true"><img src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" decoding="async"></span>
       <div><h1>Монстрополия</h1><p>Halloween 2026</p></div>${tutorialHelpButton()}</div>`;
     if (!eventState?.eventStartAt) {
       return `<section class="cd cd-unset">${magic}<div class="cd-inner">${brand}<div class="cd-empty"><div>
@@ -379,6 +379,7 @@
       <div class="loading-inner">
         <div class="loading-orbit" aria-hidden="true">
           <svg class="loading-bat-inline" viewBox="0 0 64 42" aria-hidden="true"><path fill="currentColor" d="M32 36c-4-5-8-7-12-7-6 0-10 3-15 5 2-5 2-9-1-14 5 1 9 0 12-3-3-2-5-5-6-9 6 2 11 5 15 9l2-8 5 5 5-5 2 8c4-4 9-7 15-9-1 4-3 7-6 9 3 3 7 4 12 3-3 5-3 9-1 14-5-2-9-5-15-5-4 0-8 2-12 7Z" /></svg>
+          <img class="loading-bat-mascot" src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" fetchpriority="high" decoding="async" onload="this.previousElementSibling.hidden=true">
         </div>
         <div class="loading-copy">
           <span class="loading-kicker">HALLOWEEN BOT</span>
