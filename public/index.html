@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Монстрополия</title>
 <style>
+  :root { color-scheme: dark; }
   html,
   body {
     min-height: 100%;
@@ -12,15 +13,197 @@
     background: #111017;
     color: #f8f5ed;
   }
+  .loading-splash {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: grid;
+    place-items: center;
+    overflow: hidden;
+    padding: 24px;
+    box-sizing: border-box;
+    background:
+      radial-gradient(circle at 50% 38%, rgba(130, 77, 190, .25), transparent 34%),
+      #111017;
+    color: #f8f5ed;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    text-align: center;
+  }
+  .loading-inner {
+    display: flex;
+    width: min(100%, 420px);
+    flex-direction: column;
+    align-items: center;
+    gap: 24px;
+  }
+  .loading-orbit {
+    display: grid;
+    width: 154px;
+    height: 154px;
+    place-items: center;
+    border: 1px solid rgba(224, 174, 88, .24);
+    border-radius: 50%;
+    background: radial-gradient(circle at 34% 26%, #f1d28d, #dca44b 58%, #9d5b31);
+    box-shadow: 0 0 70px rgba(132, 72, 196, .25);
+  }
+  .loading-bat-inline {
+    width: 118px;
+    color: #211827;
+    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45));
+    animation: boot-bat 1.8s ease-in-out infinite;
+  }
+  .loading-copy { display: flex; width: 100%; flex-direction: column; align-items: center; gap: 8px; }
+  .loading-kicker { color: #e9b966; font-size: 10px; font-weight: 700; letter-spacing: .2em; }
+  .loading-copy h2 { margin: 0; font-size: clamp(30px, 8vw, 38px); letter-spacing: -.04em; }
+  .loading-copy p { margin: 0; color: #aaa5b2; font-size: 13px; }
+  .loading-track {
+    width: min(220px, 70vw);
+    height: 3px;
+    margin-top: 10px;
+    overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, .1);
+  }
+  .loading-track i {
+    display: block;
+    width: 42%;
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(90deg, #9d62ca, #efb552);
+    animation: boot-track 1.35s ease-in-out infinite;
+  }
+  .loading-fallback[hidden] { display: none; }
+  .loading-fallback { margin-top: 18px; }
+  .loading-fallback p { max-width: 290px; margin: 0 0 12px; color: #d8d3de; font-size: 14px; line-height: 1.45; }
+  .loading-retry {
+    min-height: 46px;
+    padding: 0 20px;
+    border: 0;
+    border-radius: 14px;
+    background: #e2a94f;
+    color: #17131c;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  @keyframes boot-bat { 0%, 100% { transform: translateY(3px) scale(.97); } 50% { transform: translateY(-7px) scale(1.03); } }
+  @keyframes boot-track { 0% { transform: translateX(-115%); } 100% { transform: translateX(340%); } }
+  @media (prefers-reduced-motion: reduce) {
+    .loading-bat-inline,
+    .loading-track i { animation: none; }
+  }
 </style>
+<script>
+  (function () {
+    var startedAt = Date.now();
+    var sessionId = startedAt.toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    var completed = false;
+    var loadedStyles = Object.create(null);
+    var styleWaiters = [];
+
+    function cleanDetail(detail) {
+      if (!detail || typeof detail !== 'object') return {};
+      var result = {};
+      Object.keys(detail).slice(0, 6).forEach(function (key) {
+        var value = detail[key];
+        if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+          result[key] = String(value).slice(0, 160);
+        }
+      });
+      return result;
+    }
+
+    function mark(event, detail) {
+      var payload = JSON.stringify({
+        event: event,
+        sessionId: sessionId,
+        elapsedMs: Date.now() - startedAt,
+        detail: cleanDetail(detail),
+      });
+      try {
+        if (navigator.sendBeacon && navigator.sendBeacon('/client-log', new Blob([payload], { type: 'application/json' }))) return;
+      } catch (_) {}
+      try {
+        fetch('/client-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: payload, keepalive: true });
+      } catch (_) {}
+    }
+
+    function styleLoaded(name, element) {
+      if (element) element.media = 'all';
+      loadedStyles[name] = true;
+      mark('resource_loaded', { resource: name });
+      if (loadedStyles.base && loadedStyles.redesign) {
+        styleWaiters.splice(0).forEach(function (resolve) { resolve(true); });
+      }
+    }
+
+    function waitForStyles(timeoutMs) {
+      if (loadedStyles.base && loadedStyles.redesign) return Promise.resolve(true);
+      return new Promise(function (resolve) {
+        var done = false;
+        var finish = function (value) {
+          if (done) return;
+          done = true;
+          resolve(value);
+        };
+        styleWaiters.push(finish);
+        setTimeout(function () { finish(false); }, timeoutMs || 10000);
+      });
+    }
+
+    function retry() {
+      mark('retry_requested');
+      var url = new URL(location.href);
+      url.searchParams.set('retry', Date.now().toString());
+      location.replace(url.toString());
+    }
+
+    var watchdog = setTimeout(function () {
+      if (completed) return;
+      mark('loading_timeout');
+      var fallback = document.getElementById('loadingFallback');
+      if (fallback) fallback.hidden = false;
+    }, 12000);
+
+    window.__MONSTER_BOOT = {
+      mark: mark,
+      resourceLoaded: styleLoaded,
+      waitForStyles: waitForStyles,
+      retry: retry,
+      complete: function () {
+        completed = true;
+        clearTimeout(watchdog);
+        mark('ui_rendered');
+      },
+    };
+
+    window.addEventListener('error', function (event) {
+      var target = event.target;
+      if (target && target !== window) {
+        mark('resource_error', { tag: target.tagName || '', resource: target.src || target.href || '' });
+        return;
+      }
+      mark('javascript_error', { message: event.message || 'Unknown error', file: event.filename || '', line: event.lineno || 0 });
+    }, true);
+    window.addEventListener('unhandledrejection', function (event) {
+      mark('unhandled_rejection', { message: String(event.reason && event.reason.message || event.reason || 'Unknown rejection') });
+    });
+    window.addEventListener('pagehide', function () {
+      if (!completed) mark('page_hidden');
+    });
+    mark('html_started');
+  })();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet" /></noscript>
-<link rel="stylesheet" href="style.css?v=20260928-15" />
-<link rel="stylesheet" href="app-redesign.css?v=20260928-4" />
-<script src="platform-sdk.js?v=20260927-8"></script>
-<script src="towers-config.js"></script>
+<link rel="stylesheet" href="style.css?v=20260928-15" media="print" onload="window.__MONSTER_BOOT.resourceLoaded('base', this)" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'style.css' })" />
+<link rel="stylesheet" href="app-redesign.css?v=20260928-4" media="print" onload="window.__MONSTER_BOOT.resourceLoaded('redesign', this)" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app-redesign.css' })" />
+<noscript><link rel="stylesheet" href="style.css?v=20260928-15" /><link rel="stylesheet" href="app-redesign.css?v=20260928-4" /></noscript>
+<script defer src="platform-sdk.js?v=20260927-8" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'platform-sdk.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'platform-sdk.js' })"></script>
+<script defer src="towers-config.js" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'towers-config.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'towers-config.js' })"></script>
+<script defer src="app.js?v=20260929-20" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'app.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app.js' })"></script>
 </head>
 <body class="app-page">
   <div class="stage" aria-hidden="true"></div>
@@ -30,13 +213,17 @@
         <div class="loading-splash" role="status" aria-label="Приложение загружается">
           <div class="loading-inner">
             <div class="loading-orbit" aria-hidden="true">
-              <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe>
+              <svg class="loading-bat-inline" viewBox="0 0 64 42" aria-hidden="true"><path fill="currentColor" d="M32 36c-4-5-8-7-12-7-6 0-10 3-15 5 2-5 2-9-1-14 5 1 9 0 12-3-3-2-5-5-6-9 6 2 11 5 15 9l2-8 5 5 5-5 2 8c4-4 9-7 15-9-1 4-3 7-6 9 3 3 7 4 12 3-3 5-3 9-1 14-5-2-9-5-15-5-4 0-8 2-12 7Z" /></svg>
             </div>
             <div class="loading-copy">
               <span class="loading-kicker">HALLOWEEN BOT</span>
               <h2>Монстрополия</h2>
               <p>Собираем костюмы и конфеты</p>
               <span class="loading-track" aria-hidden="true"><i></i></span>
+              <div class="loading-fallback" id="loadingFallback" hidden>
+                <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
+                <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
+              </div>
             </div>
           </div>
         </div>
@@ -44,6 +231,5 @@
     </div>
   </main>
 
-  <script src="app.js?v=20260929-19"></script>
 </body>
 </html>

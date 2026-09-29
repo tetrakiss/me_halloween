@@ -1,7 +1,13 @@
 (function () {
   const APP_BOOT_STARTED_AT = Date.now();
   const APP = document.getElementById('app');
+  const BOOT = window.__MONSTER_BOOT || {
+    mark() {},
+    waitForStyles() { return Promise.resolve(true); },
+    complete() {},
+  };
   const MINI_APP_CONTEXT = window.MINI_APP_CONTEXT || { platform: 'web', initData: '' };
+  BOOT.mark('app_initializing');
 
   function hashParams() {
     return new URLSearchParams(location.hash.replace(/^#/, ''));
@@ -37,10 +43,20 @@
     return new URLSearchParams(location.search).get('dev_user') || 'dev-1';
   }
   async function api(path, { method = 'GET', body } = {}) {
+    const requestStartedAt = Date.now();
+    const resource = String(path).split('?')[0];
+    BOOT.mark('api_started', { resource, method });
     const headers = { 'Content-Type': 'application/json', 'X-Platform': PLATFORM };
     if (PLATFORM === 'dev') headers['X-Dev-User-Id'] = devUserId();
     else headers['X-Init-Data'] = getInitDataRaw();
-    const response = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    let response;
+    try {
+      response = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
+    } catch (error) {
+      BOOT.mark('api_failed', { resource, method, elapsedMs: Date.now() - requestStartedAt, message: error.message || 'Network error' });
+      throw error;
+    }
+    BOOT.mark('api_finished', { resource, method, status: response.status, elapsedMs: Date.now() - requestStartedAt });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
       const error = new Error(data.error || 'Ошибка запроса');
@@ -362,13 +378,17 @@
     return `<div class="loading-splash" role="status" aria-label="Приложение загружается">
       <div class="loading-inner">
         <div class="loading-orbit" aria-hidden="true">
-          <iframe class="loading-bat" src="bat-pixel-animation.html?v=20260927-5" title="" tabindex="-1"></iframe>
+          <svg class="loading-bat-inline" viewBox="0 0 64 42" aria-hidden="true"><path fill="currentColor" d="M32 36c-4-5-8-7-12-7-6 0-10 3-15 5 2-5 2-9-1-14 5 1 9 0 12-3-3-2-5-5-6-9 6 2 11 5 15 9l2-8 5 5 5-5 2 8c4-4 9-7 15-9-1 4-3 7-6 9 3 3 7 4 12 3-3 5-3 9-1 14-5-2-9-5-15-5-4 0-8 2-12 7Z" /></svg>
         </div>
         <div class="loading-copy">
           <span class="loading-kicker">HALLOWEEN BOT</span>
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
+          <div class="loading-fallback" id="loadingFallback" hidden>
+            <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
+            <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
+          </div>
         </div>
       </div>
     </div>`;
@@ -381,6 +401,7 @@
     if (!isBoot) return;
     const splash = APP.querySelector('.loading-splash');
     if (!splash) return;
+    BOOT.mark('loading_splash_leaving');
     splash.classList.add('is-leaving');
     await new Promise((resolve) => setTimeout(resolve, 460));
   }
@@ -909,7 +930,7 @@
     const loadingStartedAt = isBoot ? APP_BOOT_STARTED_AT : Date.now();
     const minimumLoadingMs = isBoot ? MIN_LOADING_MS : 0;
     isInitialLoad = false;
-    renderLoading();
+    if (!isBoot || !APP.querySelector('.loading-splash')) renderLoading();
     try {
       const requestStartedAt = Date.now();
       const [data, eventData] = await Promise.all([api('/me'), api('/event')]);
@@ -924,14 +945,27 @@
         incomingVisits: data.incomingVisits || null,
         isAdmin: !!data.isAdmin,
       };
+      if (isBoot) {
+        const stylesReady = await BOOT.waitForStyles(10000);
+        if (!stylesReady) {
+          BOOT.mark('styles_timeout');
+          const fallback = document.getElementById('loadingFallback');
+          if (fallback) fallback.hidden = false;
+          return;
+        }
+      }
       await finishInitialLoading(isBoot);
       if (!state.family) renderEntry(); else renderDashboard();
       if (isBoot) maybeOpenTutorial();
+      if (isBoot) BOOT.complete();
     } catch (error) {
+      BOOT.mark('app_load_failed', { message: error.message || 'Unknown error' });
       const remainingLoadingMs = minimumLoadingMs - (Date.now() - loadingStartedAt);
       if (remainingLoadingMs > 0) await new Promise((resolve) => setTimeout(resolve, remainingLoadingMs));
+      if (isBoot) await BOOT.waitForStyles(4000);
       await finishInitialLoading(isBoot);
       APP.innerHTML = `<div class="card"><p>Ошибка: ${esc(error.message)}</p></div>`;
+      if (isBoot) BOOT.complete();
     }
   }
   loadMe();

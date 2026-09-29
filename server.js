@@ -5,7 +5,78 @@ const { validateInitData } = require('./lib/validateInitData');
 const { db } = require('./db');
 
 const app = express();
-app.use(express.json());
+app.set('trust proxy', 'loopback');
+app.use(express.json({ limit: '32kb' }));
+
+const CLIENT_LOG_EVENTS = new Set([
+  'html_started',
+  'resource_loaded',
+  'resource_error',
+  'app_initializing',
+  'api_started',
+  'api_finished',
+  'api_failed',
+  'loading_splash_leaving',
+  'styles_timeout',
+  'loading_timeout',
+  'app_load_failed',
+  'ui_rendered',
+  'javascript_error',
+  'unhandled_rejection',
+  'retry_requested',
+  'page_hidden',
+]);
+const CLIENT_LOG_DETAIL_KEYS = new Set([
+  'resource', 'tag', 'message', 'file', 'line', 'method', 'status', 'elapsedMs',
+]);
+const clientLogBuckets = new Map();
+
+function cleanClientLogDetail(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => CLIENT_LOG_DETAIL_KEYS.has(key))
+    .slice(0, 6)
+    .map(([key, detail]) => [key, String(detail).replace(/[\r\n\t]/g, ' ').slice(0, 160)]));
+}
+
+app.post('/client-log', (req, res) => {
+  const event = typeof req.body?.event === 'string' ? req.body.event : '';
+  const sessionId = typeof req.body?.sessionId === 'string' ? req.body.sessionId : '';
+  if (!CLIENT_LOG_EVENTS.has(event) || !/^[a-z0-9-]{8,80}$/i.test(sessionId)) {
+    return res.sendStatus(204);
+  }
+
+  const now = Date.now();
+  const bucketKey = `${req.ip}:${sessionId}`;
+  const currentBucket = clientLogBuckets.get(bucketKey);
+  const bucket = !currentBucket || now - currentBucket.startedAt > 10 * 60 * 1000
+    ? { startedAt: now, count: 0 }
+    : currentBucket;
+  bucket.count += 1;
+  clientLogBuckets.set(bucketKey, bucket);
+  if (clientLogBuckets.size > 5000) {
+    for (const [key, value] of clientLogBuckets) {
+      if (now - value.startedAt > 10 * 60 * 1000) clientLogBuckets.delete(key);
+    }
+  }
+  if (bucket.count > 120) return res.sendStatus(204);
+
+  const elapsedMs = Number.isFinite(Number(req.body.elapsedMs))
+    ? Math.max(0, Math.min(Number(req.body.elapsedMs), 24 * 60 * 60 * 1000))
+    : null;
+  console.log(JSON.stringify({
+    type: 'client_boot',
+    time: new Date(now).toISOString(),
+    ip: req.ip,
+    sessionId,
+    event,
+    elapsedMs,
+    detail: cleanClientLogDetail(req.body.detail),
+    userAgent: String(req.get('user-agent') || '').slice(0, 240),
+  }));
+  return res.sendStatus(204);
+});
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
