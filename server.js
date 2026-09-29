@@ -124,7 +124,7 @@ app.post('/max-webhook', async (req, res) => {
           Authorization: process.env.MAX_BOT_TOKEN,
         },
         body: JSON.stringify({
-          text: '🎃 Добро пожаловать в Монстрополию! Открой приложение, чтобы записаться или посмотреть свой маршрут.',
+          text: '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть». Если кнопки нет, используй кнопку «🎃 Открыть приложение» под сообщением.',
           attachments: [{
             type: 'inline_keyboard',
             payload: {
