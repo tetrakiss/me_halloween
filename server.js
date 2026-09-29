@@ -82,7 +82,7 @@ app.post('/telegram-webhook', async (req, res) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           chat_id: message.chat.id,
-          text: '🎃 Добро пожаловать в Монстрополию! Открой приложение, чтобы записаться или посмотреть свой маршрут.',
+          text: '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть» слева от поля ввода. Если кнопки нет, используй кнопку ниже.',
           reply_markup: {
             inline_keyboard: [[{ text: '🎃 Открыть приложение', web_app: { url } }]],
           },
