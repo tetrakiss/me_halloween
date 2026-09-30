@@ -299,11 +299,9 @@
     return state.isAdmin ? `<button id="adminBtn" class="btn btn-ghost btn-sm admin-entry-button">${ICONS.admin}Администрирование</button>` : '';
   }
   function countdownCard() {
-    const bat = '<svg viewBox="0 0 24 24"><path d="M12 7.6c-1.6-2.3-4-3.1-6.4-2.6.6 1 1 2.2.9 3.4-1-.4-2.1-.3-3 .3 1.5 1 2.5 2.7 2.9 4.6 1.6-.9 3.5-.8 5.6.4 2.1-1.2 4-1.3 5.6-.4.4-1.9 1.4-3.6 2.9-4.6-.9-.6-2-.7-3-.3-.1-1.2.3-2.4.9-3.4-2.4-.5-4.8.3-6.4 2.6z"/></svg>';
     const spark = '<svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 2.5l1.6 6 6 1.6-6 1.6-1.6 6-1.6-6-6-1.6 6-1.6z"/></svg>';
     const magic = `<span class="magic-orbit" aria-hidden="true"></span>
       <i class="mote m1" aria-hidden="true"></i><i class="mote m2" aria-hidden="true"></i><i class="mote m3" aria-hidden="true"></i><i class="mote m4" aria-hidden="true"></i>
-      <span class="batfly b1" aria-hidden="true">${bat}</span><span class="batfly b2" aria-hidden="true">${bat}</span>
       <i class="spark s1" aria-hidden="true">${spark}</i><i class="spark s2" aria-hidden="true">${spark}</i><i class="spark s3" aria-hidden="true">${spark}</i>`;
     const brand = `<div class="cd-brand"><span class="mark" aria-hidden="true"><img src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" decoding="async"></span>
       <div><h1>Монстрополия</h1><p>Halloween 2026</p></div>${tutorialHelpButton()}</div>`;

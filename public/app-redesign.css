@@ -147,9 +147,6 @@
 .app-page .m2 { top: 42%; right: 9%; animation-delay: -1.4s; animation-duration: 5.1s; }
 .app-page .m3 { bottom: 12%; left: 30%; background: var(--violet-2); animation-delay: -2.8s; animation-duration: 4.7s; }
 .app-page .m4 { top: 20%; right: 28%; background: var(--accent-hi); animation-delay: -.7s; animation-duration: 3.8s; }
-.app-page .batfly { position: absolute; top: 88px; left: 0; z-index: 3; width: 22px; color: oklch(.96 .02 300); opacity: 0; filter: drop-shadow(0 0 8px oklch(.85 .14 300 / .6)); animation: od-cd-bat 5s linear infinite; pointer-events: none; }
-.app-page .batfly svg { display: block; width: 100%; fill: currentColor; }
-.app-page .batfly.b2 { top: 150px; width: 15px; animation-delay: 2.6s; animation-duration: 6.6s; }
 .app-page .spark { position: absolute; z-index: 3; color: oklch(.96 .07 92); opacity: 0; filter: drop-shadow(0 0 6px oklch(.9 .12 90 / .8)); animation: od-cd-twinkle 3.2s var(--ease) infinite; pointer-events: none; }
 .app-page .spark svg { display: block; fill: currentColor; }
 .app-page .s1 { top: 26%; left: 12%; }
@@ -382,7 +379,6 @@
 @keyframes od-cd-twinkle { 0%, 100% { opacity: 0; transform: scale(.5) rotate(0); } 50% { opacity: 1; transform: scale(1) rotate(35deg); } }
 @keyframes od-orbit-float { 0%, 100% { opacity: .62; transform: translate(-50%, -50%) rotate(-2deg) scale(.98); } 50% { opacity: 1; transform: translate(-50%, -52%) rotate(2deg) scale(1.03); } }
 @keyframes od-mote-drift { 0%, 100% { opacity: .18; transform: translate(0, 8px) scale(.6); } 45% { opacity: 1; transform: translate(9px, -10px) scale(1.25); } 70% { opacity: .55; transform: translate(-4px, -18px) scale(.85); } }
-@keyframes od-cd-bat { 0% { opacity: 0; transform: translate(-34px, 14px) rotate(-10deg) scale(.8); } 10% { opacity: .95; } 50% { opacity: 1; transform: translate(160px, -8px) rotate(8deg); } 90% { opacity: .9; } 100% { opacity: 0; transform: translate(374px, 16px) rotate(-8deg) scale(.82); } }
 @keyframes od-success-card-in { 0% { opacity: 0; filter: blur(4px); transform: translateY(18px) scale(.96); } 62% { opacity: 1; filter: blur(0); transform: translateY(-3px) scale(1.015); } 100% { transform: none; } }
 @keyframes od-seal-pop { 0% { opacity: 0; transform: scale(.25) rotate(-18deg); } 68% { opacity: 1; transform: scale(1.14) rotate(4deg); } 100% { transform: none; } }
 @keyframes od-check-draw { from { stroke-dashoffset: 26; } to { stroke-dashoffset: 0; } }
@@ -403,7 +399,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .app-page .batfly { display: none; }
   .app-page .cd::before, .app-page .cd::after, .app-page .spark, .app-page .cd-dot,
   .app-page .magic-orbit, .app-page .mote, .app-page .cd-n.magic-pop { animation: none !important; }
   .app-page .tutorial-slide.active { animation: none !important; }
