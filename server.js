@@ -242,7 +242,9 @@ app.post('/max-webhook', async (req, res) => {
             'Content-Type': 'application/json',
             Authorization: process.env.MAX_BOT_TOKEN,
           },
-          body: JSON.stringify({ text: `${welcomeText}\n\n${process.env.APP_BASE_URL || ''}` }),
+          body: JSON.stringify({
+            text: '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть» в интерфейсе MAX.',
+          }),
         });
         const fallbackBody = await fallbackResponse.text();
         console.log(JSON.stringify({
