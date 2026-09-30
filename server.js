@@ -183,20 +183,29 @@ app.post('/max-webhook', async (req, res) => {
     const normalizedMessageText = messageText.trim().toLowerCase();
     const isStartCommand = /^(?:\/)?start(?:\s|$)/.test(normalizedMessageText);
     const isStart = update.update_type === 'bot_started' || isStartCommand;
+    const recipientChatId = update.chat_id || update.message?.recipient?.chat_id;
+    const recipientUserId = update.user?.user_id || update.message?.sender?.user_id;
     console.log(JSON.stringify({
       type: 'max_webhook',
       updateType: String(update.update_type || 'unknown'),
-      hasChatId: Boolean(update.chat_id),
-      hasUserId: Boolean(update.user?.user_id),
+      hasChatId: Boolean(recipientChatId),
+      hasUserId: Boolean(recipientUserId),
       isStart,
     }));
     if (isStart) {
       const textPayload = messageText.trim().split(/\s+/)[1];
       const payload = update.payload || textPayload;
       const joinPayload = payload && payload.startsWith('join_') ? payload : null;
+      if (!recipientChatId && !recipientUserId) {
+        console.error(JSON.stringify({
+          type: 'max_recipient_missing',
+          updateType: String(update.update_type || 'unknown'),
+        }));
+        return;
+      }
       const endpoint = new URL('https://platform-api2.max.ru/messages');
-      if (update.chat_id) endpoint.searchParams.set('chat_id', String(update.chat_id));
-      else if (update.user?.user_id) endpoint.searchParams.set('user_id', String(update.user.user_id));
+      if (recipientChatId) endpoint.searchParams.set('chat_id', String(recipientChatId));
+      else if (recipientUserId) endpoint.searchParams.set('user_id', String(recipientUserId));
 
       const welcomeText = '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть». Если кнопки нет, используй кнопку «🎃 Открыть приложение» под сообщением.';
       const maxResponse = await fetch(endpoint, {
