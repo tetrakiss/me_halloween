@@ -180,23 +180,33 @@ app.post('/max-webhook', async (req, res) => {
   try {
     const update = req.body;
     const messageText = update.message?.body?.text || update.message?.text || '';
-    const isStart = update.update_type === 'bot_started' || messageText.startsWith('/start');
+    const normalizedMessageText = messageText.trim().toLowerCase();
+    const isStartCommand = /^(?:\/)?start(?:\s|$)/.test(normalizedMessageText);
+    const isStart = update.update_type === 'bot_started' || isStartCommand;
+    console.log(JSON.stringify({
+      type: 'max_webhook',
+      updateType: String(update.update_type || 'unknown'),
+      hasChatId: Boolean(update.chat_id),
+      hasUserId: Boolean(update.user?.user_id),
+      isStart,
+    }));
     if (isStart) {
-      const textPayload = messageText.split(' ')[1];
+      const textPayload = messageText.trim().split(/\s+/)[1];
       const payload = update.payload || textPayload;
       const joinPayload = payload && payload.startsWith('join_') ? payload : null;
       const endpoint = new URL('https://platform-api2.max.ru/messages');
       if (update.chat_id) endpoint.searchParams.set('chat_id', String(update.chat_id));
       else if (update.user?.user_id) endpoint.searchParams.set('user_id', String(update.user.user_id));
 
-      await fetch(endpoint, {
+      const welcomeText = '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть». Если кнопки нет, используй кнопку «🎃 Открыть приложение» под сообщением.';
+      const maxResponse = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: process.env.MAX_BOT_TOKEN,
         },
         body: JSON.stringify({
-          text: '🎃 Добро пожаловать в Монстрополию!\n\nЧтобы запустить приложение, нажми кнопку «Открыть». Если кнопки нет, используй кнопку «🎃 Открыть приложение» под сообщением.',
+          text: welcomeText,
           attachments: [{
             type: 'inline_keyboard',
             payload: {
@@ -210,6 +220,30 @@ app.post('/max-webhook', async (req, res) => {
           }],
         }),
       });
+      const maxResponseBody = await maxResponse.text();
+      if (!maxResponse.ok) {
+        console.error(JSON.stringify({
+          type: 'max_send_failed',
+          status: maxResponse.status,
+          response: maxResponseBody.slice(0, 500),
+        }));
+        const fallbackResponse = await fetch(endpoint, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: process.env.MAX_BOT_TOKEN,
+          },
+          body: JSON.stringify({ text: `${welcomeText}\n\n${process.env.APP_BASE_URL || ''}` }),
+        });
+        const fallbackBody = await fallbackResponse.text();
+        console.log(JSON.stringify({
+          type: fallbackResponse.ok ? 'max_fallback_sent' : 'max_fallback_failed',
+          status: fallbackResponse.status,
+          response: fallbackResponse.ok ? undefined : fallbackBody.slice(0, 500),
+        }));
+      } else {
+        console.log(JSON.stringify({ type: 'max_send_succeeded', status: maxResponse.status }));
+      }
     }
   } catch (err) {
     console.error('MAX webhook error:', err);
