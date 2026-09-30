@@ -80,6 +80,7 @@ app.post('/client-log', (req, res) => {
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 const IS_PROD = process.env.NODE_ENV === 'production';
 
 // ---- Middleware: определяем platform + platformUserId по initData ----
@@ -215,6 +216,6 @@ app.post('/max-webhook', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Halloween backend listening on port ${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Halloween backend listening on ${HOST}:${PORT}`);
 });
