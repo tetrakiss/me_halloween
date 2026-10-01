@@ -45,21 +45,49 @@
   async function api(path, { method = 'GET', body } = {}) {
     const requestStartedAt = Date.now();
     const resource = String(path).split('?')[0];
+    const normalizedMethod = String(method).toUpperCase();
+    const maxAttempts = normalizedMethod === 'GET' ? 2 : 1;
     BOOT.mark('api_started', { resource, method });
     const headers = { 'Content-Type': 'application/json', 'X-Platform': PLATFORM };
     if (PLATFORM === 'dev') headers['X-Dev-User-Id'] = devUserId();
     else headers['X-Init-Data'] = getInitDataRaw();
-    let response;
-    try {
-      response = await fetch(`/api${path}`, { method, headers, body: body ? JSON.stringify(body) : undefined });
-    } catch (error) {
-      BOOT.mark('api_failed', { resource, method, elapsedMs: Date.now() - requestStartedAt, message: error.message || 'Network error' });
+    let response = null;
+    let networkError = null;
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        response = await fetch(`/api${path}`, {
+          method: normalizedMethod,
+          headers,
+          body: body ? JSON.stringify(body) : undefined,
+          cache: normalizedMethod === 'GET' ? 'no-store' : 'default',
+        });
+        if (![502, 503, 504].includes(response.status) || attempt === maxAttempts) break;
+      } catch (error) {
+        networkError = error;
+        BOOT.mark('api_failed', {
+          resource,
+          method: normalizedMethod,
+          elapsedMs: Date.now() - requestStartedAt,
+          message: `${error.message || 'Network error'}; attempt ${attempt}`,
+        });
+        if (attempt === maxAttempts) break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 650));
+    }
+    if (!response) {
+      const error = new Error(navigator.onLine === false
+        ? 'Нет подключения к интернету. Подключитесь к сети и нажмите «Продолжить» ещё раз.'
+        : 'Не удалось связаться с сервером. Нажмите «Продолжить» ещё раз.');
+      error.code = 'NETWORK_ERROR';
+      error.cause = networkError;
       throw error;
     }
-    BOOT.mark('api_finished', { resource, method, status: response.status, elapsedMs: Date.now() - requestStartedAt });
+    BOOT.mark('api_finished', { resource, method: normalizedMethod, status: response.status, elapsedMs: Date.now() - requestStartedAt });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
-      const error = new Error(data.error || 'Ошибка запроса');
+      const error = new Error(data.error || (response.status >= 500
+        ? 'Сервер временно недоступен. Попробуйте ещё раз.'
+        : 'Ошибка запроса'));
       error.code = data.code;
       throw error;
     }
