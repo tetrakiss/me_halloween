@@ -338,8 +338,14 @@
         <div class="cd-head"><span class="cd-dot"></span><b>Начало мероприятия</b></div><h2>Скоро начинаем</h2>
         <p class="cd-sub">Организаторы скоро укажут время начала.</p></div></div></div></section>`;
     }
+    const startLocal = String(eventState.eventStartLocal || '');
+    const startMatch = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(startLocal);
+    const eventDateLabel = startMatch
+      ? `${startMatch[3]}.${startMatch[2]}.${startMatch[1]} · ${startMatch[4]}:${startMatch[5]}`
+      : '';
     return `<section class="cd" id="eventCountdown" aria-live="polite">${magic}<div class="cd-inner">${brand}
       <div class="cd-head"><span class="cd-dot"></span><b>До начала мероприятия</b></div>
+      ${eventDateLabel ? `<time class="cd-event-date" datetime="${esc(startLocal)}">${esc(eventDateLabel)}</time>` : ''}
       <div class="cd-tiles" role="timer" aria-label="Обратный отсчёт до начала мероприятия">
         <div class="cd-tile cd-tile-days"><span class="cd-n" data-countdown="days">00</span><span class="cd-l" data-countdown-label="days">дней</span></div>
         <div class="cd-tile"><span class="cd-n" data-countdown="hours">00</span><span class="cd-l" data-countdown-label="hours">часов</span></div>
@@ -404,14 +410,14 @@
     return `<div class="loading-splash" role="status" aria-label="Приложение загружается">
       <div class="loading-inner">
         <div class="loading-orbit" aria-hidden="true">
-          <svg class="loading-bat-inline" viewBox="0 0 64 42" aria-hidden="true"><path fill="currentColor" d="M32 36c-4-5-8-7-12-7-6 0-10 3-15 5 2-5 2-9-1-14 5 1 9 0 12-3-3-2-5-5-6-9 6 2 11 5 15 9l2-8 5 5 5-5 2 8c4-4 9-7 15-9-1 4-3 7-6 9 3 3 7 4 12 3-3 5-3 9-1 14-5-2-9-5-15-5-4 0-8 2-12 7Z" /></svg>
-          <img class="loading-bat-mascot" src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" fetchpriority="high" decoding="async" onload="this.previousElementSibling.hidden=true">
+          <img class="loading-bat-mascot" src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" fetchpriority="high" decoding="async">
         </div>
         <div class="loading-copy">
           <span class="loading-kicker">HALLOWEEN BOT</span>
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
+          <span class="loading-version">Версия 1.0.2</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>

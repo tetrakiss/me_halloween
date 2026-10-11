@@ -127,6 +127,7 @@
 .app-page .cd-head { display: flex; align-items: center; justify-content: center; gap: 9px; margin-bottom: 12px; }
 .app-page .cd-head b { color: var(--fg-2); font-size: 11px; font-weight: 600; letter-spacing: .18em; text-transform: uppercase; }
 .app-page .cd-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 10px var(--accent); animation: od-cd-pulse 2s var(--ease) infinite; }
+.app-page .cd-event-date { display: block; margin: -3px 0 16px; color: var(--accent-hi); font: 500 14px/1.5 var(--font-mono); font-variant-numeric: tabular-nums; text-align: center; }
 .app-page .cd-tiles { position: relative; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .app-page .cd-tile { padding: 13px 4px 11px; border: 1px solid oklch(.62 .08 292 / .48); border-radius: 16px; background: oklch(.145 .024 288 / .72); box-shadow: inset 0 1px 0 oklch(.9 .06 300 / .08), 0 8px 24px -18px oklch(.8 .17 300 / .9); text-align: center; }
 .app-page .cd-tile-days { grid-column: 1 / -1; width: 72%; justify-self: center; margin-bottom: 2px; padding: 15px 8px 12px; background: radial-gradient(circle at 50% 24%, oklch(.42 .12 300 / .48), oklch(.145 .024 288 / .84) 72%); }

@@ -46,11 +46,7 @@
     background: radial-gradient(circle at 34% 26%, #f1d28d, #dca44b 58%, #9d5b31);
     box-shadow: 0 0 70px rgba(132, 72, 196, .25);
   }
-  .loading-bat-inline {
-    width: 118px;
-    color: #211827;
-    filter: drop-shadow(0 12px 18px rgba(0, 0, 0, .45));
-  }
+  .loading-version { margin-top: 8px; color: #aaa5b2; font-size: 11px; letter-spacing: .08em; }
   .loading-bat-mascot {
     display: block;
     width: min(92%, 250px);
@@ -204,11 +200,11 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
 <noscript><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&amp;family=Inter:wght@400;500;600;700&amp;family=Space+Grotesk:wght@500;600;700&amp;display=swap" rel="stylesheet" /></noscript>
 <link rel="stylesheet" href="style.css?v=20260928-15" media="print" onload="window.__MONSTER_BOOT.resourceLoaded('base', this)" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'style.css' })" />
-<link rel="stylesheet" href="app-redesign.css?v=20260930-5" media="print" onload="window.__MONSTER_BOOT.resourceLoaded('redesign', this)" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app-redesign.css' })" />
-<noscript><link rel="stylesheet" href="style.css?v=20260928-15" /><link rel="stylesheet" href="app-redesign.css?v=20260930-5" /></noscript>
+<link rel="stylesheet" href="app-redesign.css?v=20261011-1" media="print" onload="window.__MONSTER_BOOT.resourceLoaded('redesign', this)" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app-redesign.css' })" />
+<noscript><link rel="stylesheet" href="style.css?v=20260928-15" /><link rel="stylesheet" href="app-redesign.css?v=20261011-1" /></noscript>
 <script defer src="platform-sdk.js?v=20260927-8" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'platform-sdk.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'platform-sdk.js' })"></script>
 <script defer src="towers-config.js" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'towers-config.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'towers-config.js' })"></script>
-<script defer src="app.js?v=20261001-1" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'app.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app.js' })"></script>
+<script defer src="app.js?v=20261011-2" onload="window.__MONSTER_BOOT.mark('resource_loaded', { resource: 'app.js' })" onerror="window.__MONSTER_BOOT.mark('resource_error', { resource: 'app.js' })"></script>
 </head>
 <body class="app-page">
   <div class="stage" aria-hidden="true"></div>
@@ -218,14 +214,14 @@
         <div class="loading-splash" role="status" aria-label="Приложение загружается">
           <div class="loading-inner">
             <div class="loading-orbit" aria-hidden="true">
-              <svg class="loading-bat-inline" viewBox="0 0 64 42" aria-hidden="true"><path fill="currentColor" d="M32 36c-4-5-8-7-12-7-6 0-10 3-15 5 2-5 2-9-1-14 5 1 9 0 12-3-3-2-5-5-6-9 6 2 11 5 15 9l2-8 5 5 5-5 2 8c4-4 9-7 15-9-1 4-3 7-6 9 3 3 7 4 12 3-3 5-3 9-1 14-5-2-9-5-15-5-4 0-8 2-12 7Z" /></svg>
-              <img class="loading-bat-mascot" src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" fetchpriority="high" decoding="async" onload="this.previousElementSibling.hidden=true" />
+              <img class="loading-bat-mascot" src="assets/bat-mascot-clay.webp?v=20260929-1" alt="" fetchpriority="high" decoding="async" />
             </div>
             <div class="loading-copy">
               <span class="loading-kicker">HALLOWEEN BOT</span>
               <h2>Монстрополия</h2>
               <p>Собираем костюмы и конфеты</p>
               <span class="loading-track" aria-hidden="true"><i></i></span>
+              <span class="loading-version">Версия 1.0.2</span>
               <div class="loading-fallback" id="loadingFallback" hidden>
                 <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
                 <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
