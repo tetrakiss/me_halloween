@@ -5,7 +5,7 @@ const { getEventSettings } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { getParticipantStats } = require('../lib/participant-stats');
 const { removeFamilyAndRepair } = require('../lib/family-removal');
-const { notifyChangedGroups } = require('../lib/notifications');
+const { notifyChangedGroups, notifyAdminNewFamily } = require('../lib/notifications');
 
 const router = express.Router();
 const asyncRoute = (handler) => (req, res, next) => Promise.resolve(handler(req, res, next)).catch(next);
@@ -139,6 +139,9 @@ router.get('/event', (req, res) => {
 
 // ---- Регистрация новой семьи ----
 router.post('/register', (req, res) => {
+  if (getEventSettings().registrationClosed) {
+    return res.status(403).json({ code: 'REGISTRATION_CLOSED', error: 'К сожалению, регистрация окончена. Добавление новых участников невозможно.' });
+  }
   const { platform, platformUserId } = req;
   const {
     tower,
@@ -219,7 +222,9 @@ router.post('/register', (req, res) => {
   });
   tx();
 
-  res.json({ family: familyWithChildren(db.prepare('SELECT * FROM families WHERE id = ?').get(familyId)) });
+  const registeredFamily = familyWithChildren(db.prepare('SELECT * FROM families WHERE id = ?').get(familyId));
+  res.json({ family: registeredFamily });
+  void notifyAdminNewFamily(registeredFamily).catch((error) => console.error('Admin notification failed:', error.message));
 });
 
 // ---- Ранняя проверка адреса в мастере регистрации ----

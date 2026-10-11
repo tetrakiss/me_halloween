@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.3</span>
+          <span class="loading-version">Версия 1.0.4</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -439,8 +439,10 @@
     await new Promise((resolve) => setTimeout(resolve, 460));
   }
   function renderEntry() {
-    APP.innerHTML = `${countdownCard()}${adminButton()}<div class="tabs">
-      <button id="tabRegister" class="${activeTab === 'register' ? 'active' : ''}" aria-selected="${activeTab === 'register'}">Записать семью</button>
+    const closed = !!eventState?.registrationClosed;
+    if (closed) activeTab = 'join';
+    APP.innerHTML = `${countdownCard()}${adminButton()}${closed ? '<section class="panel sect"><h2>Регистрация окончена</h2><p class="sect-p">К сожалению, регистрация окончена. Добавление новых участников невозможно.</p><p class="sect-p">Если ваша семья уже зарегистрирована, войдите по коду семьи.</p></section>' : ''}<div class="tabs">
+      <button id="tabRegister" ${closed ? 'disabled' : ''} class="${activeTab === 'register' ? 'active' : ''}" aria-selected="${activeTab === 'register'}">Записать семью</button>
       <button id="tabJoin" class="${activeTab === 'join' ? 'active' : ''}" aria-selected="${activeTab === 'join'}">У нас есть код</button>
       </div><div id="tabContent"></div>`;
     bindAdminButton();

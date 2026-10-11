@@ -297,6 +297,16 @@ router.get('/event-settings', (req, res) => {
   res.json(getEventSettings());
 });
 
+router.put('/registration-settings', (req, res) => {
+  if (typeof req.body.registrationClosed !== 'boolean') {
+    return res.status(400).json({ error: 'Укажите состояние регистрации' });
+  }
+  db.prepare(`INSERT INTO app_settings (key, value) VALUES ('registration_closed', ?)
+    ON CONFLICT(key) DO UPDATE SET value = excluded.value`)
+    .run(req.body.registrationClosed ? '1' : '0');
+  res.json({ ok: true, ...getEventSettings() });
+});
+
 router.put('/event-settings', (req, res) => {
   const timestamp = saveEventStartLocal(req.body.eventStartLocal);
   if (timestamp === null) {

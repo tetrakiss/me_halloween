@@ -220,7 +220,9 @@
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
           <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
           <div class="event-settings-controls"><div><label>Дата и время начала</label><input type="datetime-local" id="eventStartLocal" value="${esc(eventSettings.eventStartLocal)}" /></div>
-          <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div></div>
+          <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div>
+          <label><input type="checkbox" id="registrationClosed" ${eventSettings.registrationClosed ? 'checked' : ''} /> Закрыть регистрацию новых семей</label>
+          <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div></div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Очередь</span><h2>Ожидают назначения</h2></div><span class="metric-total">${waitingFamilies.length}</span></div>
           <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
@@ -266,6 +268,17 @@
     });
   }
   function bindDashboard({ families, groups }) {
+    document.getElementById('registrationClosed').onchange = async (event) => {
+      const checkbox = event.target;
+      const value = checkbox.checked;
+      checkbox.disabled = true;
+      const message = document.getElementById('registrationSettingsMsg');
+      try {
+        await api('/registration-settings', { method: 'PUT', body: { registrationClosed: value } });
+        message.textContent = value ? 'Регистрация закрыта' : 'Регистрация открыта';
+      } catch (error) { checkbox.checked = !value; message.textContent = error.message; }
+      finally { checkbox.disabled = false; }
+    };
     document.getElementById('backBtn').onclick = () => {
       sessionStorage.setItem('skipNextAppSplash', '1');
       location.href = `/${location.search}${location.hash}`;
