@@ -1,6 +1,6 @@
 const express = require('express');
 const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
-const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE } = require('../lib/grouping-routing');
+const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEligibleForGrouping } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups } = require('../lib/notifications');
@@ -56,6 +56,7 @@ function loadFamiliesForAlgo() {
     children: db.prepare('SELECT name, age FROM children WHERE family_id = ?').all(f.id),
     walking: !!f.walking,
     adultChaperone: !!f.adult_chaperone,
+    candyBrought: !!f.candy_brought,
     hosting: !!f.hosting,
     quest: !!f.quest,
     questDurationMin: f.quest_duration_min,
@@ -374,7 +375,10 @@ router.delete('/test-data/all', (req, res) => {
 router.patch('/families/:id', (req, res) => {
   const current = db.prepare('SELECT * FROM families WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: 'Семья не найдена' });
-  const { tower, floor, apartmentCode, walking, adultChaperone, hosting, quest, questDurationMin, cancelled, children } = req.body;
+  const { tower, floor, apartmentCode, walking, adultChaperone, candyBrought, hosting, quest, questDurationMin, cancelled, children } = req.body;
+  if (candyBrought !== undefined && typeof candyBrought !== 'boolean') {
+    return res.status(400).json({ error: 'Отметка «Принесли конфеты» должна быть галочкой' });
+  }
   if (floor !== undefined && (!Number.isInteger(Number(floor)) || Number(floor) < 0)) {
     return res.status(400).json({ error: 'Некорректный этаж' });
   }
@@ -408,6 +412,7 @@ router.patch('/families/:id', (req, res) => {
     db.prepare(`UPDATE families SET tower = COALESCE(@tower, tower), floor = COALESCE(@floor, floor),
       apartment_code = COALESCE(@apartmentCode, apartment_code), walking = COALESCE(@walking, walking),
       adult_chaperone = COALESCE(@adultChaperone, adult_chaperone),
+      candy_brought = COALESCE(@candyBrought, candy_brought),
       hosting = COALESCE(@hosting, hosting), quest = COALESCE(@quest, quest),
       quest_duration_min = @questDurationMin, cancelled = COALESCE(@cancelled, cancelled)
       WHERE id = @id`).run({
@@ -417,6 +422,7 @@ router.patch('/families/:id', (req, res) => {
       apartmentCode: apartmentCode === undefined ? null : String(apartmentCode).trim(),
       walking: walking === undefined ? null : walking ? 1 : 0,
       adultChaperone: adultChaperone === undefined ? null : adultChaperone ? 1 : 0,
+      candyBrought: candyBrought === undefined ? null : candyBrought ? 1 : 0,
       hosting: hosting === undefined && quest !== true ? null : hosting || quest ? 1 : 0,
       quest: quest === undefined ? null : quest ? 1 : 0,
       questDurationMin: quest === false ? null : questDurationMin === undefined ? current.quest_duration_min : Number(questDurationMin) || 20,
@@ -589,10 +595,13 @@ router.delete('/groups/:id/members/:familyId', asyncRoute(async (req, res) => {
 router.post('/groups/:id/members', asyncRoute(async (req, res) => {
   const familyId = String(req.body.familyId || '');
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id);
-  const family = db.prepare('SELECT id, walking, cancelled FROM families WHERE id = ?').get(familyId);
+  const family = db.prepare('SELECT * FROM families WHERE id = ?').get(familyId);
   if (!group) return res.status(404).json({ error: 'Группа не найдена' });
   if (!family) return res.status(404).json({ error: 'Семья не найдена' });
   if (!family.walking || family.cancelled) return res.status(400).json({ error: 'Семья не участвует в обходе' });
+  if (!isFamilyEligibleForGrouping({ hosting: family.hosting, quest: family.quest, candyBrought: family.candy_brought })) {
+    return res.status(400).json({ error: 'Сначала отметьте, что семья принесла конфеты, или выберите квест / раздачу конфет' });
+  }
   const familyChildren = db.prepare('SELECT COUNT(*) AS count FROM children WHERE family_id = ?').get(familyId).count;
   const currentChildren = db.prepare(`SELECT COUNT(c.id) AS count FROM group_members gm
     JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = ? AND gm.family_id != ?`)

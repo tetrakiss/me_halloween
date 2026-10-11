@@ -80,7 +80,7 @@
   }
   function familyCard(family, groups) {
     const childrenText = family.children.map((child) => `${child.name}|${child.age}`).join('\n');
-    const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : '<span class="choice-missing-mark">⚠️ тип не выбран</span>';
+    const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : family.candyBrought ? '🍬 принесли конфеты' : '<span class="choice-missing-mark">⏳ ждём конфеты</span>';
     const chaperoneMark = family.adultChaperone ? '<span class="chaperone-mark">🧑‍🤝‍🧑 сопровождает</span>' : '';
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
@@ -98,6 +98,7 @@
         <label><input type="checkbox" data-field="adultChaperone" ${family.adultChaperone ? 'checked' : ''}/> Сопровождает группу 🧑‍🤝‍🧑</label>
         <label><input type="checkbox" data-field="hosting" ${family.hosting ? 'checked' : ''}/> Раздаёт конфеты 🍬</label>
         <label><input type="checkbox" data-field="quest" ${family.quest ? 'checked' : ''}/> Квест</label>
+        <label data-candy-brought-label ${family.hosting || family.quest ? 'hidden' : ''}><input type="checkbox" data-field="candyBrought" ${family.candyBrought ? 'checked' : ''}/> Принесли конфеты 🍬</label>
         <label><input type="checkbox" data-field="cancelled" ${family.cancelled ? 'checked' : ''}/> Отмена</label>
       </div>
       <label>Длительность квеста, мин.</label><input type="number" data-field="questDurationMin" value="${family.questDurationMin || 20}" min="5" max="60" />
@@ -202,9 +203,10 @@
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
+      const eligibleWaitingCount = waitingFamilies.filter((family) => family.hosting || family.quest || family.candyBrought).length;
       APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
-        <button id="distributeWaitingBtn" class="secondary small" ${waitingFamilies.length ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${waitingFamilies.length}</span></button>
+        <button id="distributeWaitingBtn" class="secondary small" ${eligibleWaitingCount ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${eligibleWaitingCount}</span></button>
         <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button>
         <button id="exportParticipantsBtn" class="secondary small">⇩ Участники Excel</button>
         <button id="exportRoutesBtn" class="secondary small">⇩ Маршруты Excel</button></div><div id="adminActionMsg" class="search-hint"></div></section>
@@ -244,6 +246,8 @@
               <label><input type="checkbox" value="hosting" /> Раздают конфеты</label>
               <label><input type="checkbox" value="quest" /> Проводят квест</label>
               <label><input type="checkbox" value="unconfigured" /> Формат не заполнен</label>
+              <label><input type="checkbox" value="candyBrought" /> Принесли конфеты</label>
+              <label><input type="checkbox" value="candyNotBrought" /> Не принесли конфеты</label>
               <label><input type="checkbox" value="cancelled" /> Отменены</label>
             </div></fieldset>
             <div class="family-filter-result"><span id="familyFilterSummary">Показаны все семьи</span><button id="clearFamilyFilters" class="secondary tiny" type="button">Сбросить фильтры</button></div>
@@ -293,6 +297,8 @@
       hosting: family.hosting && !family.quest && !family.cancelled,
       quest: family.quest && !family.cancelled,
       unconfigured: !family.cancelled && !family.hosting && !family.quest,
+      candyBrought: !family.cancelled && !family.hosting && !family.quest && family.candyBrought,
+      candyNotBrought: !family.cancelled && !family.hosting && !family.quest && !family.candyBrought,
       cancelled: family.cancelled,
     })[status];
     const applyFamilyFilters = () => {
@@ -303,6 +309,7 @@
         ['grouped', 'waiting'],
         ['adultChaperone'],
         ['hosting', 'quest', 'unconfigured'],
+        ['candyBrought', 'candyNotBrought'],
       ];
       const minAge = Number(familyFilterState.ageMin) || 1;
       const maxAge = Number(familyFilterState.ageMax) || 17;
@@ -375,8 +382,9 @@
     document.querySelectorAll('[data-family-card]').forEach((card) => {
       const hosting = card.querySelector('[data-field="hosting"]');
       const quest = card.querySelector('[data-field="quest"]');
-      hosting.onchange = () => { if (!hosting.checked) quest.checked = false; };
-      quest.onchange = () => { if (quest.checked) hosting.checked = true; };
+      const updateCandyVisibility = () => { card.querySelector('[data-candy-brought-label]').hidden = hosting.checked || quest.checked; };
+      hosting.onchange = () => { if (!hosting.checked) quest.checked = false; updateCandyVisibility(); };
+      quest.onchange = () => { if (quest.checked) hosting.checked = true; updateCandyVisibility(); };
     });
     document.getElementById('saveEventStartBtn').onclick = async () => {
       const button = document.getElementById('saveEventStartBtn');
@@ -481,8 +489,23 @@
           await api(`/families/${encodeURIComponent(id)}`, { method: 'PATCH', body: {
             tower: field('tower').value, floor: Number(field('floor').value), apartmentCode: field('apartmentCode').value.trim(),
             children: parseChildren(field('children').value), walking: field('walking').checked, adultChaperone: field('adultChaperone').checked, hosting: field('hosting').checked,
+            candyBrought: field('candyBrought').checked,
             quest: field('quest').checked, cancelled: field('cancelled').checked, questDurationMin: Number(field('questDurationMin').value) || 20,
           } });
+          familyById.set(id, {
+            ...familyById.get(id),
+            tower: field('tower').value,
+            floor: Number(field('floor').value),
+            apartmentCode: field('apartmentCode').value.trim(),
+            children: parseChildren(field('children').value),
+            walking: field('walking').checked,
+            adultChaperone: field('adultChaperone').checked,
+            hosting: field('hosting').checked,
+            quest: field('quest').checked,
+            candyBrought: field('candyBrought').checked,
+            cancelled: field('cancelled').checked,
+          });
+          applyFamilyFilters();
           message.textContent = 'Сохранено ✓';
         } catch (error) { message.textContent = error.message; }
       };

@@ -19,6 +19,7 @@ function family(id, age, tower, overrides = {}) {
     children: [{ name: `Ребёнок ${id}`, age }],
     walking: true,
     hosting: false,
+    candyBrought: true,
     quest: false,
     questDurationMin: null,
     manualGroupId: null,
@@ -27,6 +28,20 @@ function family(id, age, tower, overrides = {}) {
     ...overrides,
   };
 }
+
+test('без приёма гостей семья допускается только после отметки о принесённых конфетах', () => {
+  const families = [
+    family('blocked', 8, 'A', { candyBrought: false, manualGroupId: 'manual' }),
+    family('approved', 8, 'A'),
+    family('host', 8, 'A', { hosting: true, candyBrought: false }),
+    family('quest', 8, 'A', { quest: true, candyBrought: false }),
+  ];
+  const groups = buildGroups(families, [{ a: 'blocked', b: 'approved' }]);
+  assert.deepEqual(groups.flatMap((group) => group.memberFamilyIds).sort(), ['approved', 'host', 'quest']);
+  const result = fillExistingGroups([{ id: 'existing', memberFamilyIds: ['host'] }], families, [], () => 0);
+  assert.deepEqual(result.assignments.map((assignment) => assignment.familyId).sort(), ['approved', 'quest']);
+  assert.ok(result.groups.every((group) => !group.memberFamilyIds.includes('blocked')));
+});
 
 test('пожелания ходить вместе остаются неделимыми и имеют высший приоритет', () => {
   const families = [

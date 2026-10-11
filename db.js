@@ -141,6 +141,7 @@ db.prepare("UPDATE groups SET start_location = ? WHERE TRIM(COALESCE(start_locat
   .run(DEFAULT_GROUP_START_LOCATION);
 ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('families', 'adult_chaperone', 'INTEGER NOT NULL DEFAULT 0');
+ensureColumn('families', 'candy_brought', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('parent_links', 'chat_id', 'TEXT');
 ensureColumn('parent_links', 'first_name', 'TEXT');
 ensureColumn('parent_links', 'last_name', 'TEXT');
