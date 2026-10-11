@@ -486,7 +486,7 @@
         const field = (name) => card.querySelector(`[data-field="${name}"]`);
         const message = card.querySelector(`[data-family-msg="${CSS.escape(id)}"]`);
         try {
-          await api(`/families/${encodeURIComponent(id)}`, { method: 'PATCH', body: {
+          const result = await api(`/families/${encodeURIComponent(id)}`, { method: 'PATCH', body: {
             tower: field('tower').value, floor: Number(field('floor').value), apartmentCode: field('apartmentCode').value.trim(),
             children: parseChildren(field('children').value), walking: field('walking').checked, adultChaperone: field('adultChaperone').checked, hosting: field('hosting').checked,
             candyBrought: field('candyBrought').checked,
@@ -506,7 +506,11 @@
             cancelled: field('cancelled').checked,
           });
           applyFamilyFilters();
-          message.textContent = 'Сохранено ✓';
+          message.textContent = result.notifications?.failed
+            ? `Сохранено ✓. Уведомлений отправлено: ${result.notifications.sent}, ошибок отправки: ${result.notifications.failed}`
+            : result.notifications?.sent
+              ? `Сохранено ✓. Уведомлений о конфетах отправлено: ${result.notifications.sent}`
+              : 'Сохранено ✓';
         } catch (error) { message.textContent = error.message; }
       };
     });

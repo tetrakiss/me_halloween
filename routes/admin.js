@@ -3,7 +3,7 @@ const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEligibleForGrouping } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
-const { notifyChangedGroups } = require('../lib/notifications');
+const { notifyChangedGroups, notifyCandyAccepted } = require('../lib/notifications');
 const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
@@ -372,7 +372,7 @@ router.delete('/test-data/all', (req, res) => {
   res.json({ ok: true, deleted });
 });
 
-router.patch('/families/:id', (req, res) => {
+router.patch('/families/:id', asyncRoute(async (req, res) => {
   const current = db.prepare('SELECT * FROM families WHERE id = ?').get(req.params.id);
   if (!current) return res.status(404).json({ error: 'Семья не найдена' });
   const { tower, floor, apartmentCode, walking, adultChaperone, candyBrought, hosting, quest, questDurationMin, cancelled, children } = req.body;
@@ -445,8 +445,11 @@ router.patch('/families/:id', (req, res) => {
                 WHERE host_type = 'family' AND host_id = ?`)
       .run(currentAddress.tower, currentAddress.floor, currentAddress.apartment_code, req.params.id);
   })();
-  res.json({ ok: true });
-});
+  const notifications = candyBrought === true && !current.candy_brought
+    ? await notifyCandyAccepted(req.params.id)
+    : { sent: 0, failed: 0 };
+  res.json({ ok: true, notifications });
+}));
 
 router.get('/groups', (req, res) => {
   const groups = db.prepare('SELECT * FROM groups').all();
