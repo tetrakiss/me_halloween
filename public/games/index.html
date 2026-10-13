@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Игры убежища</title>
+<link rel="stylesheet" href="/games/games.css?v=1.0.7">
+</head>
+<body>
+<main id="stage" data-od-id="games-hub-stage">
+  <div class="ambient" aria-hidden="true"></div><div class="shade" aria-hidden="true"></div>
+  <header data-od-id="games-hub-header">
+    <h1 class="heading" data-od-id="games-heading">ИГРЫ УБЕЖИЩА</h1>
+    <button class="fullscreen" id="fullscreen" type="button" data-od-id="games-fullscreen" aria-pressed="false">НА ВЕСЬ ЭКРАН</button>
+  </header>
+  <section class="catalog" id="catalog" aria-label="Игры" data-od-id="games-catalog"></section>
+  <nav class="pager" id="pager" hidden aria-label="Страницы игр" data-od-id="games-pagination"><button id="previous" type="button" data-od-id="games-previous">← НАЗАД</button><span id="page-number"></span><button id="next" type="button" data-od-id="games-next">ДАЛЬШЕ →</button></nav>
+  <p class="notice" id="notice" role="status" hidden data-od-id="fullscreen-notice"></p>
+</main>
+<script src="/games/games.js?v=1.0.7" defer></script>
+</body>
+</html>

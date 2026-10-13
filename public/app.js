@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.6</span>
+          <span class="loading-version">Версия 1.0.7</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>

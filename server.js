@@ -77,6 +77,15 @@ app.post('/client-log', (req, res) => {
   return res.sendStatus(204);
 });
 
+app.get(['/games', '/games/'], (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public/games/index.html'));
+});
+app.get(['/games/bomb', '/games/bomb/'], (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public/games/bomb/index.html'));
+});
+app.use('/game-api', require('./routes/game').createGameRouter());
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;
