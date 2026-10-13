@@ -1,4 +1,5 @@
 const express = require('express');
+const { assignGroupNames } = require('../lib/group-names');
 const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEligibleForGrouping } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
@@ -65,6 +66,32 @@ function loadFamiliesForAlgo() {
     cancelled: !!f.cancelled,
   }));
 }
+
+router.get('/group-names', (req, res) => {
+  res.json({ names: db.prepare('SELECT * FROM group_name_catalog ORDER BY age_min, id').all() });
+});
+
+function saveCatalogName(req, res) {
+  const name = String(req.body.name || '').trim();
+  const min = Number(req.body.ageMin), max = Number(req.body.ageMax);
+  if (!name || name.length > 80 || !Number.isInteger(min) || !Number.isInteger(max) || min < 1 || max > 17 || min > max) {
+    return res.status(400).json({ error: 'Укажите название до 80 символов и возраст от 1 до 17 лет' });
+  }
+  if (db.prepare('SELECT id FROM group_name_catalog WHERE name = ? AND id != ?').get(name, Number(req.params.id) || 0)) {
+    return res.status(409).json({ error: 'Такое название уже существует' });
+  }
+  if (req.params.id) {
+    const result = db.prepare('UPDATE group_name_catalog SET name = ?, age_min = ?, age_max = ? WHERE id = ?').run(name, min, max, req.params.id);
+    if (!result.changes) return res.status(404).json({ error: 'Название не найдено' });
+  } else db.prepare('INSERT INTO group_name_catalog(name, age_min, age_max) VALUES (?, ?, ?)').run(name, min, max);
+  res.json({ ok: true });
+}
+router.post('/group-names', saveCatalogName);
+router.patch('/group-names/:id', saveCatalogName);
+router.delete('/group-names/:id', (req, res) => {
+  db.prepare('DELETE FROM group_name_catalog WHERE id = ?').run(req.params.id);
+  res.json({ ok: true });
+});
 
 function loadWishLinks() {
   return db
@@ -486,6 +513,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
 
   const families = loadFamiliesForAlgo();
   const result = fillExistingGroups(storedGroups, families, loadWishLinks());
+  assignGroupNames(result.groups, db.prepare('SELECT * FROM group_name_catalog').all(), new Map(storedGroups.map((group) => [group.id, group])));
   if (!result.assignments.length) {
     return res.json({
       ok: true,
@@ -506,7 +534,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
     for (const groupId of result.createdGroupIds) {
       const group = result.groups.find((item) => item.id === groupId);
       const route = routeByGroup.get(groupId);
-      insertGroup.run(groupId, groupId, DEFAULT_GROUP_START_LOCATION, group.avgAge, group.childCount, route?.totalMin ?? null);
+      insertGroup.run(groupId, group.name, DEFAULT_GROUP_START_LOCATION, group.avgAge, group.childCount, route?.totalMin ?? null);
     }
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const activateFamily = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?');
@@ -548,7 +576,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
   // балансировки квартир, поэтому проверяем уведомления для всех групп.
   const changedGroups = result.groups.map((group) => ({
       ...group,
-      name: storedGroups.find((stored) => stored.id === group.id)?.name || group.id,
+      name: group.name || group.id,
       startLocation: storedGroups.find((stored) => stored.id === group.id)?.startLocation || DEFAULT_GROUP_START_LOCATION,
       stops: routeByGroup.get(group.id)?.stops || [],
     }));
@@ -705,6 +733,7 @@ router.post('/recompute', asyncRoute(async (req, res) => {
   const groups = buildGroups(families, wishLinks);
   const routes = buildRoutes(groups, families, specialPoints);
   const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
+  assignGroupNames(groups, db.prepare('SELECT * FROM group_name_catalog').all(), oldGroups);
 
   const tx = db.transaction(() => {
     db.exec('DELETE FROM route_stops; DELETE FROM group_members; DELETE FROM groups;');
@@ -723,7 +752,7 @@ router.post('/recompute', asyncRoute(async (req, res) => {
     for (const g of groups) {
       const route = routeByGroup.get(g.id);
       const previous = oldGroups.get(g.id);
-      insertGroup.run(g.id, previous?.name || g.id, previous?.start_location || DEFAULT_GROUP_START_LOCATION, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
+      insertGroup.run(g.id, g.name, previous?.start_location || DEFAULT_GROUP_START_LOCATION, g.avgAge, g.childCount, g.isManual ? 1 : 0, route ? route.totalMin : null);
       for (const familyId of g.memberFamilyIds) {
         insertMember.run(g.id, familyId);
       }
@@ -752,7 +781,7 @@ router.post('/recompute', asyncRoute(async (req, res) => {
     const route = routes.find((item) => item.groupId === group.id);
     return {
       id: group.id,
-      name: oldGroups.get(group.id)?.name || group.id,
+      name: group.name || group.id,
       startLocation: oldGroups.get(group.id)?.start_location || DEFAULT_GROUP_START_LOCATION,
       memberFamilyIds: group.memberFamilyIds,
       stops: route?.stops || [],

@@ -198,8 +198,8 @@
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
     try {
-      const [{ families }, { groups }, { specialPoints }, eventSettings] = await Promise.all([
-        api('/families'), api('/groups'), api('/special-points'), api('/event-settings'),
+      const [{ families }, { groups }, { specialPoints }, eventSettings, { names }] = await Promise.all([
+        api('/families'), api('/groups'), api('/special-points'), api('/event-settings'), api('/group-names'),
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
@@ -216,6 +216,15 @@
           <p class="test-data-warning">Удаление очищает семьи, детей, участников, группы и маршруты. Спецточки и время начала сохраняются.</p>
           <div id="testDataMsg" class="search-hint" aria-live="polite"></div></section>
         ${dashboardOverview(families, groups, waitingFamilies)}
+        <details class="card admin-collection"><summary>🎃 Каталог названий групп · ${names.length}</summary>
+          <p class="muted">Название подбирается по среднему возрасту детей. Изменения каталога применяются к новым группам; существующие названия сохраняются.</p>
+          ${[...names, { id: '', name: '', age_min: 1, age_max: 17 }].map((item) => `<div class="admin-grid" data-catalog-row="${item.id}">
+            <label>Название<input data-name type="text" maxlength="80" value="${esc(item.name)}" placeholder="Новое название" /></label>
+            <label>Возраст от<input data-min type="number" min="1" max="17" value="${item.age_min}" /></label>
+            <label>Возраст до<input data-max type="number" min="1" max="17" value="${item.age_max}" /></label>
+            <div class="button-row"><button class="small" data-save-catalog>${item.id ? 'Сохранить' : 'Добавить'}</button>${item.id ? '<button class="danger small" data-delete-catalog>Удалить</button>' : ''}</div>
+            <div data-catalog-msg class="search-hint"></div></div>`).join('')}
+        </details>
         <div class="card event-settings-card"><div class="event-settings-heading"><div><div class="countdown-kicker"><span class="countdown-dot"></span> Управление событием</div>
           <h3>Начало Монстрополии</h3></div><div class="server-clock"><span>Время сервера</span><strong>${esc(eventSettings.serverLocalNow.replace('T', ' '))}</strong></div></div>
           <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
@@ -268,6 +277,24 @@
     });
   }
   function bindDashboard({ families, groups }) {
+    document.querySelectorAll('[data-catalog-row]').forEach((row) => {
+      const id = row.dataset.catalogRow;
+      row.querySelector('[data-save-catalog]').onclick = async () => {
+        try {
+          await api(`/group-names${id ? `/${id}` : ''}`, { method: id ? 'PATCH' : 'POST', body: {
+            name: row.querySelector('[data-name]').value,
+            ageMin: Number(row.querySelector('[data-min]').value), ageMax: Number(row.querySelector('[data-max]').value),
+          } });
+          await renderDashboard();
+        } catch (error) { row.querySelector('[data-catalog-msg]').textContent = error.message; }
+      };
+      const deleteButton = row.querySelector('[data-delete-catalog]');
+      if (deleteButton) deleteButton.onclick = async () => {
+        if (!confirm('Удалить название из каталога? Названия существующих групп сохранятся.')) return;
+        try { await api(`/group-names/${id}`, { method: 'DELETE' }); await renderDashboard(); }
+        catch (error) { row.querySelector('[data-catalog-msg]').textContent = error.message; }
+      };
+    });
     document.getElementById('registrationClosed').onchange = async (event) => {
       const checkbox = event.target;
       const value = checkbox.checked;

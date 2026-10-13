@@ -148,6 +148,27 @@ ensureColumn('parent_links', 'last_name', 'TEXT');
 ensureColumn('parent_links', 'username', 'TEXT');
 ensureColumn('parent_links', 'updated_at', 'INTEGER');
 
+db.exec(`CREATE TABLE IF NOT EXISTS group_name_catalog (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL UNIQUE,
+  age_min INTEGER NOT NULL,
+  age_max INTEGER NOT NULL
+);`);
+if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'group_names_seeded'").get()) {
+  db.transaction(() => {
+    const insert = db.prepare('INSERT OR IGNORE INTO group_name_catalog(name, age_min, age_max) VALUES (?, ?, ?)');
+    for (const [name, min, max] of [
+      ['Тыквята', 1, 6], ['Маленькие привидения', 1, 6], ['Пушистые монстрики', 1, 6],
+      ['Конфетные летучие мышки', 1, 6], ['Волшебные котята', 1, 6],
+      ['Тыквенный патруль', 7, 10], ['Охотники за конфетами', 7, 10], ['Летучая банда', 7, 10],
+      ['Призрачные разведчики', 7, 10], ['Ведьмин отряд', 7, 10],
+      ['Стражи полуночи', 11, 17], ['Орден чёрной луны', 11, 17], ['Теневые охотники', 11, 17],
+      ['Ночные оборотни', 11, 17], ['Легион вампиров', 11, 17],
+    ]) insert.run(name, min, max);
+    db.prepare("INSERT INTO app_settings(key, value) VALUES ('group_names_seeded', '1')").run();
+  })();
+}
+
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
   let out = '';
