@@ -169,6 +169,21 @@ if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'group_names_seeded'").g
   })();
 }
 
+if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'group_names_seeded_v2'").get()) {
+  db.transaction(() => {
+    const insert = db.prepare('INSERT OR IGNORE INTO group_name_catalog(name, age_min, age_max) VALUES (?, ?, ?)');
+    for (const [name, min, max] of [
+      ['Пряничные привидения', 1, 6], ['Тыквенные огоньки', 1, 6], ['Карамельные совята', 1, 6],
+      ['Хихикающие паучки', 1, 6], ['Зефирные чудики', 1, 6],
+      ['Скелеты на каникулах', 7, 10], ['Пираты тыквенного моря', 7, 10], ['Клуб храбрых привидений', 7, 10],
+      ['Паучья дружина', 7, 10], ['Заклинатели сладостей', 7, 10],
+      ['Хранители склепа', 11, 17], ['Ковен багровой луны', 11, 17], ['Полуночный дозор', 11, 17],
+      ['Всадники тумана', 11, 17], ['Братство забытых теней', 11, 17],
+    ]) insert.run(name, min, max);
+    db.prepare("INSERT INTO app_settings(key, value) VALUES ('group_names_seeded_v2', '1')").run();
+  })();
+}
+
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
   let out = '';
