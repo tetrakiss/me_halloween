@@ -14,13 +14,55 @@ test('any three dossiers uniquely identify the correct wire in every set', () =>
 test('opening order controls cost; repeated readings and rejected confirmation are free', () => {
   const game = new MegatonnaGame({ now: () => 1000 });
   const round = game.create();
-  assert.equal(game.action(round.id, 'open', 4).remainingMs, 180000);
+  assert.equal(game.action(round.id, 'open', 4).remainingMs, 60000);
   assert.throws(() => game.action(round.id, 'open', 0), /CONFIRM_COST/);
-  assert.equal(game.action(round.id, 'open', 0, true).remainingMs, 170000);
-  assert.equal(game.action(round.id, 'open', 4).remainingMs, 170000);
-  assert.equal(game.action(round.id, 'open', 2, true).remainingMs, 155000);
-  assert.equal(game.action(round.id, 'open', 1, true).remainingMs, 135000);
-  assert.equal(game.action(round.id, 'open', 3, true).remainingMs, 110000);
+  assert.equal(game.action(round.id, 'open', 0, true).remainingMs, 40000);
+  assert.equal(game.action(round.id, 'open', 4).remainingMs, 40000);
+  assert.equal(game.action(round.id, 'open', 2, true).remainingMs, 10000);
+  assert.throws(() => game.action(round.id, 'open', 1, true), /CLUE_LIMIT/);
+  assert.equal(game.view(game.get(round.id)).remainingMs, 10000);
+});
+
+test('wins advance cyclically through three stages; losses repeat the same stage and set', () => {
+  const game = new MegatonnaGame({ now: () => 0 });
+  let round = game.create(2);
+  assert.throws(() => game.next(round.id), /ROUND_NOT_FINISHED/);
+  for (const stage of [1, 2, 3]) {
+    assert.equal(round.stage, stage);
+    assert.equal(round.maxClues, 4 - stage);
+    assert.equal(round.set, [2, 3, 1][stage - 1]);
+    const priorId = round.id;
+    game.action(priorId, 'cut', SETS[round.set - 1].answer);
+    const next = game.next(priorId);
+    assert.equal(game.next(priorId).id, next.id);
+    round = next;
+  }
+  assert.equal(round.stage, 1);
+  assert.ok(round.set >= 1 && round.set <= 3);
+  const set = round.set;
+  for (const wire of WIRES.filter(wire => wire !== SETS[set - 1].answer).slice(0, 3)) {
+    game.action(round.id, 'cut', wire);
+  }
+  const retry = game.next(round.id);
+  assert.equal(retry.set, set);
+  assert.equal(retry.stage, 1);
+  assert.equal(retry.remainingMs, 60000);
+});
+
+test('later rounds enforce two and one clues, while reopened clues remain free', () => {
+  const game = new MegatonnaGame({ now: () => 0 });
+  let round = game.create(1);
+  game.action(round.id, 'cut', 'blue');
+  round = game.next(round.id);
+  game.action(round.id, 'open', 0);
+  game.action(round.id, 'open', 1, true);
+  assert.throws(() => game.action(round.id, 'open', 2, true), /CLUE_LIMIT/);
+  assert.equal(game.action(round.id, 'open', 0).remainingMs, 40000);
+  game.action(round.id, 'cut', 'yellow');
+  round = game.next(round.id);
+  game.action(round.id, 'open', 4);
+  assert.throws(() => game.action(round.id, 'open', 0, true), /CLUE_LIMIT/);
+  assert.equal(game.action(round.id, 'open', 4).remainingMs, 60000);
 });
 
 test('server clock expires rounds and pausing freezes remaining time', () => {
@@ -28,11 +70,11 @@ test('server clock expires rounds and pausing freezes remaining time', () => {
   const game = new MegatonnaGame({ now: () => now });
   const round = game.create();
   now = 10000;
-  assert.equal(game.action(round.id, 'pause').remainingMs, 170000);
+  assert.equal(game.action(round.id, 'pause').remainingMs, 50000);
   now = 600000;
-  assert.equal(game.view(game.get(round.id)).remainingMs, 170000);
+  assert.equal(game.view(game.get(round.id)).remainingMs, 50000);
   game.action(round.id, 'resume');
-  now += 170000;
+  now += 50000;
   assert.equal(game.view(game.get(round.id)).status, 'lost');
   assert.throws(() => game.action(round.id, 'cut', 'blue'), /ROUND_NOT_RUNNING/);
 });
@@ -60,7 +102,7 @@ test('dossier penalty can exhaust time and answers are not exposed in round resp
   assert.equal(Object.hasOwn(round, 'answer'), false);
   assert.deepEqual(round.clues, []);
   game.action(round.id, 'open', 0);
-  now = 175000;
+  now = 55000;
   const result = game.action(round.id, 'open', 1, true);
   assert.equal(result.status, 'lost');
   assert.equal(result.remainingMs, 0);

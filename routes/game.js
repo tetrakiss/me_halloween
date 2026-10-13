@@ -24,7 +24,8 @@ function createGameRouter(game = new MegatonnaGame()) {
       res.status(status).json({ error: error.message });
     }
   };
-  router.post('/rounds', handler(req => game.create(req.body.set ?? 1)));
+  router.post('/rounds', handler(req => req.body.previousId
+    ? game.next(req.body.previousId) : game.create()));
   router.get('/rounds/:id', handler(req => game.view(game.get(req.params.id))));
   router.post('/rounds/:id/actions', handler(req => game.action(
     req.params.id, req.body.action, req.body.value, req.body.confirmed
