@@ -17,3 +17,5 @@
 ## Изображения
 
 Встроенный ImageGen: единый атлас двух портретов и двух сумок, разделённый на четыре WebP-изображения. Промпт: «Four equal quadrants, green phosphor vault checkpoint: medic Marta portrait; trader Nina portrait; safe medic bag with bandages, syringes and scissors; crowded trading satchel with unhighlighted pistol partially hidden beneath cloth». Иконка каталога — ранее сгенерированный согласованный макет интерфейса. Файлы находятся в `assets/`, внешних запросов изображений нет.
+
+Обновление графики: отдельные документальные фотографии `marta-id.webp`, `nina-id.webp` сгенерированы встроенным ImageGen (две ячейки: формальные фото врача и торговки на однотонном фоне). Ржавая рамка `bezel.webp` сгенерирована встроенным ImageGen (прямой вид металлической CRT-рамки с винтами, коррозией и пустым чёрным центром). Грязь на документе — локальная SVG-текстура; эмблема убежища — SVG.

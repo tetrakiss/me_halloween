@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id), data = window.PassScenarios;
-  const asset = name => '/games/pass/assets/' + name + '?v=1.0.13';
+  const asset = name => '/games/pass/assets/' + name + '?v=1.0.15';
   let typingTimer;
   let index = 0, tab = 'identity', phase = 'intro', answers = [], sound = true, audio;
   function beep(success = true) {
@@ -48,7 +48,7 @@
   function renderVisitor() {
     const visitor = data.visitors[index]; phase = 'playing'; $('overlay').hidden = true;
     $('date').textContent = data.date; $('progress').textContent = String(index + 1).padStart(2, '0') + ' / 02';
-    $('portrait').src = $('idPhoto').src = asset(visitor.portrait); $('portrait').alt = visitor.name + ', посетитель у шлюза';
+    $('portrait').src = asset(visitor.portrait); $('idPhoto').src = asset(visitor.idPhoto); $('portrait').alt = visitor.name + ', посетитель у шлюза';
     $('bagImage').src = asset(visitor.baggage);
     ['name', 'profession', 'issued', 'expires'].forEach(key => $(key).textContent = visitor[key]);
     $('radiation').textContent = String(visitor.radiation).padStart(3, '0'); drawGauge(visitor.radiation);
@@ -96,6 +96,6 @@
     if (key === 'ArrowLeft') decide(false);
     if (key === 'ArrowRight') decide(true);
   });
-  for (const visitor of data.visitors) for (const name of [visitor.portrait, visitor.baggage]) { const image = new Image(); image.src = asset(name); }
+  for (const visitor of data.visitors) for (const name of [visitor.portrait, visitor.idPhoto, visitor.baggage]) { const image = new Image(); image.src = asset(name); }
   $('date').textContent = data.date; $('continue').focus();
 })();
