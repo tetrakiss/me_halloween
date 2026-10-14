@@ -1,8 +1,9 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id), data = window.PassScenarios;
-  const asset = name => '/games/pass/assets/' + name + '?v=1.0.15';
-  let typingTimer;
+  const asset = name => '/games/pass/assets/' + name + '?v=1.0.16';
+  let typingTimer, requestTimer, previousRequest = '';
+  let cameraLabels = [], shiftVisitors = [];
   let index = 0, tab = 'identity', phase = 'intro', answers = [], sound = true, audio;
   function beep(success = true) {
     if (!sound) return;
@@ -43,16 +44,23 @@
     tab = next;
     $('identityPanel').hidden = tab !== 'identity'; $('baggagePanel').hidden = tab !== 'baggage';
     $('identity').setAttribute('aria-pressed', String(tab === 'identity')); $('baggage').setAttribute('aria-pressed', String(tab === 'baggage'));
-    typeDialogue(tab === 'identity' ? data.visitors[index].greeting : data.visitors[index].baggageLine);
+    typeDialogue(tab === 'identity' ? shiftVisitors[index].greeting : shiftVisitors[index].baggageLine);
   }
   function renderVisitor() {
-    const visitor = data.visitors[index]; phase = 'playing'; $('overlay').hidden = true;
-    $('date').textContent = data.date; $('progress').textContent = String(index + 1).padStart(2, '0') + ' / 02';
+    const visitor = shiftVisitors[index]; phase = 'playing'; $('overlay').hidden = true;
+    $('cameraLabel').textContent = cameraLabels[index];
+    $('date').textContent = data.date; $('progress').textContent = String(index + 1).padStart(2, '0') + ' / ' + String(data.visitors.length).padStart(2, '0');
     $('portrait').src = asset(visitor.portrait); $('idPhoto').src = asset(visitor.idPhoto); $('portrait').alt = visitor.name + ', посетитель у шлюза';
     $('bagImage').src = asset(visitor.baggage);
     ['name', 'profession', 'issued', 'expires'].forEach(key => $(key).textContent = visitor[key]);
     $('radiation').textContent = String(visitor.radiation).padStart(3, '0'); drawGauge(visitor.radiation);
+    clearInterval(requestTimer); previousRequest = '';
     changeTab('identity'); $('identity').focus();
+    requestTimer = setInterval(() => {
+      if (phase !== 'playing' || document.hidden) return;
+      const request = data.pickRequest(shiftVisitors[index], previousRequest);
+      previousRequest = request.text; typeDialogue(request.text);
+    }, 15000);
   }
   function modal(title, text, outcome, button, correct) {
     $('resultTitle').textContent = title; $('resultText').textContent = text; $('outcome').textContent = outcome;
@@ -61,19 +69,22 @@
   }
   function decide(admitted) {
     if (phase !== 'playing') return;
-    const visitor = data.visitors[index], correct = admitted === data.canAdmit(visitor);
-    answers.push({ name: visitor.name, admitted, correct }); phase = 'feedback'; clearTimeout(typingTimer); $('dialogue').classList.remove('typing'); beep(correct);
-    const outcome = visitor.weapon ? (admitted ? visitor.admittedOutcome : visitor.outcome) : (admitted ? visitor.outcome : visitor.rejectedOutcome);
+    const visitor = shiftVisitors[index], correct = admitted === data.canAdmit(visitor);
+    answers.push({ name: visitor.name, admitted, correct }); phase = 'feedback'; clearInterval(requestTimer); clearTimeout(typingTimer); $('dialogue').classList.remove('typing'); beep(correct);
+    const outcome = admitted ? (visitor.admittedOutcome || visitor.outcome) : (visitor.rejectedOutcome || visitor.outcome);
     modal(correct ? 'ВЕРНО' : 'ОШИБКА', visitor.explanation, outcome, index === data.visitors.length - 1 ? 'ИТОГ СМЕНЫ · OK' : 'СЛЕДУЮЩИЙ ПОСЕТИТЕЛЬ · OK', correct);
   }
   function advance() {
     beep();
-    if (phase === 'intro' || phase === 'finished') { index = 0; answers = []; $('report').replaceChildren(); renderVisitor(); }
+    if (phase === 'intro' || phase === 'finished') { index = 0; answers = []; shiftVisitors = data.createShift();
+      cameraLabels = data.visitors.map((visitor, i) => 'КАМЕРА ' + ['ШЛЮЗА', 'ПОСТА', 'КОРИДОРА'][i % 3] + ' ' + String(i + 1).padStart(2, '0'));
+      for (let i = cameraLabels.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [cameraLabels[i], cameraLabels[j]] = [cameraLabels[j], cameraLabels[i]]; }
+      $('report').replaceChildren(); renderVisitor(); }
     else if (phase === 'feedback') {
       if (index + 1 < data.visitors.length) { index++; renderVisitor(); }
       else { phase = 'finished'; const score = answers.filter(a => a.correct).length;
-        $('report').replaceChildren(...answers.map(answer => { const row = document.createElement('p'); row.textContent = (answer.correct ? '✓ ' : '✕ ') + answer.name + ' — ' + (answer.admitted ? 'ДОПУЩЕНА' : 'ОТКАЗАНО'); return row; }));
-        modal('СМЕНА ЗАВЕРШЕНА', 'Верных решений: ' + score + ' / 2', score === 2 ? 'Шлюз под контролем. Отличная первая смена, инспектор.' : 'Изучите разбор и попробуйте пройти смену без ошибок.', 'ПОВТОРИТЬ СМЕНУ · OK');
+        $('report').replaceChildren(...answers.map(answer => { const row = document.createElement('p'); row.textContent = (answer.correct ? '✓ ' : '✕ ') + answer.name + ' — ' + (answer.admitted ? 'ДОПУСК' : 'ОТКАЗАНО'); return row; }));
+        modal('СМЕНА ЗАВЕРШЕНА', 'Верных решений: ' + score + ' / ' + data.visitors.length, score === data.visitors.length ? 'Шлюз под контролем. Отличная первая смена, инспектор.' : 'Изучите разбор и попробуйте пройти смену без ошибок.', 'ПОВТОРИТЬ СМЕНУ · OK');
       }
     }
   }

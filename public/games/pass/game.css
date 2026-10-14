@@ -24,3 +24,4 @@
 @media(prefers-reduced-motion:reduce){.camera-bands:before,.camera-bands:after{animation:none;opacity:0}.visitor img{animation:none}}
 /* Keep controls clear of the metal lip at the bottom of the screen. */
 .rules{top:770px;height:70px}.decisions{top:848px}.decisions button{height:88px}footer{bottom:39px}
+#report{display:grid;grid-template-columns:1fr 1fr;gap:0 25px}#report p{font-size:20px;line-height:1.2;padding:10px 0}.modal{max-height:970px;overflow:auto}
