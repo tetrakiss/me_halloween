@@ -85,6 +85,10 @@ app.get(['/games/bomb', '/games/bomb/'], (req, res) => {
   res.set('Cache-Control', 'no-cache');
   res.sendFile(path.join(__dirname, 'public/games/bomb/index.html'));
 });
+app.get(['/games/pass', '/games/pass/'], (req, res) => {
+  res.set('Cache-Control', 'no-cache');
+  res.sendFile(path.join(__dirname, 'public/games/pass/index.html'));
+});
 app.use('/game-api', require('./routes/game').createGameRouter());
 app.use(express.static(path.join(__dirname, 'public')));
 
