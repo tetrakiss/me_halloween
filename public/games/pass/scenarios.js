@@ -1,6 +1,7 @@
 'use strict';
 (function(root) {
   const date = '24.10.2287';
+  const shiftSize = 10;
   const visitors = [
     { id: 'marta', name: 'МАРТА КЕЙН', profession: 'ВРАЧ', issued: '12.10.2287', expires: '30.10.2287', radiation: 18, identityMatches: true, weapon: false,
       portrait: 'marta.webp', idPhoto: 'marta-id.webp', baggage: 'marta-bag.webp', greeting: 'Меня вызвали к заболевшему смотрителю.', baggageLine: 'Бинты, лекарства, ножницы. Всё для медблока.', explanation: 'Фото совпадает, пропуск действует, радиация 18 из 40. В сумке лекарства и медицинские ножницы — оружия нет.', outcome: 'МЕДБЛОК: Марта прибыла на дежурство. Смотритель получит помощь.', rejectedOutcome: 'МЕДБЛОК: Врач не допущен. Приём пациентов задерживается.' },
@@ -17,6 +18,11 @@
     {"id": "roza", "name": "РОЗА БЕЛЛ", "profession": "ПРАЧКА", "issued": "12.10.2287", "expires": "30.10.2287", "radiation": 22, "identityMatches": true, "weapon": false, "portrait": "roza.webp", "idPhoto": "roza-id.webp", "baggage": "roza-bag.webp", "greeting": "Несу чистую одежду в жилой сектор.", "baggageLine": "Вещей много, но всё после стирки.", "explanation": "Фото совпадает, пропуск действует, радиация 22. Полная сумка содержит одежду и принадлежности для стирки, оружия нет.", "outcome": "ЖИЛОЙ СЕКТОР: Роза доставила чистую одежду.", "admittedOutcome": "ЖИЛОЙ СЕКТОР: Роза доставила чистую одежду.", "rejectedOutcome": "ДИСПЕТЧЕР: Посетитель с действующим допуском задержан. Работа сектора нарушена."},
     {"id": "daniel", "name": "ДАНИЭЛЬ РИД", "profession": "САНИТАР", "issued": "12.10.2287", "expires": "30.10.2287", "radiation": 16, "identityMatches": false, "weapon": true, "portrait": "daniel.webp", "idPhoto": "daniel-id.webp", "baggage": "daniel-bag.webp", "greeting": "Доставка для медблока. Не задерживайте.", "baggageLine": "Медицинские пакеты. Очень нужные.", "explanation": "В пропуске другой человек: пожилой светлокожий мужчина с прямыми седыми волосами. Между медпакетами также видны ствол и скоба пистолета.", "outcome": "ОХРАНА: Чужой пропуск и оружие изъяты на внешнем посту.", "admittedOutcome": "ОХРАНА: Посетитель допущен с нарушением. Безопасность шлюза под угрозой.", "rejectedOutcome": "ОХРАНА: Чужой пропуск и оружие изъяты на внешнем посту."},
     {"id": "elsa", "name": "ЭЛЬЗА МАРШ", "profession": "АРХИВИСТ", "issued": "12.10.2287", "expires": "30.10.2287", "radiation": 38, "identityMatches": true, "weapon": false, "portrait": "elsa.webp", "idPhoto": "elsa-id.webp", "baggage": "elsa-bag.webp", "greeting": "Меня ждут в архиве. Принесла книги.", "baggageLine": "Книги, карандаши и футляр для очков.", "explanation": "Личность совпадает, пропуск действует, радиация 38. На старом фото нет очков — это допустимо. В сумке нет оружия.", "outcome": "АРХИВ: Эльза вернула книги и приступила к работе.", "admittedOutcome": "АРХИВ: Эльза вернула книги и приступила к работе.", "rejectedOutcome": "ДИСПЕТЧЕР: Посетитель с действующим допуском задержан. Работа сектора нарушена."}
+,
+    {"id": "ghoul", "name": "ГЕННАДИЙ", "profession": "БУХГАЛТЕР", "radiation": 39, "identityMatches": true, "weapon": false, "greeting": "Я здесь работал ещё до вашего рождения.", "baggageLine": "Счёты, ведомости и крем для лица. Не смейтесь.", "explanation": "На фото тот же гуль. Пропуск действует, радиация 39 — ниже предела. Счёты, бумаги и крем безопасны. Внешность не является причиной отказа.", "outcome": "БУХГАЛТЕРИЯ: Геннадий закрыл отчёт за последние двести лет.", "speech": {"neutral": ["Пустите, отчёт сам себя не сдаст.", "Крем не радиационный. Почти. Можно пройти?"], "aggressive": ["Двести лет в очереди! Открывайте шлюз!", "Я старше этого убежища. Пустите на работу!"]}, "issued": "12.10.2287", "expires": "30.10.2287", "portrait": "ghoul.webp", "idPhoto": "ghoul-id.webp", "baggage": "ghoul-bag.webp", "admittedOutcome": "БУХГАЛТЕРИЯ: Геннадий закрыл отчёт за последние двести лет.", "rejectedOutcome": "ДИСПЕТЧЕР: Посетитель с действующим допуском задержан без причины."},
+    {"id": "robot", "name": "РОБЕРТ", "profession": "УБОРЩИК", "radiation": 0, "identityMatches": true, "weapon": true, "greeting": "Ваш пол прекрасен. Разрешите его обслужить.", "baggageLine": "Чистящие средства. Щётки. Совершенно обычный комплект.", "explanation": "Робот совпадает с фото и радиация нулевая. Но среди губок и чистящих средств спрятана граната — видны рычаг и кольцо.", "outcome": "ОХРАНА: Граната изъята. Роберт отправлен на технический осмотр.", "speech": {"neutral": ["Запрос: доступ к загрязнённому полу.", "Пожалуйста, откройте дверь для уборки."], "flattering": ["Ваш блеск затмевает мой полироль. Впустите?", "Лучший инспектор заслуживает чистый пол. Откроете?"]}, "issued": "12.10.2287", "expires": "30.10.2287", "portrait": "robot.webp", "idPhoto": "robot-id.webp", "baggage": "robot-bag.webp", "admittedOutcome": "ОХРАНА: Посетитель допущен с нарушением.", "rejectedOutcome": "ОХРАНА: Граната изъята. Роберт отправлен на технический осмотр."},
+    {"id": "roach", "name": "АРКАДИЙ", "profession": "КУРЬЕР", "radiation": 12, "identityMatches": true, "weapon": false, "greeting": "Цок-цок. Доставка печенья. Я внизу, не наступите.", "baggageLine": "Крошки и печенье. Очень важный груз.", "explanation": "В пропуске тот же таракан. Документы действуют, радиация 12. В маленькой сумке печенье, оружия нет. Вид посетителя не запрещает допуск.", "outcome": "СТОЛОВАЯ: Аркадий доставил печенье. Недостачу крошек простили.", "speech": {"neutral": ["Я тут, внизу. Можно уже внутрь?", "Цок-цок. Откройте, пожалуйста."], "aggressive": ["Шесть лап замёрзли! Открывайте!", "ЦОК! Я не собираюсь жить у вашего порога!"]}, "issued": "12.10.2287", "expires": "30.10.2287", "portrait": "roach.webp", "idPhoto": "roach-id.webp", "baggage": "roach-bag.webp", "admittedOutcome": "СТОЛОВАЯ: Аркадий доставил печенье. Недостачу крошек простили.", "rejectedOutcome": "ДИСПЕТЧЕР: Посетитель с действующим допуском задержан без причины."},
+    {"id": "deathclaw", "name": "СЕМЁН", "profession": "САДОВНИК", "radiation": 28, "identityMatches": false, "weapon": false, "greeting": "Р-р-р. На работу. Цветы ждут.", "baggageLine": "Лейка. Семена. Люблю ромашки.", "explanation": "В пропуске обычный человек с усами и шляпой, а у шлюза коготь смерти. Это чужой документ. Безопасные садовые вещи не исправляют несовпадение личности.", "outcome": "ОХРАНА: Садовник отправлен оформлять собственный пропуск.", "speech": {"neutral": ["Р-р. Можно к клумбам?", "Мне внутрь. Поливать надо."], "flattering": ["У вас красивые глаза. Как ромашки. Пустите?", "Вы самый добрый человек. Шлюз откроете?"]}, "issued": "12.10.2287", "expires": "30.10.2287", "portrait": "deathclaw.webp", "idPhoto": "deathclaw-id.webp", "baggage": "deathclaw-bag.webp", "admittedOutcome": "ОХРАНА: Посетитель допущен с нарушением.", "rejectedOutcome": "ОХРАНА: Садовник отправлен оформлять собственный пропуск."}
   ];
   function parseDate(value) { const parts = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(value); if (!parts) return NaN; const d = new Date(Date.UTC(+parts[3], +parts[2] - 1, +parts[1])); return d.getUTCDate() === +parts[1] && d.getUTCMonth() === +parts[2] - 1 ? +d : NaN; }
   function reasons(visitor, today = date) {
@@ -60,7 +66,7 @@
   function pickRequest(visitor, previous = '', random = Math.random) {
     const types = requestTypes(visitor);
     const type = types[Math.min(types.length - 1, Math.floor(random() * types.length))];
-    const pool = requests[type].filter(text => text !== previous);
+    const pool = requests[type].concat((visitor.speech && visitor.speech[type]) || []).filter(text => text !== previous);
     return { type, text: pool[Math.min(pool.length - 1, Math.floor(random() * pool.length))] };
   }
   function createShift(random = Math.random) {
@@ -69,9 +75,13 @@
       const j = Math.floor(random() * (i + 1));
       [shift[i], shift[j]] = [shift[j], shift[i]];
     }
-    return shift;
+    return shift.slice(0, shiftSize);
   }
-  const api = { date, visitors, createShift, reasons, requests, requestTypes, pickRequest, canAdmit: visitor => reasons(visitor).length === 0 };
+  function shiftStatus(answers) {
+    const mistakes = answers.filter(answer => !answer.correct).length;
+    return { mistakes, score: answers.length - mistakes, status: mistakes >= 3 ? 'lost' : answers.length >= shiftSize ? 'won' : 'running' };
+  }
+  const api = { shiftSize, shiftStatus, date, visitors, createShift, reasons, requests, requestTypes, pickRequest, canAdmit: visitor => reasons(visitor).length === 0 };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.PassScenarios = api;
 })(typeof window !== 'undefined' ? window : globalThis);
