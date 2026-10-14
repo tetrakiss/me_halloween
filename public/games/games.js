@@ -3,6 +3,7 @@
 // Add future games here. Each entry becomes one complete same-browser link.
 // artwork contains an optional local illustration overlay; no network dependencies.
 const GAMES = [
+  { id: 'roach', title: 'РАДТАРАКАНЫ', subtitle: 'Спаси печенье · 1 минута', href: '/games/roach/', image: '/games/roach/icon.svg?v=1.0.19', width: 1672, height: 941, alt: 'Лазерный прицел защищает пачку печенья от радтараканов' },
   { id: 'megatonna', title: 'МЕГАТОННА', subtitle: '3 раунда · по 1 минуте', href: '/games/bomb', image: '/games/bomb/assets/vault-background.webp?v=1.0.10', width: 1672, height: 941, alt: 'Потёртая бомба «Мегатонна» с пятью цветными проводами на верстаке убежища', artwork: 'wires' },
   { id: 'pass', title: 'ПРОВЕРКА ДОПУСКА', subtitle: 'Личность · багаж · радиация', href: '/games/pass', image: '/games/pass/assets/icon.webp?v=1.0.13', width: 1672, height: 941, alt: 'Инспектор шлюза: портрет врача и её медицинская сумка' }
 ];
