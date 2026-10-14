@@ -131,7 +131,10 @@ for (let i = 0; i < 5; i++) {
     $('cursor').classList.add('closed');
     const previousMistakes = service.state.mistakes;
     const ok = await send({ type: 'CUT', id: i });
-    if (ok && service.state.mistakes > previousMistakes) sparkBurst(i);
+    if (ok && service.state.mistakes > previousMistakes) {
+      sparkBurst(i);
+      window.bombSound.playSpark();
+    }
     if (ok && service.state.status === 'running') showToast('Неверная цепь. Ошибок: ' + service.state.mistakes + ' / ' + service.state.maxMistakes);
     setTimeout(() => { animationLock = false; $('cursor').classList.remove('closed'); }, 300);
   };

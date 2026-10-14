@@ -3,7 +3,7 @@
 // Add future games here. Each entry becomes one complete same-browser link.
 // artwork contains an optional local illustration overlay; no network dependencies.
 const GAMES = [
-  { id: 'megatonna', title: 'МЕГАТОННА', subtitle: '3 раунда · по 1 минуте', href: '/games/bomb', image: '/games/bomb/assets/vault-background.webp?v=1.0.9', width: 1672, height: 941, alt: 'Потёртая бомба «Мегатонна» с пятью цветными проводами на верстаке убежища', artwork: 'wires' }
+  { id: 'megatonna', title: 'МЕГАТОННА', subtitle: '3 раунда · по 1 минуте', href: '/games/bomb', image: '/games/bomb/assets/vault-background.webp?v=1.0.10', width: 1672, height: 941, alt: 'Потёртая бомба «Мегатонна» с пятью цветными проводами на верстаке убежища', artwork: 'wires' }
 ];
 const PLACEHOLDERS = 2;
 const stage = document.getElementById('stage');
