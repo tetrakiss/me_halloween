@@ -1,6 +1,6 @@
 'use strict';
 (function () {
-  const url = '/games/bomb/assets/audio/electric-spark.wav?v=1.0.10';
+  const url = '/games/bomb/assets/audio/electric-spark.wav?v=1.0.12';
   const key = 'megatonna-sound';
   const button = document.getElementById('soundToggle');
   let enabled = true;
@@ -15,12 +15,37 @@
     return response.arrayBuffer();
   }).catch(() => null);
 
-  function stop() {
+  function stopSpark() {
     active.forEach(source => { try { source.stop(); } catch (_) {} });
     active.clear();
     fallback.pause();
   }
-  function unlock() {
+  const tracks = [1, 2, 3].map(n => `/games/bomb/assets/audio/radio-${n}.mp3?v=1.0.12`);
+  let trackIndex = Math.floor(Math.random() * tracks.length);
+  let interacted = false;
+  const music = new Audio(tracks[trackIndex]);
+  music.preload = 'none';
+  music.volume = .22;
+  function playMusic() {
+    if (!enabled || document.hidden || !interacted) return;
+    const started = music.play();
+    if (started && started.catch) started.catch(() => {});
+  }
+  music.addEventListener('ended', () => {
+    trackIndex = (trackIndex + 1) % tracks.length;
+    music.src = tracks[trackIndex];
+    playMusic();
+  });
+  function stop() {
+    stopSpark();
+    music.pause();
+  }
+  function unlock(event) {
+    interacted = true;
+    // The toggle handles its own playback after changing the shared preference.
+    if (event.target.closest && event.target.closest('#soundToggle')) return;
+    if (!enabled) return;
+    playMusic();
     const AudioEngine = window.AudioContext || window.webkitAudioContext;
     if (AudioEngine) {
       if (!context) {
@@ -57,7 +82,7 @@
       if (context && buffer) {
         const decoded = await buffer;
         if (!enabled || document.hidden || !decoded || context.state !== 'running') return;
-        stop();
+        stopSpark();
         const source = context.createBufferSource();
         source.buffer = decoded;
         source.connect(gain);
@@ -76,17 +101,21 @@
     button.setAttribute('aria-pressed', String(enabled));
     button.setAttribute('aria-label', enabled ? 'Звук включён. Отключить звук' : 'Звук выключен. Включить звук');
     button.classList.toggle('muted', !enabled);
-    document.getElementById('soundLabel').textContent = enabled ? 'ЗВУК ВКЛ' : 'ЗВУК ВЫКЛ';
+    button.title = enabled ? 'Выключить все звуки' : 'Включить все звуки';
   }
   // Resume inside the remote's actual click, before awaiting the game server.
   document.addEventListener('click', unlock, true);
   button.onclick = () => {
     enabled = !enabled;
     if (!enabled) stop();
+    else { unlock({ target: button.parentElement }); }
     try { localStorage.setItem(key, enabled ? 'on' : 'off'); } catch (_) {}
     render();
   };
-  document.addEventListener('visibilitychange', () => { if (document.hidden) stop(); });
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) stop();
+    else playMusic();
+  });
   window.bombSound = { playSpark, stop };
   render();
 })();

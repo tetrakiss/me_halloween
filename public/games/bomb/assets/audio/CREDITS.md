@@ -9,3 +9,13 @@ License URL: https://creativecommons.org/publicdomain/zero/1.0/
 
 Recording of a small Tesla generator, published October 4, 2020.
 The game plays the 0.337-second sound at 35% gain only after an incorrect cut.
+
+# Background music
+
+Three generated songs supplied by the project owner, copied unchanged:
+- `radio-1.mp3`: `199967_1792003334_1.mp3`
+- `radio-2.mp3`: `199973_1792003392_1.mp3`
+- `radio-3.mp3`: `199985_1792003593_2.mp3`
+
+No external music service is required. Initial track is random; playback cycles
+through all three tracks. The shared speaker toggle mutes music and effects.
