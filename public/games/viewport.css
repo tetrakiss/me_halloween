@@ -1,0 +1,4 @@
+html,body { margin:0!important;padding:0!important;width:100%;height:100%;overflow:hidden!important;overscroll-behavior:none;background:#000; }
+body { position:fixed;inset:0; }
+.game-viewport { position:fixed;inset:0;width:100%;height:100%;overflow:hidden;isolation:isolate; }
+.game-viewport #stage { position:absolute;left:0;top:0;width:1920px;height:1080px;transform:none;transform-origin:0 0;overflow:hidden; }

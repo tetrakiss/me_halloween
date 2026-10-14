@@ -65,6 +65,26 @@ test('later rounds enforce two and one clues, while reopened clues remain free',
   assert.equal(game.action(round.id, 'open', 4).remainingMs, 60000);
 });
 
+test('mistake limits decrease 3/2/1 and retrying preserves the current limit', () => {
+  const game = new MegatonnaGame({ now: () => 0 });
+  let round = game.create(1);
+  for (let stage = 1; stage <= 3; stage++) {
+    assert.equal(round.maxMistakes, 4 - stage);
+    const wrong = WIRES.filter(wire => wire !== SETS[round.set - 1].answer);
+    for (let i = 0; i < round.maxMistakes; i++) {
+      const result = game.action(round.id, 'cut', wrong[i]);
+      assert.equal(result.status, i === round.maxMistakes - 1 ? 'lost' : 'running');
+      assert.equal(game.action(round.id, 'cut', wrong[i]).mistakes, i + 1);
+    }
+    const retry = game.next(round.id);
+    assert.equal(retry.stage, stage);
+    assert.equal(retry.maxMistakes, 4 - stage);
+    assert.equal(retry.mistakes, 0);
+    game.action(retry.id, 'cut', SETS[retry.set - 1].answer);
+    round = game.next(retry.id);
+  }
+});
+
 test('server clock expires rounds and pausing freezes remaining time', () => {
   let now = 0;
   const game = new MegatonnaGame({ now: () => now });
