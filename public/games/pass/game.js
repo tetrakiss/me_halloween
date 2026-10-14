@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id), data = window.PassScenarios;
-  const asset = name => '/games/pass/assets/' + name + '?v=1.0.17';
+  const asset = name => '/games/pass/assets/' + name + '?v=1.0.18';
   let confettiTimer, typingTimer, requestTimer, previousRequest = '';
   let cameraLabels = [], shiftVisitors = [];
   let index = 0, tab = 'identity', phase = 'intro', answers = [], sound = true, audio;
@@ -71,6 +71,8 @@
     $('cameraLabel').textContent = cameraLabels[index];
     $('date').textContent = data.date; $('progress').textContent = String(index + 1).padStart(2, '0') + ' / ' + String(shiftVisitors.length).padStart(2, '0');
     document.querySelector('.visitor').classList.toggle('roach', visitor.id === 'roach');
+    document.querySelector('.visitor').classList.toggle('brahmin', visitor.id === 'brahmin');
+    $('idPhoto').classList.toggle('wide-id', visitor.id === 'brahmin');
     $('portrait').src = asset(visitor.portrait); $('idPhoto').src = asset(visitor.idPhoto); $('portrait').alt = visitor.name + ', посетитель у шлюза';
     $('bagImage').src = asset(visitor.baggage);
     ['name', 'profession', 'issued', 'expires'].forEach(key => $(key).textContent = visitor[key]);
@@ -111,6 +113,8 @@
     $('ending').classList.toggle('victory', !lost);
     $('endingSticker').src = asset(lost ? 'dismissed.png' : 'legend.png');
     $('endingSticker').alt = lost ? 'ОТСТРАНЁН' : 'ЛЕГЕНДА УБЕЖИЩА';
+    if (lost) $('ending').append($('endingSticker'));
+    else document.querySelector('.ending-copy').insertBefore($('endingSticker'), $('endingEyebrow'));
     clearTimeout(confettiTimer); $('confetti').replaceChildren();
     if (!lost) startConfetti();
     const result = data.shiftStatus(answers);
