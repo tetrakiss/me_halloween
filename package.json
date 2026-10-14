@@ -1,6 +1,6 @@
 {
   "name": "halloween-bot",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "description": "Halloween trick-or-treat регистрация, группировка и маршруты — Telegram/Max мини-апп",
   "main": "server.js",
   "scripts": {
