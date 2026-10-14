@@ -75,9 +75,17 @@
       // Keep the wrapper fixed while the exposed biscuits disappear into it.
       const img = assets.packet, split = img.naturalWidth * .705;
       const x = 640, y = 420, width = 640, height = 320;
+      // Upper-left light casts a soft, warm contact shadow down and right.
+      // Canvas uses the sprite alpha, so the shadow follows each biscuit.
+      ctx.save();
+      ctx.shadowColor = 'rgba(30, 28, 17, 0.64)';
+      ctx.shadowBlur = 19;
+      ctx.shadowOffsetX = 9;
+      ctx.shadowOffsetY = 14;
       ctx.drawImage(img, 0, 0, split, img.naturalHeight, x, y, width * .705, height);
       if (health > 0) ctx.drawImage(img, split, 0, img.naturalWidth - split, img.naturalHeight,
         x + width * .705, y, width * .295 * health / 100, height);
+      ctx.restore();
     }
     roaches.forEach(r => {
       if (!assets.walk) return;
