@@ -46,3 +46,14 @@
 Источник и лицензия указаны в `assets/audio/CREDITS.md`. Звук предзагружается,
 воспроизводится при ошибке вместе с синими искрами и отключается кнопкой
 «Звук». При недоступном воспроизведении игра продолжает работать.
+
+## Заголовок победы
+
+`public/games/bomb/assets/victory-title.png` — прозрачная металлическая табличка
+«МЕГАТОННА ОБЕЗВРЕЖЕНА!» с зелёными буквами, созданная imagegen
+по референсу `babah.png`. Используется на экране победы.
+
+Промпт: wide horizontal transparent victory plaque, two exact Cyrillic lines
+«МЕГАТОННА» and «ОБЕЗВРЕЖЕНА!», bold condensed lime green enamel lettering,
+weathered dark riveted metal, brass frame, realistic 3D game asset, straight-on
+perspective, no scene, no characters, no extra text.
