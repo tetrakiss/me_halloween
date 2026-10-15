@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id), data = window.PassScenarios;
-  const asset = name => '/games/pass/assets/' + name + '?v=1.0.24';
+  const asset = name => '/games/pass/assets/' + name + '?v=1.0.25';
   let confettiTimer, typingTimer, requestTimer, previousRequest = '';
   let cameraLabels = [], shiftVisitors = [];
   let index = 0, tab = 'identity', phase = 'intro', answers = [], sound = true, audio;
@@ -74,6 +74,10 @@
     document.querySelector('.visitor').classList.toggle('brahmin', visitor.id === 'brahmin');
     document.querySelector('.visitor').classList.toggle('pigeon', visitor.id === 'pigeon');
     $('idPhoto').classList.toggle('wide-id', visitor.id === 'brahmin');
+    $('identityPanel').classList.toggle('forged', Boolean(visitor.forgedPass));
+    $('passArt').hidden = !visitor.forgedPass;
+    if (visitor.forgedPass) $('passArt').src = asset(visitor.idPhoto);
+    else $('passArt').removeAttribute('src');
     $('portrait').src = asset(visitor.portrait); $('idPhoto').src = asset(visitor.idPhoto); $('portrait').alt = visitor.name + ', посетитель у шлюза';
     $('bagImage').src = asset(visitor.baggage);
     ['name', 'profession', 'issued', 'expires'].forEach(key => $(key).textContent = visitor[key]);

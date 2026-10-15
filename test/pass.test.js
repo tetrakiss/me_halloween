@@ -11,9 +11,9 @@ test('pass is valid on its issue and expiry dates', () => {
   assert.deepEqual(reasons(visitor,'25.10.2126'),['Пропуск не действует']);
 });
 test('identity mismatch and invalid documents prevent admission', () => { assert.equal(canAdmit({...visitors[0], identityMatches:false}), false); assert.equal(canAdmit({...visitors[0], expires:'31.02.2287'}), false); });
-test('all thirty-six visitors have complete scenarios and dedicated images', () => {
-  assert.equal(visitors.length, 36);
-  assert.equal(new Set(visitors.map(v => v.id)).size, 36);
+test('all forty-one visitors have complete scenarios and dedicated images', () => {
+  assert.equal(visitors.length, 41);
+  assert.equal(new Set(visitors.map(v => v.id)).size, 41);
   for (const visitor of visitors) {
     for (const field of ['portrait','idPhoto','baggage','greeting','baggageLine','explanation','outcome']) assert.ok(visitor[field], visitor.id + ': ' + field);
     assert.notEqual(visitor.portrait, visitor.idPhoto);
@@ -115,4 +115,16 @@ test('ten raiders split into five allowed and five rejected for specific reasons
   const raiders=visitors.filter(v=>v.id.startsWith('raider-'));
   assert.equal(raiders.length,10);assert.equal(raiders.filter(canAdmit).length,5);
   for(const [id,violations]of Object.entries(expected))assert.deepEqual(reasons(visitors.find(v=>v.id==='raider-'+id)),violations,id);
+});
+
+test('five wasteland survivors have unreadable documents, high radiation and no weapons', () => {
+  const {requestTypes}=require('../public/games/pass/scenarios');
+  const survivors=visitors.filter(v=>v.id.startsWith('waste-'));
+  assert.equal(survivors.length,5);
+  for(const v of survivors) {
+    assert.equal(v.forgedPass,true);assert.equal(v.weapon,false);assert.ok(v.radiation>40);
+    assert.deepEqual(reasons(v),['Неразборчивый пропуск','Радиация выше нормы']);
+    assert.equal(canAdmit(v),false);assert.deepEqual(requestTypes(v),['neutral','flattering']);
+    assert.equal(canAdmit({...v,radiation:0,identityMatches:true}),false);
+  }
 });
