@@ -4,7 +4,12 @@ const assert = require('node:assert/strict');
 const { visitors, canAdmit, reasons } = require('../public/games/pass/scenarios');
 test('first shift admits the medic and rejects the armed trader', () => { assert.equal(canAdmit(visitors[0]), true); assert.equal(canAdmit(visitors[1]), false); assert.deepEqual(reasons(visitors[1]), ['Оружие в багаже']); });
 test('radiation limit includes 40 but excludes 41', () => { assert.equal(canAdmit({...visitors[0], radiation:40}), true); assert.equal(canAdmit({...visitors[0], radiation:41}), false); });
-test('pass is valid on its issue and expiry dates', () => { assert.deepEqual(reasons({...visitors[0], issued:'24.10.2287', expires:'24.10.2287'}), []); assert.deepEqual(reasons({...visitors[0], issued:'25.10.2287'}), ['Пропуск не действует']); assert.deepEqual(reasons({...visitors[0], expires:'23.10.2287'}), ['Пропуск не действует']); });
+test('pass is valid on its issue and expiry dates', () => {
+  const visitor={...visitors[0],issued:'24.10.2126',expires:'24.10.2126'};
+  assert.deepEqual(reasons(visitor,'24.10.2126'),[]);
+  assert.deepEqual(reasons(visitor,'23.10.2126'),['Пропуск не действует']);
+  assert.deepEqual(reasons(visitor,'25.10.2126'),['Пропуск не действует']);
+});
 test('identity mismatch and invalid documents prevent admission', () => { assert.equal(canAdmit({...visitors[0], identityMatches:false}), false); assert.equal(canAdmit({...visitors[0], expires:'31.02.2287'}), false); });
 test('all twenty-one visitors have complete scenarios and dedicated images', () => {
   assert.equal(visitors.length, 21);
@@ -67,4 +72,23 @@ test('expired passes reject otherwise safe visitors and use flattering speech', 
 });
 test('new unusual visitor cases have the intended admission decisions', () => {
   for(const [id,allowed]of [['mutant',true],['brahmin',true],['skeleton',false],['robodog',false],['roachman',false]])assert.equal(canAdmit(visitors.find(v=>v.id===id)),allowed,id);
+});
+
+test('calendar uses Moscow today plus 100 years and handles year boundaries', () => {
+  const {buildCalendar}=require('../public/games/pass/scenarios');
+  assert.equal(buildCalendar(new Date('2026-10-15T12:00:00Z')).date,'15.10.2126');
+  assert.equal(buildCalendar(new Date('2026-12-31T21:30:00Z')).date,'01.01.2127');
+  assert.equal(buildCalendar(new Date('2000-02-29T12:00:00Z')).date,'28.02.2100');
+  assert.equal(buildCalendar(new Date('2024-02-29T12:00:00Z')).date,'29.02.2124');
+});
+test('calendar preserves pass validity and matching explanation dates in every season', () => {
+  const {buildCalendar}=require('../public/games/pass/scenarios');
+  const expected=new Map(visitors.map(v=>[v.id,reasons(v)]));
+  for(const now of ['2026-01-01T12:00:00Z','2026-12-31T12:00:00Z','2024-02-29T12:00:00Z']) {
+    const calendar=buildCalendar(new Date(now));
+    for(const v of calendar.visitors) {
+      assert.deepEqual(reasons(v,calendar.date),expected.get(v.id),v.id);
+      if(['roza','elsa','lev','ada','skeleton'].includes(v.id))assert.ok(v.explanation.includes(v.expires),v.id);
+    }
+  }
 });
