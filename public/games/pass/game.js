@@ -1,7 +1,7 @@
 'use strict';
 (() => {
   const $ = id => document.getElementById(id), data = window.PassScenarios;
-  const asset = name => '/games/pass/assets/' + name + '?v=1.0.23';
+  const asset = name => '/games/pass/assets/' + name + '?v=1.0.24';
   let confettiTimer, typingTimer, requestTimer, previousRequest = '';
   let cameraLabels = [], shiftVisitors = [];
   let index = 0, tab = 'identity', phase = 'intro', answers = [], sound = true, audio;

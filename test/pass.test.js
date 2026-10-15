@@ -11,9 +11,9 @@ test('pass is valid on its issue and expiry dates', () => {
   assert.deepEqual(reasons(visitor,'25.10.2126'),['Пропуск не действует']);
 });
 test('identity mismatch and invalid documents prevent admission', () => { assert.equal(canAdmit({...visitors[0], identityMatches:false}), false); assert.equal(canAdmit({...visitors[0], expires:'31.02.2287'}), false); });
-test('all twenty-six visitors have complete scenarios and dedicated images', () => {
-  assert.equal(visitors.length, 26);
-  assert.equal(new Set(visitors.map(v => v.id)).size, 26);
+test('all thirty-six visitors have complete scenarios and dedicated images', () => {
+  assert.equal(visitors.length, 36);
+  assert.equal(new Set(visitors.map(v => v.id)).size, 36);
   for (const visitor of visitors) {
     for (const field of ['portrait','idPhoto','baggage','greeting','baggageLine','explanation','outcome']) assert.ok(visitor[field], visitor.id + ': ' + field);
     assert.notEqual(visitor.portrait, visitor.idPhoto);
@@ -108,4 +108,11 @@ test('new professor pass remains expired and its explanation uses the generated 
     assert.deepEqual(reasons(v,c.date),['Пропуск не действует']);
     assert.ok(v.explanation.includes(v.expires));
   }
+});
+
+test('ten raiders split into five allowed and five rejected for specific reasons', () => {
+  const expected={rivet:[],spark:['Оружие в багаже'],stitch:[],ash:['Радиация выше нормы'],bolt:[],velvet:['Пропуск не действует'],tin:[],needle:['Оружие в багаже'],rust:[],smile:['Пропуск не действует','Оружие в багаже']};
+  const raiders=visitors.filter(v=>v.id.startsWith('raider-'));
+  assert.equal(raiders.length,10);assert.equal(raiders.filter(canAdmit).length,5);
+  for(const [id,violations]of Object.entries(expected))assert.deepEqual(reasons(visitors.find(v=>v.id==='raider-'+id)),violations,id);
 });
