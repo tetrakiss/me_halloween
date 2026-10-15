@@ -11,9 +11,9 @@ test('pass is valid on its issue and expiry dates', () => {
   assert.deepEqual(reasons(visitor,'25.10.2126'),['Пропуск не действует']);
 });
 test('identity mismatch and invalid documents prevent admission', () => { assert.equal(canAdmit({...visitors[0], identityMatches:false}), false); assert.equal(canAdmit({...visitors[0], expires:'31.02.2287'}), false); });
-test('all twenty-one visitors have complete scenarios and dedicated images', () => {
-  assert.equal(visitors.length, 21);
-  assert.equal(new Set(visitors.map(v => v.id)).size, 21);
+test('all twenty-six visitors have complete scenarios and dedicated images', () => {
+  assert.equal(visitors.length, 26);
+  assert.equal(new Set(visitors.map(v => v.id)).size, 26);
   for (const visitor of visitors) {
     for (const field of ['portrait','idPhoto','baggage','greeting','baggageLine','explanation','outcome']) assert.ok(visitor[field], visitor.id + ': ' + field);
     assert.notEqual(visitor.portrait, visitor.idPhoto);
@@ -90,5 +90,22 @@ test('calendar preserves pass validity and matching explanation dates in every s
       assert.deepEqual(reasons(v,calendar.date),expected.get(v.id),v.id);
       if(['roza','elsa','lev','ada','skeleton'].includes(v.id))assert.ok(v.explanation.includes(v.expires),v.id);
     }
+  }
+});
+
+test('five new visitors obey identity, baggage and expiry rules', () => {
+  const expected={invisible:[],mannequin:[],alien:['Оружие в багаже'],brain:['Пропуск не действует'],pigeon:['Оружие в багаже']};
+  for(const [id,violations]of Object.entries(expected)) {
+    const v=visitors.find(v=>v.id===id);
+    assert.deepEqual(reasons(v),violations,id);
+    assert.equal(canAdmit(v),violations.length===0,id);
+  }
+});
+test('new professor pass remains expired and its explanation uses the generated date', () => {
+  const {buildCalendar}=require('../public/games/pass/scenarios');
+  for(const now of ['2026-01-01T12:00:00Z','2026-12-31T12:00:00Z']) {
+    const c=buildCalendar(new Date(now)),v=c.visitors.find(v=>v.id==='brain');
+    assert.deepEqual(reasons(v,c.date),['Пропуск не действует']);
+    assert.ok(v.explanation.includes(v.expires));
   }
 });

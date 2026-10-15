@@ -35,3 +35,4 @@
 @media(prefers-reduced-motion:reduce){.ending-sticker{animation:none!important}#confetti{display:none}}
 .victory .ending-copy{top:45px;bottom:45px;gap:14px}.victory .ending-sticker{position:static;width:100%;height:165px;flex:none;margin-bottom:2px}.victory h2{font-size:60px}.victory .ending-copy .eyebrow{font-size:19px}
 .visitor.brahmin img{object-fit:contain;object-position:center top}.document img.wide-id{object-fit:contain;background:#839766}
+.visitor.pigeon img{object-fit:contain;object-position:center top}
