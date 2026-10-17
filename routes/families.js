@@ -66,7 +66,7 @@ function validFloor(value) {
 }
 
 function validChildren(children) {
-  return Array.isArray(children) && children.length > 0 && children.every((child) => {
+  return Array.isArray(children) && children.every((child) => {
     const age = Number(child.age);
     return String(child.name || '').trim() && Number.isInteger(age) && age >= 1 && age <= 17;
   });
@@ -121,14 +121,18 @@ function routeForFamily(family) {
 function incomingVisitsForFamily(family) {
   if (!family.hosting && !family.quest) return null;
   const visitingGroups = db.prepare(`
-    SELECT DISTINCT rs.group_id, COALESCE(g.child_count, 0) AS child_count
+    SELECT rs.group_id, COALESCE(g.name, g.id) AS name, COALESCE(g.child_count, 0) AS child_count,
+      (SELECT MIN(c.age) FROM group_members gm JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = g.id) AS age_min,
+      (SELECT MAX(c.age) FROM group_members gm JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = g.id) AS age_max
     FROM route_stops rs
     JOIN groups g ON g.id = rs.group_id
     WHERE rs.host_type = 'family' AND rs.host_id = ?
+    ORDER BY rs.arrival_min, rs.seq, g.id
   `).all(family.id);
   return {
     groupCount: visitingGroups.length,
     childCount: visitingGroups.reduce((sum, group) => sum + Number(group.child_count || 0), 0),
+    groups: visitingGroups.map((group) => ({ name: group.name, ageMin: group.age_min, ageMax: group.age_max })),
   };
 }
 
@@ -161,6 +165,9 @@ router.post('/register', (req, res) => {
   }
 
   const existing = getFamilyForUser(platform, platformUserId);
+  if (children.length === 0 && (!hosting && !quest || walking || adultChaperone || wishFamilyId)) {
+    return res.status(400).json({ error: 'Без детей можно только принимать гостей: выберите конфеты или квест и отключите обход, сопровождение и пожелание группы' });
+  }
   if (existing) {
     return res.status(409).json({ error: 'Этот аккаунт уже привязан к семье', familyId: existing.id });
   }
@@ -361,6 +368,10 @@ router.patch('/me', (req, res) => {
   }
   if (children !== undefined && !validChildren(children)) {
     return res.status(400).json({ error: 'Укажите имя и возраст каждого ребёнка' });
+  }
+  const nextChildren = children === undefined ? db.prepare('SELECT name, age FROM children WHERE family_id = ?').all(family.id) : children;
+  if (!nextChildren.length && (!(hosting ?? family.hosting) && !(quest ?? family.quest) || (walking ?? family.walking) || (adultChaperone ?? family.adult_chaperone) || wishFamilyId)) {
+    return res.status(400).json({ error: 'Без детей нужно выбрать раздачу конфет или квест и отключить обход и сопровождение' });
   }
   if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
   if (apartmentCode !== undefined && !String(apartmentCode).trim()) {

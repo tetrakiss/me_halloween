@@ -419,8 +419,12 @@ router.patch('/families/:id', asyncRoute(async (req, res) => {
   if (floor !== undefined && (!Number.isInteger(Number(floor)) || Number(floor) < 0)) {
     return res.status(400).json({ error: 'Некорректный этаж' });
   }
-  if (children !== undefined && (!Array.isArray(children) || children.length === 0)) {
+  if (children !== undefined && !Array.isArray(children)) {
     return res.status(400).json({ error: 'Нужен хотя бы один ребёнок' });
+  }
+  const nextChildren = children === undefined ? db.prepare('SELECT name, age FROM children WHERE family_id = ?').all(current.id) : children;
+  if (!nextChildren.length && (!(hosting ?? current.hosting) && !(quest ?? current.quest) || (walking ?? current.walking) || (adultChaperone ?? current.adult_chaperone))) {
+    return res.status(400).json({ error: 'Для квартиры без детей выберите конфеты или квест и отключите обход и сопровождение' });
   }
   if (tower !== undefined && !String(tower).trim()) return res.status(400).json({ error: 'Башня обязательна' });
   if (apartmentCode !== undefined && !String(apartmentCode).trim()) return res.status(400).json({ error: 'Квартира обязательна' });

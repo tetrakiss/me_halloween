@@ -257,6 +257,7 @@
               <label><input type="checkbox" value="hosting" /> Раздают конфеты</label>
               <label><input type="checkbox" value="quest" /> Проводят квест</label>
               <label><input type="checkbox" value="unconfigured" /> Формат не заполнен</label>
+              <label><input type="checkbox" value="hostOnly" /> Без детей — принимают гостей</label>
               <label><input type="checkbox" value="candyBrought" /> Принесли конфеты</label>
               <label><input type="checkbox" value="candyNotBrought" /> Не принесли конфеты</label>
               <label><input type="checkbox" value="cancelled" /> Отменены</label>
@@ -337,6 +338,7 @@
       hosting: family.hosting && !family.quest && !family.cancelled,
       quest: family.quest && !family.cancelled,
       unconfigured: !family.cancelled && !family.hosting && !family.quest,
+      hostOnly: !family.cancelled && !family.children.length && (family.hosting || family.quest),
       candyBrought: !family.cancelled && !family.hosting && !family.quest && family.candyBrought,
       candyNotBrought: !family.cancelled && !family.hosting && !family.quest && !family.candyBrought,
       cancelled: family.cancelled,
@@ -350,6 +352,7 @@
         ['adultChaperone'],
         ['hosting', 'quest', 'unconfigured'],
         ['candyBrought', 'candyNotBrought'],
+        ['hostOnly'],
       ];
       const minAge = Number(familyFilterState.ageMin) || 1;
       const maxAge = Number(familyFilterState.ageMax) || 17;
@@ -362,7 +365,7 @@
           const selected = category.filter((status) => familyFilterState.statuses.has(status));
           return !selected.length || selected.some((status) => matchesStatus(family, status));
         });
-        const matchesAge = family.children.some((child) => Number(child.age) >= minAge && Number(child.age) <= maxAge);
+        const matchesAge = (!familyFilterState.ageMin && !familyFilterState.ageMax) || family.children.some((child) => Number(child.age) >= minAge && Number(child.age) <= maxAge);
         const matches = (!query || haystack.includes(query))
           && (!familyFilterState.tower || family.tower === familyFilterState.tower)
           && matchesStatuses

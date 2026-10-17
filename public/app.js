@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.25</span>
+          <span class="loading-version">Версия 1.0.26</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -541,6 +541,7 @@
 
       <section class="form-step" data-step="3">
         <div class="sect-head"><div><h2 class="step-title">Добавьте детей</h2><p class="step-copy">Имя и возраст помогут сформировать подходящую группу.</p></div><span class="pill" id="childCount">1 ребёнок</span></div>
+        <label class="fld"><span><input id="noChildren" type="checkbox" /> 🏠 Без детей — только принимаем гостей</span></label>
         <div class="kids" id="childrenList"></div><button type="button" id="addChild" class="btn btn-ghost add-kid">${ICONS.plus}Добавить ребёнка</button>
         <p class="field-error" id="kidsError">Заполните имя и возраст каждого ребёнка от 1 до 17 лет</p>
         <div class="step-actions"><button class="step-back" type="button" data-back="2" aria-label="Вернуться к выбору группы">${ICONS.back}</button><button class="btn btn-primary" type="button" data-next="4">Продолжить</button></div>
@@ -580,6 +581,20 @@
       </section>
     </div>`;
     renderChildRows();
+    document.getElementById('noChildren').onchange = (event) => {
+      const checked = event.target.checked;
+      document.getElementById('childrenList').hidden = checked;
+      document.getElementById('addChild').hidden = checked;
+      document.getElementById('childCount').hidden = checked;
+      if (checked) {
+        document.querySelector('input[name="groupChoice"][value="no"]').checked = true;
+        document.querySelector('input[name="adultChaperone"][value="no"]').checked = true;
+        wishFamilyId = null;
+        document.getElementById('wishApartment').value = '';
+        document.getElementById('groupSearch').classList.remove('active');
+        document.getElementById('kidsError').classList.remove('show');
+      }
+    };
     document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('hosting').onchange = (event) => {
       if (!event.target.checked) {
@@ -611,7 +626,8 @@
       floor: Number(document.getElementById('floor').value),
       floorRaw: document.getElementById('floor').value,
       apartmentCode: document.getElementById('apartmentCode').value.trim(),
-      children: readChildren(),
+      children: document.getElementById('noChildren').checked ? [] : readChildren(),
+      noChildren: document.getElementById('noChildren').checked,
       wantsCompanion: document.querySelector('input[name="groupChoice"]:checked')?.value === 'yes',
       adultChaperone: document.querySelector('input[name="adultChaperone"]:checked')?.value === 'yes',
       hosting: document.getElementById('hosting').checked,
@@ -656,9 +672,13 @@
         setError('wishApartment', 'wishError', invalid); return !invalid;
       }
       if (step === 3) {
+        if (data.noChildren) return true;
         syncChildRows();
         const invalid = !childRows.length || childRows.some((child) => !child.name.trim() || !Number.isInteger(Number(child.age)) || Number(child.age) < 1 || Number(child.age) > 17);
         document.getElementById('kidsError').classList.toggle('show', invalid); return !invalid;
+      }
+      if (step === 5 && data.noChildren && !data.hosting && !data.quest) {
+        toast('Выберите раздачу конфет или квест'); return false;
       }
       return true;
     };
@@ -667,7 +687,7 @@
       document.getElementById('reviewAddress').textContent = `${data.tower} · этаж ${data.floor} · квартира ${data.apartmentCode}`;
       document.getElementById('reviewGroup').textContent = data.wantsCompanion ? `${document.getElementById('wishTower').value} · квартира ${document.getElementById('wishApartment').value.trim()}` : 'Подберём автоматически';
       document.getElementById('reviewGroupNote').textContent = data.wantsCompanion ? 'Пожелание будет учтено при формировании групп.' : 'Учтём возраст детей и вашу башню.';
-      document.getElementById('reviewKids').innerHTML = data.children.map((child) => `<span class="review-kid">${esc(child.name)} · ${child.age}</span>`).join('');
+      document.getElementById('reviewKids').innerHTML = data.noChildren ? '🏠 Без детей — только принимаем гостей' : data.children.map((child) => `<span class="review-kid">${esc(child.name)} · ${child.age}</span>`).join('');
       document.getElementById('reviewChaperone').textContent = data.adultChaperone ? 'Да, взрослый пойдёт с группой 🧑‍🤝‍🧑' : 'Нет, сопровождающего от семьи не будет';
       const options = [];
       if (data.hosting) options.push('Раздаём конфеты 🍬');
@@ -675,6 +695,7 @@
       document.getElementById('reviewOptions').textContent = options.length ? options.join(' · ') : 'Тип приёма гостей не выбран';
     };
     const showStep = (step) => {
+      if (document.getElementById('noChildren').checked && step === 4) step = currentRegistrationStep > 4 ? 3 : 5;
       currentRegistrationStep = step;
       document.querySelectorAll('.form-step').forEach((section) => section.classList.toggle('active', Number(section.dataset.step) === step));
       document.querySelectorAll('.progress-seg').forEach((segment) => segment.classList.toggle('done', Number(segment.dataset.progress) <= step));
@@ -718,14 +739,14 @@
     document.querySelectorAll('[data-edit-step]').forEach((button) => { button.onclick = () => showStep(Number(button.dataset.editStep)); });
     showStep(currentRegistrationStep);
     document.getElementById('submitRegister').onclick = async () => {
-      if (![1, 2, 3].every((step) => validateStep(step))) return;
+      if (![1, 2, 3, 5].every((step) => validateStep(step))) return;
       const data = registrationData();
       const message = document.getElementById('registerMsg');
       message.textContent = 'Сохраняем запись…';
       try {
         const response = await api('/register', { method: 'POST', body: {
           tower: data.tower, floor: data.floor, apartmentCode: data.apartmentCode, children: data.children,
-          walking: true, adultChaperone: data.adultChaperone, hosting: data.hosting, quest: data.quest, questDurationMin: data.questDurationMin,
+          walking: !data.noChildren, adultChaperone: !data.noChildren && data.adultChaperone, hosting: data.hosting, quest: data.quest, questDurationMin: data.questDurationMin,
           wishFamilyId: data.wantsCompanion ? wishFamilyId : null,
         } });
         renderRegisteredSuccess(response.family);
@@ -806,7 +827,7 @@
   }
   function renderDashboard() {
     const family = state.family;
-    const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>');
+    const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>') || '🏠 Без детей — принимаем гостей';
     APP.innerHTML = `${countdownCard()}${adminButton()}<section class="family-home">
       <div class="family-success-card"><span class="success-seal" aria-hidden="true">${ICONS.check}</span><span class="family-success-kicker">Регистрация завершена</span>
         <h2>Ваша семья в игре</h2><p>Данные сохранены. По семейному коду близкие смогут присоединиться с другого устройства.</p></div>
@@ -823,7 +844,7 @@
       <div class="family-state-actions"><button id="editFamilyBtn" class="secondary">Изменить</button>
         <button id="showRouteBtn">К маршруту</button></div>
       <button id="deleteFamilyBtn" class="family-delete-button">Удалить семейную запись</button>
-    </section>${renderIncomingVisitsCard()}${state.group ? renderRouteCard() : renderWaitingCard()}`;
+    </section>${renderIncomingVisitsCard()}${state.group ? renderRouteCard() : family.walking ? renderWaitingCard() : ''}`;
     bindAdminButton();
     bindCountdown();
     bindTutorialButton();
@@ -849,7 +870,7 @@
       <h3>К вам придут</h3><div class="incoming-visits-grid">
         <div><strong>${visits.groupCount}</strong><span>групп</span></div>
         <div><strong>${visits.childCount}</strong><span>детей всего</span></div>
-      </div><p class="muted">${note}</p></section>`;
+      </div><p class="muted">${note}</p>${visits.groups?.length ? `<ol class="plain-list">${visits.groups.map((group) => `<li><strong>${esc(group.name)}</strong> · ${group.ageMin === null || group.ageMax === null ? 'возраст не указан' : group.ageMin === group.ageMax ? `${group.ageMin} лет` : `${group.ageMin}–${group.ageMax} лет`}</li>`).join('')}</ol>` : ''}</section>`;
   }
   function renderEditForm() {
     stopCountdown();
@@ -869,7 +890,7 @@
         <label class="form-field"><span>Квартира</span><input type="text" id="editWishApartment" value="${esc(currentWish?.apartmentCode || '')}" placeholder="Номер квартиры" list="editWishApartmentList" /></label></div>
         <datalist id="editWishApartmentList"></datalist><div id="editWishHint" class="search-hint form-status ${currentWish ? 'found' : ''}">${currentWish ? `Выбрана семья: ${esc(currentWish.childrenNames.join(', '))}` : ''}</div>
       </section>
-      <section class="form-section"><h4>Дети</h4><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button></section>
+      <section class="form-section"><h4>Дети</h4><label><input type="checkbox" id="editNoChildren" ${!family.children.length ? 'checked' : ''} /> 🏠 Без детей — только принимаем гостей</label><div id="childrenList"></div><button type="button" id="addChild" class="secondary small">+ Добавить ребёнка</button></section>
       <section class="form-section"><h4>Участие</h4>
         <div class="toggle-row"><span><b>Участвуем в обходе</b><small>Дети идут по маршруту</small></span><input type="checkbox" id="editWalking" aria-label="Участвуем в обходе" ${family.walking ? 'checked' : ''} /></div>
         <div class="toggle-row"><span><b>Взрослый сопровождает группу</b><small>Хотя бы один взрослый пойдёт по маршруту</small></span><input type="checkbox" id="editAdultChaperone" aria-label="Взрослый сопровождает группу" ${family.adultChaperone ? 'checked' : ''} /></div>
@@ -892,10 +913,24 @@
       document.getElementById('editQuestWrap').hidden = !event.target.checked;
     };
     bindWishSearch({ towerId: 'editWishTower', apartmentId: 'editWishApartment', listId: 'editWishApartmentList', hintId: 'editWishHint', excludeFamilyId: family.id });
+    const updateNoChildren = () => {
+      const checked = document.getElementById('editNoChildren').checked;
+      document.getElementById('childrenList').hidden = checked;
+      document.getElementById('addChild').hidden = checked;
+      for (const id of ['editWalking', 'editAdultChaperone', 'editWishTower', 'editWishApartment']) document.getElementById(id).disabled = checked;
+      if (checked) {
+        document.getElementById('editWalking').checked = false;
+        document.getElementById('editAdultChaperone').checked = false;
+        document.getElementById('editWishApartment').value = '';
+        wishFamilyId = null;
+      } else if (!childRows.length) { childRows.push({ name: '', age: '' }); renderChildRows(); }
+    };
+    document.getElementById('editNoChildren').onchange = updateNoChildren;
+    updateNoChildren();
     document.getElementById('cancelEditBtn').onclick = renderDashboard;
     document.getElementById('saveFamilyBtn').onclick = async () => {
-      const floor = Number(document.getElementById('editFloor').value); const children = readChildren();
-      if (!document.getElementById('editFloor').value || !Number.isInteger(floor) || floor < 0 || !children.length) return void (document.getElementById('editMsg').textContent = 'Проверьте этаж и данные детей');
+      const floor = Number(document.getElementById('editFloor').value); const children = document.getElementById('editNoChildren').checked ? [] : readChildren();
+      if (!document.getElementById('editFloor').value || !Number.isInteger(floor) || floor < 0) return void (document.getElementById('editMsg').textContent = 'Проверьте этаж и данные детей');
       if (document.getElementById('editWishApartment').value.trim() && !wishFamilyId) return void (document.getElementById('editMsg').textContent = 'Выберите зарегистрированную семью из поиска или очистите номер квартиры');
       try {
         await api('/me', { method: 'PATCH', body: {
