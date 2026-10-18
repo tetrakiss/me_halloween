@@ -132,7 +132,7 @@ function incomingVisitsForFamily(family) {
   return {
     groupCount: visitingGroups.length,
     childCount: visitingGroups.reduce((sum, group) => sum + Number(group.child_count || 0), 0),
-    groups: visitingGroups.map((group) => ({ name: group.name, ageMin: group.age_min, ageMax: group.age_max })),
+    groups: visitingGroups.map((group) => ({ name: group.name, ageMin: group.age_min, ageMax: group.age_max, childCount: Number(group.child_count || 0) })),
   };
 }
 
@@ -336,6 +336,14 @@ router.get('/me', (req, res) => {
       id: groupInfo.id,
       name: groupInfo.name || groupInfo.id,
       startLocation: groupInfo.start_location || DEFAULT_GROUP_START_LOCATION,
+      families: db.prepare(`SELECT f.id, f.tower, f.floor, f.apartment_code
+        FROM group_members gm JOIN families f ON f.id = gm.family_id
+        WHERE gm.group_id = ? ORDER BY f.tower, f.floor, f.apartment_code`).all(groupInfo.id)
+        .map((member) => ({
+          isOwnFamily: member.id === family.id,
+          tower: member.tower, floor: member.floor, apartmentCode: member.apartment_code,
+          children: db.prepare('SELECT name, age FROM children WHERE family_id = ? ORDER BY age, id').all(member.id),
+        })),
     } : null,
     route: groupInfo ? routeForFamily(family) : null,
     incomingVisits: incomingVisitsForFamily(family),

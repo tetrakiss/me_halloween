@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.28</span>
+          <span class="loading-version">Версия 1.0.29</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -844,7 +844,7 @@
       <div class="family-state-actions"><button id="editFamilyBtn" class="secondary">Изменить</button>
         <button id="showRouteBtn">К маршруту</button></div>
       <button id="deleteFamilyBtn" class="family-delete-button">Удалить семейную запись</button>
-    </section>${renderIncomingVisitsCard()}${state.group ? renderRouteCard() : family.walking ? renderWaitingCard() : ''}`;
+    </section>${renderIncomingVisitsCard()}${renderGroupMembersCard()}${state.group ? renderRouteCard() : family.walking ? renderWaitingCard() : ''}`;
     bindAdminButton();
     bindCountdown();
     bindTutorialButton();
@@ -870,7 +870,24 @@
       <h3>К вам придут</h3><div class="incoming-visits-grid">
         <div><strong>${visits.groupCount}</strong><span>групп</span></div>
         <div><strong>${visits.childCount}</strong><span>детей всего</span></div>
-      </div><p class="muted">${note}</p>${visits.groups?.length ? `<ol class="plain-list">${visits.groups.map((group) => `<li><strong>${esc(group.name)}</strong> · ${group.ageMin === null || group.ageMax === null ? 'возраст не указан' : group.ageMin === group.ageMax ? `${group.ageMin} лет` : `${group.ageMin}–${group.ageMax} лет`}</li>`).join('')}</ol>` : ''}</section>`;
+      </div><p class="muted">${note}</p>${visits.groups?.length ? `<ol class="gd-visitors" aria-label="Порядок прихода групп">${visits.groups.map((group) => `<li class="gd-visitor"><div><h4 class="gd-visitor-name">${esc(group.name)}</h4><p class="gd-age">${group.ageMin === null || group.ageMax === null ? 'Возраст не указан' : group.ageMin === group.ageMax ? `${group.ageMin} лет` : `${group.ageMin}–${group.ageMax} лет`}</p></div><span class="gd-count">${esc(pluralChildren(Number(group.childCount || 0)))}</span></li>`).join('')}</ol><p class="gd-note">Группы указаны в порядке рассчитанного прихода.</p>` : ''}</section>`;
+  }
+  function renderGroupMembersCard() {
+    const families = state.group?.families;
+    if (!families?.length) return '';
+    const childrenCount = families.reduce((sum, family) => sum + family.children.length, 0);
+    return `<section class="card gd-members" aria-labelledby="groupMembersTitle"><div class="countdown-kicker">Ваша команда</div>
+      <h3 id="groupMembersTitle">Участники вашей группы</h3><p class="gd-group-name">${esc(groupTitle(state.group))}</p>
+      <p class="gd-summary">Семей: ${families.length} <span aria-hidden="true">·</span> ${esc(pluralChildren(childrenCount))}</p>
+      <ul class="gd-families" aria-label="Семьи вашей группы">${families.map((family) => `<li class="gd-family">
+        <div class="gd-family-heading"><h4 class="gd-family-name">${esc(family.tower)}</h4>${family.isOwnFamily ? '<span class="gd-own">Ваша семья</span>' : ''}</div>
+        <p class="gd-address">Этаж <strong>${esc(family.floor)}</strong><span aria-hidden="true">·</span> Квартира <strong>${esc(family.apartmentCode)}</strong></p>
+        <ul class="gd-children" aria-label="Дети семьи">${family.children.map((child) => `<li class="gd-child">${esc(child.name)}<span>${esc(child.age)} ${ageWord(Number(child.age))}</span></li>`).join('')}</ul>
+      </li>`).join('')}</ul><p class="gd-note">Состав виден только семьям вашей группы.</p></section>`;
+  }
+  function ageWord(age) {
+    const mod10 = age % 10, mod100 = age % 100;
+    return mod10 === 1 && mod100 !== 11 ? 'год' : mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'года' : 'лет';
   }
   function renderEditForm() {
     stopCountdown();
