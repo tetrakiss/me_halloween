@@ -41,20 +41,35 @@
     return data;
   }
   async function downloadExport(path, filename) {
-    const response = await fetch(`/admin-api${path}`, { headers: adminHeaders(false) });
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({}));
-      throw new Error(data.error || 'Не удалось сформировать Excel-файл');
-    }
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
+    const data = await api(`${path}?download=1`);
+    const url = new URL(data.url, location.origin).href;
+    const message = document.getElementById('adminActionMsg');
+    message.textContent = 'Файл готов. Ссылка действует 5 минут. ';
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    link.textContent = 'Скачать Excel';
+    link.rel = 'noopener noreferrer';
+    message.appendChild(link);
+    const telegram = window.Telegram?.WebApp;
+    if (PLATFORM === 'telegram' && location.protocol === 'https:' &&
+        typeof telegram?.downloadFile === 'function' && telegram.isVersionAtLeast?.('8.0')) {
+      const requestDownload = (event) => {
+        event?.preventDefault();
+        try {
+          telegram.downloadFile({ url, file_name: filename }, (accepted) => {
+            if (!accepted) link.textContent = 'Скачивание отменено — повторить';
+          });
+        } catch {
+          link.onclick = null;
+          link.textContent = 'Скачать Excel по ссылке';
+        }
+      };
+      link.onclick = requestDownload;
+      requestDownload();
+    } else {
+      link.click();
+    }
   }
   function towerOptions(selected) {
     return window.TOWERS.map((tower) => `<option value="${esc(tower)}" ${tower === selected ? 'selected' : ''}>${esc(tower)}</option>`).join('');
@@ -495,7 +510,6 @@
         message.textContent = loadingText;
         try {
           await downloadExport(path, filename);
-          message.textContent = `Excel-файл «${filename}» готов`;
         } catch (error) {
           message.textContent = error.message;
         } finally {

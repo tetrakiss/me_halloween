@@ -1,4 +1,5 @@
 const express = require('express');
+const { createExportDownload, getExportDownload, sendExcel } = require('../lib/export-downloads');
 const { assignGroupNames } = require('../lib/group-names');
 const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEligibleForGrouping } = require('../lib/grouping-routing');
@@ -27,6 +28,14 @@ function randomInt(min, max) {
 // 1) заголовок X-Admin-Password совпадает с ADMIN_PASSWORD (для всех админов);
 // 2) запрос пришёл из Telegram-мини-аппа с валидным initData от @a_togulev —
 //    этот пользователь получает права супер-администратора без пароля.
+// Download managers cannot forward admin headers. Only an unguessable,
+// short-lived token created by an authenticated export grants this access.
+router.get('/export-downloads/:token', (req, res) => {
+  const entry = getExportDownload(req.params.token);
+  if (!entry) return res.status(404).set('Cache-Control', 'no-store').send('Ссылка истекла. Сформируйте Excel заново в админке.');
+  return sendExcel(res, entry.buffer, entry.filename);
+});
+
 router.use((req, res, next) => {
   const providedPassword = req.header('x-admin-password');
   if (process.env.ADMIN_PASSWORD && providedPassword === process.env.ADMIN_PASSWORD) {
@@ -245,12 +254,8 @@ router.get('/export/participants.xlsx', asyncRoute(async (req, res) => {
     status: row.cancelled ? 'Отменена' : 'Активна',
   }));
   const buffer = await participantsWorkbookBuffer(rows);
-  res.set({
-    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'Content-Disposition': 'attachment; filename="halloween-participants.xlsx"',
-    'Content-Length': buffer.length,
-  });
-  res.send(buffer);
+  if (req.query.download === '1') return res.set('Cache-Control', 'no-store').json(createExportDownload(buffer, 'halloween-participants.xlsx'));
+  sendExcel(res, buffer, 'halloween-participants.xlsx');
 }));
 
 router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
@@ -302,12 +307,8 @@ router.get('/export/routes.xlsx', asyncRoute(async (req, res) => {
     }))];
   });
   const buffer = await routesWorkbookBuffer(rows);
-  res.set({
-    'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'Content-Disposition': 'attachment; filename="halloween-routes.xlsx"',
-    'Content-Length': buffer.length,
-  });
-  res.send(buffer);
+  if (req.query.download === '1') return res.set('Cache-Control', 'no-store').json(createExportDownload(buffer, 'halloween-routes.xlsx'));
+  sendExcel(res, buffer, 'halloween-routes.xlsx');
 }));
 
 router.delete('/families/:id', asyncRoute(async (req, res) => {
