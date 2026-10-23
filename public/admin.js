@@ -223,6 +223,7 @@
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="distributeWaitingBtn" class="secondary small" ${eligibleWaitingCount ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${eligibleWaitingCount}</span></button>
         <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button>
+        <button id="remindCandyBtn" class="secondary small">🍬 Напомнить о конфетах</button>
         <button id="exportParticipantsBtn" class="secondary small">⇩ Участники Excel</button>
         <button id="exportRoutesBtn" class="secondary small">⇩ Маршруты Excel</button></div><div id="adminActionMsg" class="search-hint"></div></section>
         <section class="admin-section test-data-section"><div class="admin-section-head"><div><span class="section-kicker">Тестовые данные</span><h2>Управление базой семей</h2></div><span class="test-data-badge">${families.length} семей</span></div>
@@ -293,6 +294,18 @@
     });
   }
   function bindDashboard({ families, groups }) {
+    document.getElementById('remindCandyBtn').onclick = async () => {
+      if (!confirm('Отправить напоминание семьям со статусом «Ждём конфеты»? Успешно получившим его ранее повторное сообщение не отправится.')) return;
+      const button = document.getElementById('remindCandyBtn');
+      const message = document.getElementById('adminActionMsg');
+      button.disabled = true;
+      message.textContent = 'Отправляем напоминания. Не закрывайте страницу…';
+      try {
+        const result = await api('/notifications/waiting-candy', { method: 'POST' });
+        message.textContent = `Напоминание: отправлено аккаунтам — ${result.sent}; уже получали — ${result.skipped}; ошибок — ${result.failed}. Повторное нажатие повторит только неуспешные отправки и охватит новых получателей.`;
+      } catch (error) { message.textContent = error.message; }
+      finally { button.disabled = false; }
+    };
     document.querySelectorAll('[data-catalog-row]').forEach((row) => {
       const id = row.dataset.catalogRow;
       row.querySelector('[data-save-catalog]').onclick = async () => {

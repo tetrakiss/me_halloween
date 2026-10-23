@@ -184,6 +184,14 @@ if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'group_names_seeded_v2'"
   })();
 }
 
+db.exec(`CREATE TABLE IF NOT EXISTS candy_reminder_deliveries (
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  platform TEXT NOT NULL,
+  platform_user_id TEXT NOT NULL,
+  sent_at INTEGER NOT NULL,
+  PRIMARY KEY (family_id, platform, platform_user_id)
+);`);
+
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
   let out = '';

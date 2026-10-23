@@ -5,7 +5,7 @@ const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEligibleForGrouping } = require('../lib/grouping-routing');
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
-const { notifyChangedGroups, notifyCandyAccepted } = require('../lib/notifications');
+const { notifyChangedGroups, notifyCandyAccepted, notifyWaitingCandy } = require('../lib/notifications');
 const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
@@ -324,6 +324,15 @@ router.delete('/families/:id', asyncRoute(async (req, res) => {
 router.get('/event-settings', (req, res) => {
   res.json(getEventSettings());
 });
+
+router.post('/notifications/waiting-candy', asyncRoute(async (req, res) => {
+  try {
+    res.json({ ok: true, ...await notifyWaitingCandy() });
+  } catch (error) {
+    if (error.status === 409) return res.status(409).json({ error: error.message });
+    throw error;
+  }
+}));
 
 router.put('/registration-settings', (req, res) => {
   if (typeof req.body.registrationClosed !== 'boolean') {
