@@ -137,6 +137,12 @@ function ensureColumn(table, name, definition) {
 
 ensureColumn('groups', 'name', 'TEXT');
 ensureColumn('groups', 'start_location', "TEXT NOT NULL DEFAULT 'Парковка Вена -2 этаж'");
+// Preserve the current name for recipients notified before name tracking existed.
+ensureColumn('recipient_notification_state', 'group_name', 'TEXT');
+db.exec(`UPDATE recipient_notification_state SET group_name = (
+  SELECT COALESCE(NULLIF(g.name, ''), g.id) FROM groups g
+  WHERE g.id = recipient_notification_state.group_id
+) WHERE group_name IS NULL;`);
 db.prepare("UPDATE groups SET start_location = ? WHERE TRIM(COALESCE(start_location, '')) = ''")
   .run(DEFAULT_GROUP_START_LOCATION);
 ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');

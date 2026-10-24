@@ -627,7 +627,6 @@ router.delete('/groups/:id', (req, res) => {
   db.transaction(() => {
     const pause = db.prepare('UPDATE families SET grouping_paused = 1, manual_group_id = NULL WHERE id = ?');
     familyIds.forEach((familyId) => pause.run(familyId));
-    db.prepare('DELETE FROM recipient_notification_state WHERE group_id = ?').run(req.params.id);
     db.prepare('DELETE FROM groups WHERE id = ?').run(req.params.id);
   })();
   res.json({ ok: true, waitingFamilyCount: familyIds.length });
