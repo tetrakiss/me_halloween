@@ -55,41 +55,41 @@ test('пожелания ходить вместе остаются недели
   assert.ok(linkedGroup.memberFamilyIds.includes('f2'));
 });
 
-test('группы сохраняют близкий возраст, а маленький хвост распределяют сверх восьми', () => {
+test('группы сохраняют близкий возраст и предел шесть детей', () => {
   const families = Array.from({ length: 18 }, (_, index) => (
     family(`f${index + 1}`, index < 6 ? 5 : index < 12 ? 9 : 13, index < 9 ? 'A' : 'B')
   ));
   const groups = buildGroups(families, []);
   const byId = new Map(families.map((item) => [item.id, item]));
   for (const group of groups) {
-    assert.ok(group.childCount >= MIN_GROUP_SIZE && group.childCount <= MAX_GROUP_SIZE + 4);
+    assert.ok(group.childCount >= MIN_GROUP_SIZE && group.childCount <= MAX_GROUP_SIZE);
     const ages = group.memberFamilyIds.flatMap((id) => byId.get(id).children.map((child) => child.age));
     assert.ok(Math.max(...ages) - Math.min(...ages) <= 8);
   }
 });
 
-test('при остатке четыре ребёнка не создаётся отдельная группа', () => {
+test('двенадцать детей разделяются на две группы по шесть', () => {
   const families = [
     ...Array.from({ length: 6 }, (_, index) => family(`a${index + 1}`, 8, 'A')),
     ...Array.from({ length: 6 }, (_, index) => family(`b${index + 1}`, 8, 'B')),
   ];
   const groups = buildGroups(families, []);
   const byId = new Map(families.map((item) => [item.id, item]));
-  assert.equal(groups.length, 1);
-  assert.equal(groups[0].childCount, 12);
-  assert.equal(new Set(groups[0].memberFamilyIds.map((id) => byId.get(id).tower)).size, 2);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(groups.map((group) => group.childCount), [6, 6]);
+  assert.ok(groups.every((group) => new Set(group.memberFamilyIds.map((id) => byId.get(id).tower)).size === 1));
 });
 
-test('группы последовательно заполняются до восьми без маленького хвоста', () => {
+test('двадцать один ребёнок распределяется без превышения шести', () => {
   const families = Array.from({ length: 21 }, (_, index) => family(`f${index + 1}`, 8, 'A'));
   const groups = buildGroups(families, []);
-  assert.deepEqual(groups.map((group) => group.childCount), [8, 8, 5]);
+  assert.deepEqual(groups.map((group) => group.childCount), [5, 5, 5, 6]);
 });
 
-test('при первом распределении хвост до четырёх детей распределяется по существующим группам', () => {
+test('неполная группа не вызывает переполнение других групп', () => {
   const families = Array.from({ length: 19 }, (_, index) => family(`f${index + 1}`, 8, 'A'));
   const groups = buildGroups(families, []);
-  assert.deepEqual(groups.map((group) => group.childCount), [10, 9]);
+  assert.deepEqual(groups.map((group) => group.childCount), [4, 5, 5, 5]);
 });
 
 test('семья из очереди ожидания не возвращается при автоматическом пересчёте', () => {
@@ -152,38 +152,38 @@ test('пожелание к участнику существующей груп
   assert.deepEqual(result.assignments, [{ familyId: 'waiting', groupId: 'friend-group' }]);
 });
 
-test('пожелание сохраняется, даже если нужная группа уже набрана до восьми', () => {
+test('пожелание сохраняется, даже если нужная группа уже набрана до шести', () => {
   const families = [
-    ...Array.from({ length: 8 }, (_, index) => family(`friend${index + 1}`, 12, 'B')),
+    ...Array.from({ length: 6 }, (_, index) => family(`friend${index + 1}`, 12, 'B')),
     family('other', 6, 'A'),
     family('waiting', 6, 'A', { groupingPaused: true }),
   ];
   const result = fillExistingGroups([
-    { id: 'full-friend-group', memberFamilyIds: families.slice(0, 8).map((item) => item.id) },
+    { id: 'full-friend-group', memberFamilyIds: families.slice(0, 6).map((item) => item.id) },
     { id: 'other-group', memberFamilyIds: ['other'] },
   ], families, [{ a: 'waiting', b: 'friend1' }], () => 0);
   assert.deepEqual(result.assignments, [{ familyId: 'waiting', groupId: 'full-friend-group' }]);
-  assert.equal(result.groups.find((group) => group.id === 'full-friend-group').childCount, 9);
+  assert.equal(result.groups.find((group) => group.id === 'full-friend-group').childCount, 7);
 });
 
-test('остаток до четырёх детей равномерно добавляется в полные группы', () => {
+test('для двух ожидающих создаётся новая группа вместо переполнения', () => {
   const families = [
-    ...Array.from({ length: 16 }, (_, index) => family(`m${index + 1}`, 8, 'A')),
+    ...Array.from({ length: 12 }, (_, index) => family(`m${index + 1}`, 8, 'A')),
     family('waiting1', 8, 'A', { groupingPaused: true }),
     family('waiting2', 8, 'A', { groupingPaused: true }),
   ];
   const result = fillExistingGroups(
     [
-      { id: 'full1', memberFamilyIds: families.slice(0, 8).map((item) => item.id) },
-      { id: 'full2', memberFamilyIds: families.slice(8, 16).map((item) => item.id) },
+      { id: 'full1', memberFamilyIds: families.slice(0, 6).map((item) => item.id) },
+      { id: 'full2', memberFamilyIds: families.slice(6, 12).map((item) => item.id) },
     ],
     families,
     [],
     () => 0
   );
-  assert.deepEqual(result.groups.map((group) => group.childCount), [9, 9]);
+  assert.deepEqual(result.groups.map((group) => group.childCount), [6, 6, 2]);
   assert.deepEqual(result.unassignedFamilyIds, []);
-  assert.deepEqual(result.createdGroupIds, []);
+  assert.equal(result.createdGroupIds.length, 1);
 });
 
 test('если ожидают больше четырёх детей, создаётся новая группа', () => {
@@ -286,4 +286,28 @@ test('собственная квартира не попадает в марш�
   const [route] = buildRoutes([{ id: 'group_1', memberFamilyIds: [memberHost.id] }], [memberHost, ...externalHosts]);
   assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
   assert.ok(route.stops.every((stop) => stop.hostId !== memberHost.id));
+});
+
+
+test('oversized wish component stays together without unrelated families', () => {
+  const families = Array.from({ length: 9 }, (_, i) => family(`w${i}`, 8, 'A'));
+  const wishes = Array.from({ length: 6 }, (_, i) => ({ a: `w${i}`, b: `w${i + 1}` }));
+  const groups = buildGroups(families, wishes);
+  assert.deepEqual(groups.map((g) => g.childCount).sort((a, b) => a - b), [2, 7]);
+  assert.equal(new Set(groups.flatMap((g) => g.memberFamilyIds)).size, 9);
+});
+
+test('manual assignments cannot retain twelve children without wishes', () => {
+  const families = Array.from({ length: 12 }, (_, i) => family(`m${i}`, 8, 'A', { manualGroupId: 'manual' }));
+  const groups = buildGroups(families, []);
+  assert.deepEqual(groups.map((g) => g.childCount), [6, 6]);
+  assert.equal(groups[0].id, 'manual');
+  assert.equal(new Set(groups.map((g) => g.id)).size, 2);
+});
+
+test('nine waiting children form two new groups when existing groups are full', () => {
+  const families = Array.from({ length: 15 }, (_, i) => family(`n${i}`, 8, 'A'));
+  const result = fillExistingGroups([{ id: 'full', memberFamilyIds: families.slice(0, 6).map((f) => f.id) }], families, [], () => 0);
+  assert.deepEqual(result.groups.map((g) => g.childCount), [6, 6, 3]);
+  assert.equal(result.assignments.length, 9);
 });

@@ -662,7 +662,20 @@ router.post('/groups/:id/members', asyncRoute(async (req, res) => {
     JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = ? AND gm.family_id != ?`)
     .get(req.params.id, familyId).count;
   if (currentChildren + familyChildren > MAX_GROUP_SIZE) {
-    return res.status(400).json({ error: `В группе будет больше ${MAX_GROUP_SIZE} детей` });
+    const connected = new Set([familyId]);
+    const wishes = loadWishLinks();
+    let changed = true;
+    while (changed) {
+      changed = false;
+      for (const { a, b } of wishes) {
+        if (connected.has(a) && !connected.has(b)) { connected.add(b); changed = true; }
+        if (connected.has(b) && !connected.has(a)) { connected.add(a); changed = true; }
+      }
+    }
+    const members = db.prepare('SELECT family_id FROM group_members WHERE group_id = ? AND family_id != ?').all(req.params.id, familyId);
+    if (!members.some((member) => connected.has(member.family_id))) {
+      return res.status(400).json({ error: `В группе будет больше ${MAX_GROUP_SIZE} детей. Превышение разрешено только по пожеланию ходить вместе.` });
+    }
   }
   const oldGroupIds = db.prepare('SELECT group_id FROM group_members WHERE family_id = ?').all(familyId).map((row) => row.group_id);
   db.transaction(() => {
