@@ -4,6 +4,7 @@
   let password = sessionStorage.getItem('adminPassword') || '';
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
   let familyFiltersOpen = false;
+  const sectionState = new Map();
 
   function detectPlatform() {
     if (MINI_APP_CONTEXT.platform === 'max') return 'max';
@@ -210,6 +211,37 @@
       </button>` : ''}
     </section>`;
   }
+  function makeDashboardSections() {
+    const titles = ['Управление событием', 'Управление базой семей', 'Сводка мероприятия',
+      'Каталог названий групп', 'Начало Монстрополии', 'Группы', 'Ожидают назначения',
+      'Спецточки', 'Зарегистрированные семьи'];
+    [...APP.children].forEach((section, index) => {
+      const key = titles[index];
+      if (section.tagName === 'DETAILS') {
+        section.open = sectionState.get(key) || false;
+        section.ontoggle = () => sectionState.set(key, section.open);
+        return;
+      }
+      const details = document.createElement('details');
+      details.className = section.className + ' admin-collapsible';
+      if (section.id) details.id = section.id;
+      const summary = document.createElement('summary');
+      const heading = section.querySelector(':scope > .admin-section-head, :scope > .event-settings-heading');
+      if (heading) {
+        const filters = heading.querySelector('.family-filter-heading-actions');
+        if (filters) section.insertBefore(filters, heading.nextSibling);
+        summary.append(heading);
+      } else summary.textContent = key;
+      details.append(summary);
+      const content = document.createElement('div');
+      content.className = 'admin-section-content';
+      content.append(...section.childNodes);
+      details.append(content);
+      details.open = sectionState.get(key) || false;
+      details.ontoggle = () => sectionState.set(key, details.open);
+      section.replaceWith(details);
+    });
+  }
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
     try {
@@ -282,6 +314,7 @@
           </div>
           <p class="muted">Раскройте семью, чтобы увидеть все аккаунты и изменить анкету.</p><div id="familyCards">${families.map((family) => familyCard(family, groups)).join('')}</div>
           <p id="familyFilterEmpty" class="family-filter-empty" hidden>По выбранным фильтрам семьи не найдены.</p></div>`;
+      makeDashboardSections();
       bindDashboard({ families, groups });
     } catch (error) {
       renderLogin(PLATFORM === 'telegram' ? 'Этот Telegram-аккаунт не является супер-пользователем' : error.message);
@@ -446,6 +479,7 @@
         filterStatusInputs.forEach((input) => { input.checked = familyFilterState.statuses.has(input.value); });
         setFilterPanelOpen(true);
         applyFamilyFilters();
+        document.getElementById('familiesSection').open = true;
         document.getElementById('familiesSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
       };
     });

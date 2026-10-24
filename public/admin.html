@@ -15,11 +15,18 @@
   th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--border); }
   th { color: var(--muted); }
   select, input { width: auto; display: inline-block; }
+  .admin-collapsible > summary { display: flex; align-items: center; gap: 12px; cursor: pointer; list-style: none; font-weight: 600; min-height: 44px; }
+  .admin-collapsible > summary::-webkit-details-marker { display: none; }
+  .admin-collapsible > summary::after { content: '⌄'; margin-left: auto; font-size: 24px; }
+  .admin-collapsible[open] > summary::after { transform: rotate(180deg); }
+  .admin-collapsible > summary > div { flex: 1; margin-bottom: 0; border-bottom: 0; padding-bottom: 0; }
+  .admin-section-content { padding-top: 16px; }
+  .admin-collapsible > summary:focus-visible { outline: 2px solid var(--muted); outline-offset: 4px; }
 </style>
 </head>
 <body class="admin-page">
   <div class="header"><span class="brand-mark" aria-hidden="true">🦇</span><span class="brand-copy"><small>HALLOWEEN BOT</small><h1>Панель управления</h1></span></div>
   <div id="app"></div>
-  <script src="admin.js?v=1.0.31"></script>
+  <script src="admin.js?v=1.0.32"></script>
 </body>
 </html>
