@@ -254,6 +254,7 @@
       APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="distributeWaitingBtn" class="secondary small" ${eligibleWaitingCount ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${eligibleWaitingCount}</span></button>
+        <button id="recomputeRoutesBtn" class="secondary small" ${groups.length ? '' : 'disabled'}>↻ Пересчитать только маршруты</button>
         <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button>
         <button id="remindCandyBtn" class="secondary small">🍬 Напомнить о конфетах</button>
         <button id="exportParticipantsBtn" class="secondary small">⇩ Участники Excel</button>
@@ -536,6 +537,20 @@
         button.disabled = false;
         document.getElementById('addTestDataBtn').disabled = false;
         message.textContent = error.message;
+      }
+    };
+    document.getElementById('recomputeRoutesBtn').onclick = async () => {
+      const button = document.getElementById('recomputeRoutesBtn');
+      const message = document.getElementById('adminActionMsg');
+      button.disabled = true;
+      message.textContent = 'Перестраиваем маршруты…';
+      try {
+        const result = await api('/recompute-routes', { method: 'POST' });
+        message.textContent = `Готово: маршрутов — ${result.groupCount}, остановок — ${result.stopCount}. Состав и названия групп сохранены. Уведомления не отправлялись.`;
+        setTimeout(renderDashboard, 2000);
+      } catch (error) {
+        message.textContent = error.message;
+        button.disabled = false;
       }
     };
     document.getElementById('recomputeBtn').onclick = async () => {

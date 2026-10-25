@@ -741,6 +741,32 @@ router.post('/override', (req, res) => {
   res.json({ ok: true });
 });
 
+// Rebuild routes without changing registrations, memberships, or group names.
+router.post('/recompute-routes', (req, res) => {
+  const groups = db.prepare('SELECT id FROM groups ORDER BY id').all().map((group) => ({
+    id: group.id,
+    memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ? ORDER BY family_id')
+      .all(group.id).map((member) => member.family_id),
+  }));
+  if (!groups.length) return res.status(400).json({ error: 'Сначала сформируйте группы' });
+  const routes = buildRoutes(groups, loadFamiliesForAlgo(), loadSpecialPoints());
+  db.transaction(() => {
+    db.prepare('DELETE FROM route_stops').run();
+    const insert = db.prepare(`INSERT INTO route_stops
+      (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
+    const update = db.prepare('UPDATE groups SET total_min = ? WHERE id = ?');
+    for (const route of routes) {
+      update.run(route.totalMin, route.groupId);
+      for (const stop of route.stops) {
+        insert.run(route.groupId, stop.hostId, stop.hostType, stop.seq, stop.tower, stop.floor,
+          stop.apartmentCode, stop.displayName, stop.isQuest ? 1 : 0, stop.arrival, stop.departure);
+      }
+    }
+  })();
+  res.json({ ok: true, groupCount: routes.length, stopCount: routes.reduce((sum, route) => sum + route.stops.length, 0) });
+});
+
 // Пересчитать группы и маршруты по текущему состоянию БД.
 // manual_group_id уважается алгоритмом (buildGroups сам выделяет такие семьи).
 router.post('/recompute', asyncRoute(async (req, res) => {

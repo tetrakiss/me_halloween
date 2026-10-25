@@ -202,7 +202,19 @@ test('если ожидают больше четырёх детей, созда
   assert.deepEqual(result.unassignedFamilyIds, []);
 });
 
-test('маршрут содержит до 8–10 адресов и идёт блоками не более трёх адресов одной башни', () => {
+function assertTowerBlocks(route) {
+  const visited = new Set();
+  let previousTower = null;
+  for (const stop of route.stops) {
+    if (stop.tower !== previousTower) {
+      assert.ok(!visited.has(stop.tower), `Route returns to ${stop.tower}`);
+      visited.add(stop.tower);
+      previousTower = stop.tower;
+    }
+  }
+}
+
+test('маршрут содержит десять адресов и проходит каждую башню целиком', () => {
   const towers = ['A', 'B', 'C', 'D'];
   const hosts = towers.flatMap((tower, towerIndex) => Array.from({ length: 4 }, (_, index) => (
     family(`h${towerIndex + 1}${index + 1}`, 8, tower, {
@@ -217,13 +229,8 @@ test('маршрут содержит до 8–10 адресов и идёт б�
   assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
   assert.ok(route.stops.length <= MAX_ROUTE_STOPS);
   assert.equal(new Set(route.stops.map((stop) => stop.hostId)).size, route.stops.length);
-  let runLength = 0;
-  let previousTower = null;
-  for (const stop of route.stops) {
-    runLength = stop.tower === previousTower ? runLength + 1 : 1;
-    assert.ok(runLength <= 3);
-    previousTower = stop.tower;
-  }
+  assertTowerBlocks(route);
+
 });
 
 test('квесты и обычные квартиры распределяются между маршрутами равномерно', () => {
@@ -256,6 +263,7 @@ test('одна квартира не повторяется на одном эт
   const walkers = Array.from({ length: 6 }, (_, index) => family(`walker${index + 1}`, 8, towers[index % towers.length]));
   const groups = walkers.map((walker, index) => ({ id: `group_${index + 1}`, memberFamilyIds: [walker.id] }));
   const routes = buildRoutes(groups, [...hosts, ...walkers]);
+  routes.forEach(assertTowerBlocks);
   for (let stage = 0; stage < TARGET_ROUTE_STOPS; stage += 1) {
     const hostIds = routes.map((route) => route.stops[stage]?.hostId).filter(Boolean);
     assert.equal(new Set(hostIds).size, hostIds.length);
@@ -310,4 +318,25 @@ test('nine waiting children form two new groups when existing groups are full', 
   const result = fillExistingGroups([{ id: 'full', memberFamilyIds: families.slice(0, 6).map((f) => f.id) }], families, [], () => 0);
   assert.deepEqual(result.groups.map((g) => g.childCount), [6, 6, 3]);
   assert.equal(result.assignments.length, 9);
+});
+
+
+test('three Vienna stops remain together with Stockholm, including unavoidable stage conflicts', () => {
+  const hosts = ['Вена', 'Вена', 'Вена', 'Стокгольм'].map((tower, i) => family(`h${i}`, 8, tower, {
+    hosting: true, floor: i + 1, quest: i === 1,
+  }));
+  const walkers = Array.from({ length: 7 }, (_, i) => family(`walker${i}`, 8, 'Вена'));
+  const routes = buildRoutes(walkers.map((w) => ({ id: w.id, memberFamilyIds: [w.id] })), [...hosts, ...walkers]);
+  for (const route of routes) {
+    assertTowerBlocks(route);
+    assert.equal(route.stops.length, 4);
+    assert.equal(new Set(route.stops.map((s) => s.hostId)).size, 4);
+    assert.equal(route.homeTower, route.stops[0].tower);
+    assert.equal(route.totalMin, route.stops.at(-1).departure);
+    route.stops.forEach((stop, i) => {
+      assert.equal(stop.seq, i + 1);
+      assert.ok(stop.departure > stop.arrival);
+      if (i) assert.ok(stop.arrival >= route.stops[i - 1].departure + 5);
+    });
+  }
 });
