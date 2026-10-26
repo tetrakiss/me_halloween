@@ -1,0 +1,48 @@
+/* Refined tech workspace, using the existing OpenDesign Halloween palette. */
+.admin-page { background: radial-gradient(ellipse at top left, oklch(.32 .07 300 / .25), transparent 55%), var(--ink); }
+.admin-page .header { padding-block: 12px 24px; margin-bottom: 20px; border-bottom: 1px solid var(--border); }
+.admin-page .header h1 { font-size: clamp(23px, 3vw, 32px); }
+.admin-page #app { position: relative; }
+.admin-navigation { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 24px; padding: 12px; border: 1px solid var(--border); border-radius: 18px; background: var(--ink-2); }
+.admin-nav-caption { width: 100%; padding: 7px 10px; color: var(--muted); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; }
+.admin-navigation a { display: block; padding: 10px 12px; border: 1px solid transparent; border-radius: 10px; color: var(--fg-2); font-size: 12px; text-decoration: none; line-height: 1.4; }
+.admin-navigation a:hover, .admin-navigation a[aria-current] { border-color: var(--border-2); background: var(--surface); color: var(--accent-hi); }
+.admin-navigation a.admin-nav-danger { color: oklch(.82 .11 25); }
+.admin-page :is(button, input, select, a, summary):focus-visible { outline: 2px solid var(--accent-hi); outline-offset: 4px; }
+.admin-page #app > details { margin: 0 0 16px; padding: 20px; border: 1px solid var(--border); border-radius: 18px; background: var(--ink-2); box-shadow: 0 8px 28px oklch(0 0 0 / .12); scroll-margin-top: 20px; }
+.admin-page #app > details > summary { min-height: 48px; color: var(--fg); font-size: 16px; }
+.admin-page #app > details[open] > summary { padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+.admin-page #app > details > summary h2 { font-size: 18px; }
+.admin-page .admin-section-content { padding-top: 20px; }
+.admin-page .admin-overview { border-color: oklch(.76 .168 58 / .3); }
+.admin-page .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.admin-page .metric-card { padding: 16px; border-radius: 13px; background: var(--surface); box-shadow: none; }
+.admin-page .metric-card strong { font-size: 30px; }
+.admin-page .metric-icon { font-size: 20px; }
+.admin-page .admin-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.admin-page .admin-action-grid #recomputeBtn { grid-column: 1 / -1; }
+.admin-page .group-card, .admin-page .admin-family, .admin-page .host-visits-card { background: var(--recess); border-radius: 13px; }
+.admin-page .test-data-section { border-color: oklch(.68 .19 25 / .45); background: var(--danger-bg); }
+.admin-page input:not([type=checkbox]), .admin-page select { min-height: 44px; max-width: 100%; }
+.admin-page .admin-section-head { min-width: 0; }
+.admin-page .admin-section-head > div { min-width: 0; }
+.admin-page .admin-section-head h2 { overflow-wrap: anywhere; }
+@media (min-width: 1380px) {
+  .admin-page .header, .admin-page #app { width: min(calc(100% - 260px), 1100px); margin-left: max(260px, calc((100vw - 1100px) / 2)); margin-right: 0; }
+  .admin-navigation { position: fixed; top: 32px; left: 24px; bottom: 24px; width: 218px; align-content: start; overflow-y: auto; }
+  .admin-navigation a { width: 100%; }
+  .admin-navigation .admin-nav-danger { margin-top: 18px; }
+}
+@media (max-width: 700px) {
+  .admin-page { padding-inline: 12px; }
+  .admin-navigation { flex-wrap: nowrap; overflow-x: auto; padding: 8px; border-radius: 12px; }
+  .admin-nav-caption { display: none; }
+  .admin-navigation a { flex: 0 0 auto; }
+  .admin-page #app > details { padding: 14px; border-radius: 14px; }
+  .admin-page .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-page .admin-action-grid, .admin-page .test-data-actions { grid-template-columns: 1fr; }
+  .admin-page .status-pill { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-page *, .admin-page *::before, .admin-page *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

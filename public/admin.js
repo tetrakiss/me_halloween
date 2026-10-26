@@ -4,7 +4,7 @@
   let password = sessionStorage.getItem('adminPassword') || '';
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
   let familyFiltersOpen = false;
-  const sectionState = new Map();
+  const sectionState = new Map([['Сводка мероприятия', true], ['Управление событием', true]]);
 
   function detectPlatform() {
     if (MINI_APP_CONTEXT.platform === 'max') return 'max';
@@ -251,6 +251,8 @@
       'Спецточки', 'Зарегистрированные семьи', 'Квартиры с квестами и конфетами'];
     [...APP.children].forEach((section, index) => {
       const key = titles[index];
+      section.dataset.sectionKey = key;
+      if (!section.id) section.id = `admin-section-${index}`;
       if (section.tagName === 'DETAILS') {
         section.open = sectionState.get(key) || false;
         section.ontoggle = () => sectionState.set(key, section.open);
@@ -258,6 +260,7 @@
       }
       const details = document.createElement('details');
       details.className = section.className + ' admin-collapsible';
+      details.dataset.sectionKey = key;
       if (section.id) details.id = section.id;
       const summary = document.createElement('summary');
       const heading = section.querySelector(':scope > .admin-section-head, :scope > .event-settings-heading');
@@ -275,6 +278,34 @@
       details.ontoggle = () => sectionState.set(key, details.open);
       section.replaceWith(details);
     });
+    const sections = [...APP.children];
+    // Keep the summary first and destructive tools at the end without replacing controls.
+    APP.prepend(sections[2]);
+    APP.append(sections[1]);
+    const navigation = document.createElement('nav');
+    navigation.className = 'admin-navigation';
+    navigation.setAttribute('aria-label', 'Разделы панели управления');
+    navigation.innerHTML = '<span class="admin-nav-caption">Рабочее пространство</span>';
+    [2, 0, 5, 6, 8, 9, 7, 3, 4, 1].forEach((index) => {
+      const section = sections[index];
+      const link = document.createElement('a');
+      link.href = `#${section.id}`;
+      link.textContent = titles[index];
+      if (index === 1) link.className = 'admin-nav-danger';
+      link.onclick = (event) => {
+        event.preventDefault();
+        section.open = true;
+        sectionState.set(titles[index], true);
+        navigation.querySelectorAll('a').forEach((item) => item.removeAttribute('aria-current'));
+        link.setAttribute('aria-current', 'location');
+        section.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' });
+        const summary = section.querySelector(':scope > summary');
+        summary.tabIndex = -1;
+        summary.focus({ preventScroll: true });
+      };
+      navigation.append(link);
+    });
+    APP.prepend(navigation);
   }
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
