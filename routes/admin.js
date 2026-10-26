@@ -552,7 +552,9 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
     }
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const activateFamily = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?');
+    const removeMembership = db.prepare('DELETE FROM group_members WHERE family_id = ?');
     for (const assignment of result.assignments) {
+      removeMembership.run(assignment.familyId);
       insertMember.run(assignment.groupId, assignment.familyId);
       activateFamily.run(assignment.familyId);
     }
@@ -597,7 +599,8 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
   const notifications = await notifyChangedGroups(changedGroups);
   return res.json({
     ok: true,
-    assignedFamilyCount: result.assignments.length,
+    assignedFamilyCount: result.assignments.filter((assignment) => !storedGroups.some((group) => group.memberFamilyIds.includes(assignment.familyId))).length,
+    movedFamilyCount: result.assignments.filter((assignment) => storedGroups.some((group) => group.memberFamilyIds.includes(assignment.familyId))).length,
     waitingFamilyCount: result.unassignedFamilyIds.length,
     starterFamilyId: result.starterFamilyId,
     createdGroupCount: result.createdGroupIds.length,

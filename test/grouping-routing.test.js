@@ -162,8 +162,8 @@ test('пожелание сохраняется, даже если нужная 
     { id: 'full-friend-group', memberFamilyIds: families.slice(0, 6).map((item) => item.id) },
     { id: 'other-group', memberFamilyIds: ['other'] },
   ], families, [{ a: 'waiting', b: 'friend1' }], () => 0);
-  assert.deepEqual(result.assignments, [{ familyId: 'waiting', groupId: 'full-friend-group' }]);
-  assert.equal(result.groups.find((group) => group.id === 'full-friend-group').childCount, 7);
+  assert.deepEqual(result.assignments, [{ familyId: 'waiting', groupId: 'full-friend-group' }, { familyId: 'friend2', groupId: 'other-group' }]);
+  assert.equal(result.groups.find((group) => group.id === 'full-friend-group').childCount, 6);
 });
 
 test('для двух ожидающих создаётся новая группа вместо переполнения', () => {
@@ -339,4 +339,37 @@ test('three Vienna stops remain together with Stockholm, including unavoidable s
       if (i) assert.ok(stop.arrival >= route.stops[i - 1].departure + 5);
     });
   }
+});
+
+
+test('a whole unlinked family is moved to a new group while existing wish pairs stay', () => {
+  const families = Array.from({ length: 7 }, (_, i) => family(`p${i}`, 8, 'A'));
+  families[5].children.push({ name: 'Sibling', age: 9 });
+  const wishes = [{ a: 'p6', b: 'p0' }, { a: 'p1', b: 'p2' }, { a: 'p3', b: 'p4' }];
+  const result = fillExistingGroups([{ id: 'full', memberFamilyIds: families.slice(0, 6).map((f) => f.id) }], families, wishes, () => 0);
+  const target = result.groups.find((g) => g.id === 'full');
+  assert.deepEqual(target.memberFamilyIds.sort(), ['p0', 'p1', 'p2', 'p3', 'p4', 'p6']);
+  assert.equal(target.childCount, 6);
+  assert.equal(result.createdGroupIds.length, 1);
+  assert.deepEqual(result.groups.find((g) => g.id !== 'full').memberFamilyIds, ['p5']);
+  assert.equal(new Set(result.groups.flatMap((g) => g.memberFamilyIds)).size, families.length);
+});
+
+test('an oversized wish chain is preserved when there are no unrelated families to move', () => {
+  const families = Array.from({ length: 8 }, (_, i) => family(`c${i}`, 8, 'A'));
+  const wishes = Array.from({ length: 7 }, (_, i) => ({ a: `c${i}`, b: `c${i + 1}` }));
+  const result = fillExistingGroups([{ id: 'full', memberFamilyIds: families.slice(0, 6).map((f) => f.id) }], families, wishes, () => 0);
+  assert.equal(result.groups.length, 1);
+  assert.equal(result.groups[0].childCount, 8);
+  assert.equal(result.assignments.length, 2);
+});
+
+test('waiting wishes join friends from multiple existing groups and follow transitive links', () => {
+  const families = Array.from({ length: 5 }, (_, i) => family(`t${i}`, 8, 'A'));
+  const wishes = [{ a: 't4', b: 't0' }, { a: 't4', b: 't1' }, { a: 't1', b: 't2' }];
+  const result = fillExistingGroups([{ id: 'a', memberFamilyIds: ['t0'] }, { id: 'b', memberFamilyIds: ['t1', 't2', 't3'] }], families, wishes, () => 0);
+  const together = result.groups.find((g) => g.memberFamilyIds.includes('t4'));
+  assert.ok(['t0', 't1', 't2', 't4'].every((id) => together.memberFamilyIds.includes(id)));
+  assert.equal(new Set(result.groups.flatMap((g) => g.memberFamilyIds)).size, 5);
+  assert.equal(result.groups.flatMap((g) => g.memberFamilyIds).length, 5);
 });

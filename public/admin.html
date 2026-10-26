@@ -22,11 +22,14 @@
   .admin-collapsible > summary > div { flex: 1; margin-bottom: 0; border-bottom: 0; padding-bottom: 0; }
   .admin-section-content { padding-top: 16px; }
   .admin-collapsible > summary:focus-visible { outline: 2px solid var(--muted); outline-offset: 4px; }
+  .member-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 6px 12px; }
+  .member-wish { color: var(--muted); }
+  .group-members .member-wish-missing { color: #f4b75e; }
 </style>
 </head>
 <body class="admin-page">
   <div class="header"><span class="brand-mark" aria-hidden="true">🦇</span><span class="brand-copy"><small>HALLOWEEN BOT</small><h1>Панель управления</h1></span></div>
   <div id="app"></div>
-  <script src="admin.js?v=1.0.35"></script>
+  <script src="admin.js?v=1.0.36"></script>
 </body>
 </html>

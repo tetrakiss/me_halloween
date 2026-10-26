@@ -134,6 +134,14 @@
       <span class="route-controls"><button class="secondary tiny" data-route-move="up" data-group="${esc(groupId)}" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
       <button class="secondary tiny" data-route-move="down" data-group="${esc(groupId)}" data-index="${index}" ${index === total - 1 ? 'disabled' : ''}>↓</button></span></li>`;
   }
+  function memberWishBadges(family, group, familiesById) {
+    return (family.wishFamilyIds || []).map((id) => {
+      const friend = familiesById.get(id);
+      if (!friend) return '';
+      const together = group.memberFamilyIds.includes(id);
+      return `<small class="member-wish${together ? '' : ' member-wish-missing'}" title="${together ? 'В одной группе' : 'Пожелание не выполнено: семья в другой группе или ожидает'}">🔗 ${esc(friend.tower)}, кв. ${esc(friend.apartmentCode)}${together ? '' : ' ⚠️'}</small>`;
+    }).join('');
+  }
   function groupCard(group, familiesById) {
     const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
     const childCount = members.reduce((sum, family) => sum + family.children.length, 0);
@@ -153,7 +161,7 @@
       <h4>Состав группы</h4>
       <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
         <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
-        <button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
+        <div class="member-actions">${memberWishBadges(family, group, familiesById)}<button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></div></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
       <h4>Маршрут</h4>
       <ol class="admin-route">${startStop}${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Квартиры маршрута пока не добавлены</li>'}</ol>
     </div>`;
@@ -281,7 +289,7 @@
           <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div>
           <label><input type="checkbox" id="registrationClosed" ${eventSettings.registrationClosed ? 'checked' : ''} /> Закрыть регистрацию новых семей</label>
           <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div></div>
-        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. Распределение ожидающих сохраняет текущие группы; полное формирование пересобирает состав и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. При распределении ожидающих пожелания объединяют семьи; для освобождения мест могут переноситься семьи без связей. Полное формирование пересобирает все группы и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Очередь</span><h2>Ожидают назначения</h2></div><span class="metric-total">${waitingFamilies.length}</span></div>
           <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
           <ul class="waiting-list">${waitingFamilies.map((family) => waitingFamilyCard(family, groups)).join('') || '<li>Очередь пуста</li>'}</ul></div>
@@ -592,7 +600,7 @@
         const starterText = starter
           ? ` Старт: ${starter.tower}, эт. ${starter.floor}, кв. ${starter.apartmentCode}.`
           : '';
-        message.textContent = `Распределено семей: ${result.assignedFamilyCount}. Новых групп: ${result.createdGroupCount}. Осталось в очереди: ${result.waitingFamilyCount}.${starterText}`;
+        message.textContent = `Распределено семей: ${result.assignedFamilyCount}. Перенесено между группами: ${result.movedFamilyCount || 0}. Новых групп: ${result.createdGroupCount}. Осталось в очереди: ${result.waitingFamilyCount}.${starterText}`;
         setTimeout(renderDashboard, 1100);
       } catch (error) {
         button.disabled = false;
