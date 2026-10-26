@@ -99,12 +99,13 @@ function routeForFamily(family) {
     .prepare('SELECT * FROM route_stops WHERE group_id = ? ORDER BY seq')
     .all(membership.group_id);
 
+  const doorSettings = getEventSettings();
   return stops.map((s) => {
-    const lastStatus = db
+    const lastStatus = doorSettings.doorStatusActive ? db
       .prepare(
-        `SELECT status FROM door_status WHERE host_id = ? ORDER BY reported_at DESC LIMIT 1`
+        `SELECT status FROM door_status WHERE host_id = ? AND reported_at >= ? ORDER BY reported_at DESC LIMIT 1`
       )
-      .get(s.host_id);
+      .get(s.host_id, doorSettings.eventStartAt) : null;
     return {
       seq: s.seq,
       tower: s.tower,
@@ -478,6 +479,9 @@ router.delete('/me', asyncRoute(async (req, res) => {
 
 // ---- Отметка "не открыли дверь" (или "закрыто" для спецточки) ----
 router.post('/door-status', (req, res) => {
+  const settings = getEventSettings();
+  if (!settings.doorStatusEnabled) return res.status(403).json({ error: 'Отметки «Не открыли» отключены организатором' });
+  if (!settings.doorStatusActive) return res.status(403).json({ error: 'Отметки доступны только после начала события' });
   const { platform, platformUserId } = req;
   const family = getFamilyForUser(platform, platformUserId);
   if (!family) return res.status(404).json({ error: 'Семья не найдена для этого аккаунта' });

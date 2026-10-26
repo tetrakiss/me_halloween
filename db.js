@@ -201,6 +201,15 @@ db.exec(`CREATE TABLE IF NOT EXISTS candy_reminder_deliveries (
   PRIMARY KEY (family_id, platform, platform_user_id)
 );`);
 
+// One-time freeze/reset of premature door reports; later admin activation persists.
+if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'door_status_freeze_v1'").get()) {
+  db.transaction(() => {
+    db.prepare("DELETE FROM door_status WHERE status = 'no_answer'").run();
+    db.prepare("INSERT INTO app_settings(key,value) VALUES ('door_status_enabled','0') ON CONFLICT(key) DO UPDATE SET value='0'").run();
+    db.prepare("INSERT INTO app_settings(key,value) VALUES ('door_status_freeze_v1','1')").run();
+  })();
+}
+
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
   let out = '';

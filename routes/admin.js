@@ -345,6 +345,15 @@ router.put('/registration-settings', (req, res) => {
   res.json({ ok: true, ...getEventSettings() });
 });
 
+router.put('/door-status-settings', (req, res) => {
+  if (typeof req.body.doorStatusEnabled !== 'boolean') {
+    return res.status(400).json({ error: 'Укажите состояние отметок «Не открыли»' });
+  }
+  db.prepare(`INSERT INTO app_settings(key,value) VALUES ('door_status_enabled',?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(req.body.doorStatusEnabled ? '1' : '0');
+  res.json({ ok: true, ...getEventSettings() });
+});
+
 router.put('/event-settings', (req, res) => {
   const timestamp = saveEventStartLocal(req.body.eventStartLocal);
   if (timestamp === null) {
@@ -642,7 +651,7 @@ router.delete('/groups/:id/members/:familyId', asyncRoute(async (req, res) => {
   if (!membership) return res.status(404).json({ error: 'Семья не состоит в этой группе' });
   db.transaction(() => {
     db.prepare('DELETE FROM group_members WHERE group_id = ? AND family_id = ?').run(req.params.id, req.params.familyId);
-    db.prepare('UPDATE families SET grouping_paused = 1, manual_group_id = NULL WHERE id = ?').run(req.params.familyId);
+    db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?').run(req.params.familyId);
     recalculateGroupStats(req.params.id);
   })();
   const changedGroup = loadGroupDetails(req.params.id);

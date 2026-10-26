@@ -287,6 +287,8 @@
           <p class="muted">Укажите дату и время по часам сервера. Часовой пояс отдельно не применяется.</p>
           <div class="event-settings-controls"><div><label>Дата и время начала</label><input type="datetime-local" id="eventStartLocal" value="${esc(eventSettings.eventStartLocal)}" /></div>
           <button id="saveEventStartBtn" class="small">Сохранить начало</button></div><div id="eventSettingsMsg" class="search-hint"></div>
+          <label><input type="checkbox" id="doorStatusEnabled" ${eventSettings.doorStatusEnabled ? 'checked' : ''} /> Активировать отметки «Не открыли»</label>
+          <p class="muted">Кнопка доступна участникам только после начала события. До этого времени отметки не сохраняются.</p><div id="doorStatusSettingsMsg" class="search-hint" aria-live="polite"></div>
           <label><input type="checkbox" id="registrationClosed" ${eventSettings.registrationClosed ? 'checked' : ''} /> Закрыть регистрацию новых семей</label>
           <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div></div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. При распределении ожидающих пожелания объединяют семьи; для освобождения мест могут переноситься семьи без связей. Полное формирование пересобирает все группы и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
@@ -366,6 +368,17 @@
         catch (error) { row.querySelector('[data-catalog-msg]').textContent = error.message; }
       };
     });
+    document.getElementById('doorStatusEnabled').onchange = async (event) => {
+      const checkbox = event.target;
+      const value = checkbox.checked;
+      const message = document.getElementById('doorStatusSettingsMsg');
+      checkbox.disabled = true;
+      try {
+        const settings = await api('/door-status-settings', { method: 'PUT', body: { doorStatusEnabled: value } });
+        message.textContent = !settings.doorStatusEnabled ? 'Отметки отключены' : settings.doorStatusActive ? 'Отметки активны' : 'Включено. Кнопка появится после начала события';
+      } catch (error) { checkbox.checked = !value; message.textContent = error.message; }
+      finally { checkbox.disabled = false; }
+    };
     document.getElementById('registrationClosed').onchange = async (event) => {
       const checkbox = event.target;
       const value = checkbox.checked;

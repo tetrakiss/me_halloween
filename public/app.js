@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.39</span>
+          <span class="loading-version">Версия 1.0.40</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -999,7 +999,7 @@
       return `<li class="stop family-route-stop ${stop.isQuest ? 'quest' : ''} ${stop.lastKnownStatus === 'no_answer' ? 'warned' : ''}">
         <div class="stop-num">${stop.seq}</div><div class="stop-info"><div class="addr">${title}</div><div class="stop-address">${address}</div>
         ${stop.lastKnownStatus === 'no_answer' ? '<div class="stop-warning">⚠️ ранее не открыли</div>' : ''}</div>
-        <div class="route-stop-actions"><span class="route-kind">${kind}</span><button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли</button></div></li>`;
+        <div class="route-stop-actions"><span class="route-kind">${kind}</span>${eventState?.doorStatusActive ? `<button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли</button>` : ''}</div></li>`;
     }).join('');
     const startLocation = String(state.group?.startLocation || '').trim();
     const startItem = `<li class="stop family-route-stop family-route-start">
