@@ -68,3 +68,25 @@ test('eligible families remain together across a paused or ineligible intermedia
     assertWishGroups(groups, wishes);
   }
 });
+
+test('wish chains form first and independent families fill their remaining capacity', () => {
+  const family = (id, age, extra = {}) => ({ id, tower: 'A', children: [{ age }, { age }], walking: true, candyBrought: true, ...extra });
+  const families = [family('a', 4, { manualGroupId: 'chain' }), family('b', 14), family('single', 9, { manualGroupId: 'other' })];
+  const groups = buildGroups(families, [{ a: 'a', b: 'b' }]);
+  assert.equal(groups.length, 1);
+  assert.equal(groups[0].childCount, 6);
+  assert.deepEqual(groups[0].memberFamilyIds.sort(), ['a', 'b', 'single']);
+});
+
+test('two small chains combine before singles, and oversized chains receive no extra families', () => {
+  const families = Array.from({ length: 15 }, (_, i) => ({ id: `s${i}`, tower: 'A', children: [{ age: 8 }], walking: true, candyBrought: true }));
+  const links = [{ a: 's0', b: 's1' }, { a: 's2', b: 's3' }, ...Array.from({ length: 6 }, (_, i) => ({ a: `s${i + 4}`, b: `s${i + 5}` }))];
+  const groups = buildGroups(families, links);
+  const small = groups.find((g) => g.memberFamilyIds.includes('s0'));
+  assert.ok(small.memberFamilyIds.includes('s2'));
+  assert.equal(small.childCount, 6);
+  const oversized = groups.find((g) => g.memberFamilyIds.includes('s4'));
+  assert.equal(oversized.childCount, 7);
+  assertWishGroups(groups, links);
+  assert.equal(new Set(groups.flatMap((g) => g.memberFamilyIds)).size, families.length);
+});
