@@ -1,5 +1,6 @@
 const express = require('express');
 const { setFamilyWish } = require('../lib/wish-links');
+const { reconcileFamilyWish } = require('../lib/wish-group-reconciliation');
 const { db, shortCode, newId, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { getEventSettings } = require('../lib/event-settings');
@@ -351,7 +352,7 @@ router.get('/me', (req, res) => {
 });
 
 // ---- Редактирование своей анкеты ----
-router.patch('/me', (req, res) => {
+router.patch('/me', asyncRoute(async (req, res) => {
   const { platform, platformUserId } = req;
   const family = getFamilyForUser(platform, platformUserId);
   if (!family) return res.status(404).json({ error: 'Семья не найдена для этого аккаунта' });
@@ -409,6 +410,7 @@ router.patch('/me', (req, res) => {
     if (!linkedFamily) return res.status(400).json({ error: 'Выбранная семья не найдена' });
   }
 
+  let regrouping = null;
   const tx = db.transaction(() => {
     db.prepare(
       `UPDATE families SET
@@ -455,12 +457,16 @@ router.patch('/me', (req, res) => {
     db.prepare(`UPDATE route_stops SET tower = ?, floor = ?, apartment_code = ?
                 WHERE host_type = 'family' AND host_id = ?`)
       .run(currentAddress.tower, currentAddress.floor, currentAddress.apartment_code, family.id);
+    if (wishFamilyId) regrouping = reconcileFamilyWish(db, family.id, wishFamilyId);
   });
   tx();
 
   const updated = db.prepare('SELECT * FROM families WHERE id = ?').get(family.id);
-  res.json({ family: familyWithChildren(updated) });
-});
+  const notifications = regrouping ? await notifyChangedGroups(regrouping.changedGroups) : { sent: 0 };
+  res.json({ family: familyWithChildren(updated), regrouping: regrouping ? {
+    movedFamilyCount: regrouping.movedFamilyCount, createdGroupCount: regrouping.createdGroupCount,
+  } : null, notifications });
+}));
 
 // Полное удаление семейной записи. Доступно любому аккаунту, который к ней привязан.
 router.delete('/me', asyncRoute(async (req, res) => {

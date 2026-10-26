@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.40</span>
+          <span class="loading-version">Версия 1.0.41</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -950,13 +950,13 @@
       if (!document.getElementById('editFloor').value || !Number.isInteger(floor) || floor < 0) return void (document.getElementById('editMsg').textContent = 'Проверьте этаж и данные детей');
       if (document.getElementById('editWishApartment').value.trim() && !wishFamilyId) return void (document.getElementById('editMsg').textContent = 'Выберите зарегистрированную семью из поиска или очистите номер квартиры');
       try {
-        await api('/me', { method: 'PATCH', body: {
+        const result = await api('/me', { method: 'PATCH', body: {
           tower: document.getElementById('editTower').value, floor, apartmentCode: document.getElementById('editApartment').value.trim(), children,
           walking: document.getElementById('editWalking').checked, adultChaperone: document.getElementById('editAdultChaperone').checked, hosting: document.getElementById('editHosting').checked,
           quest: document.getElementById('editQuest').checked, questDurationMin: Number(document.getElementById('editQuestDuration').value) || 20,
           wishFamilyId,
         } });
-        toast('Запись семьи обновлена'); await loadMe();
+        toast(result.regrouping ? 'Пожелание сохранено, группы обновлены' : 'Запись семьи обновлена'); await loadMe();
       } catch (error) { document.getElementById('editMsg').textContent = error.message; }
     };
   }
