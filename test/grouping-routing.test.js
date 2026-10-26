@@ -373,3 +373,41 @@ test('waiting wishes join friends from multiple existing groups and follow trans
   assert.equal(new Set(result.groups.flatMap((g) => g.memberFamilyIds)).size, 5);
   assert.equal(result.groups.flatMap((g) => g.memberFamilyIds).length, 5);
 });
+
+test('нагрузка выравнивается по квартирам, включая одиночные точки и башни разного размера', () => {
+  const sizes = [1, 1, 2, 2, 2, 3, 4, 5];
+  const hosts = sizes.flatMap((size, tower) => Array.from({ length: size }, (_, index) => family(`host-${tower}-${index}`, 8, `T${tower}`, {
+    hosting: true, quest: tower % 2 === 0, questDurationMin: 12 + index,
+  })));
+  const groups = Array.from({ length: 17 }, (_, index) => ({ id: `g${index}`, memberFamilyIds: [hosts[index % hosts.length].id] }));
+  const routes = buildRoutes(groups, hosts);
+  assert.deepEqual(buildRoutes(groups, hosts), routes, 'repeated rebuild is deterministic');
+  const loads = new Map(hosts.map((host) => [host.id, 0]));
+  routes.forEach((route, index) => {
+    assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
+    assert.equal(new Set(route.stops.map((stop) => stop.hostId)).size, TARGET_ROUTE_STOPS);
+    assert.ok(!route.stops.some((stop) => groups[index].memberFamilyIds.includes(stop.hostId)));
+    assertTowerBlocks(route);
+    for (const stop of route.stops) {
+      loads.set(stop.hostId, loads.get(stop.hostId) + 1);
+      const host = hosts.find((item) => item.id === stop.hostId);
+      assert.equal(stop.departure - stop.arrival, host.quest ? host.questDurationMin : 7);
+    }
+  });
+  // Per-route rounding can give quest and candy hosts different average loads.
+  for (const quest of [true, false]) {
+    const values = hosts.filter((host) => host.quest === quest).map((host) => loads.get(host.id));
+    assert.ok(Math.max(...values) - Math.min(...values) <= 1, JSON.stringify(values));
+  }
+});
+
+test('выравнивание сохраняет закреплённые остановки и дополнительные посещения', () => {
+  const hosts = Array.from({ length: 20 }, (_, index) => family(`host${index}`, 8, `T${index % 5}`, { hosting: true }));
+  const groups = Array.from({ length: 12 }, (_, index) => ({ id: `g${index}`, memberFamilyIds: [] }));
+  const extras = groups.map((group) => ({ groupId: group.id, familyId: hosts[0].id }));
+  const fixed = new Map([['g0', ['family:host1', 'family:host2']]]);
+  const routes = buildRoutes(groups, hosts, [], extras, fixed);
+  assert.deepEqual(routes[0].stops.map((stop) => stop.hostId).sort(), ['host0', 'host1', 'host2']);
+  assert.ok(routes.every((route) => route.stops.filter((stop) => stop.hostId === 'host0').length === 1));
+  assert.ok(routes.slice(1).every((route) => route.stops.length === TARGET_ROUTE_STOPS + 1));
+});
