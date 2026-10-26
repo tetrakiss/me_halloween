@@ -219,10 +219,36 @@
       </button>` : ''}
     </section>`;
   }
+  function hostVisitsSection(families, groups, extraVisits) {
+    const byId = new Map(families.map((f) => [f.id, f]));
+    const describe = (group) => {
+      const children = group.memberFamilyIds.flatMap((id) => byId.get(id)?.children || []);
+      const ages = children.map((child) => Number(child.age));
+      const count = children.length;
+      const noun = count % 10 === 1 && count % 100 !== 11 ? 'ребёнок' : count % 10 >= 2 && count % 10 <= 4 && (count % 100 < 12 || count % 100 > 14) ? 'ребёнка' : 'детей';
+      const age = ages.length ? ` (${Math.min(...ages)}–${Math.max(...ages)} лет)` : '';
+      return `${group.name || group.id} — ${count} ${noun}${age}`;
+    };
+    const hosts = families.filter((f) => !f.cancelled && (f.hosting || f.quest))
+      .sort((a, b) => a.tower.localeCompare(b.tower) || a.floor - b.floor || a.apartmentCode.localeCompare(b.apartmentCode));
+    return `<details class="card admin-collection"><summary>Квартиры с квестами и конфетами · ${hosts.length}</summary>
+      <p class="muted">Дополнительные посещения добавляются сверх автоматического маршрута, без ограничения в 10 остановок.</p>
+      ${hosts.map((host) => {
+        const visiting = groups.filter((g) => g.stops.some((stop) => stop.hostType === 'family' && stop.hostId === host.id));
+        const available = groups.filter((g) => !visiting.includes(g));
+        const children = visiting.reduce((sum, g) => sum + g.memberFamilyIds.reduce((n, id) => n + (byId.get(id)?.children.length || 0), 0), 0);
+        return `<details class="host-visits-card"><summary>${host.quest ? '🎭' : '🍬'} ${esc(host.tower)}, кв. ${esc(host.apartmentCode)} · Групп: ${visiting.length} · Детей: ${children}</summary>
+          <ul class="plain-list">${visiting.map((g) => `<li>${esc(describe(g))}${extraVisits.some((v) => v.familyId === host.id && v.groupId === g.id) ? ' · 📌 добавлено вручную' : ''}</li>`).join('') || '<li class="muted">Посещения ещё не назначены</li>'}</ul>
+          <label>Добавить группу<select data-host-visit-group="${esc(host.id)}" ${available.length ? '' : 'disabled'}><option value="">${available.length ? 'Выберите группу' : 'Все группы уже посещают квартиру'}</option>${available.map((g) => `<option value="${esc(g.id)}">${esc(describe(g))}</option>`).join('')}</select></label>
+          <button class="secondary small" data-add-host-visit="${esc(host.id)}" ${available.length ? '' : 'disabled'}>+ Добавить посещение</button>
+          <div class="search-hint" data-host-visit-msg="${esc(host.id)}" aria-live="polite"></div>
+        </details>`;
+      }).join('') || '<p class="muted">Принимающих квартир пока нет.</p>'}</details>`;
+  }
   function makeDashboardSections() {
     const titles = ['Управление событием', 'Управление базой семей', 'Сводка мероприятия',
       'Каталог названий групп', 'Начало Монстрополии', 'Группы', 'Ожидают назначения',
-      'Спецточки', 'Зарегистрированные семьи'];
+      'Спецточки', 'Зарегистрированные семьи', 'Квартиры с квестами и конфетами'];
     [...APP.children].forEach((section, index) => {
       const key = titles[index];
       if (section.tagName === 'DETAILS') {
@@ -253,8 +279,8 @@
   async function renderDashboard() {
     APP.innerHTML = '<div class="card"><p>Загрузка…</p></div>';
     try {
-      const [{ families }, { groups }, { specialPoints }, eventSettings, { names }] = await Promise.all([
-        api('/families'), api('/groups'), api('/special-points'), api('/event-settings'), api('/group-names'),
+      const [{ families }, { groups }, { specialPoints }, eventSettings, { names }, { visits: extraVisits }] = await Promise.all([
+        api('/families'), api('/groups'), api('/special-points'), api('/event-settings'), api('/group-names'), api('/extra-host-visits'),
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
@@ -324,7 +350,7 @@
             <div class="family-filter-result"><span id="familyFilterSummary">Показаны все семьи</span><button id="clearFamilyFilters" class="secondary tiny" type="button">Сбросить фильтры</button></div>
           </div>
           <p class="muted">Раскройте семью, чтобы увидеть все аккаунты и изменить анкету.</p><div id="familyCards">${families.map((family) => familyCard(family, groups)).join('')}</div>
-          <p id="familyFilterEmpty" class="family-filter-empty" hidden>По выбранным фильтрам семьи не найдены.</p></div>`;
+          <p id="familyFilterEmpty" class="family-filter-empty" hidden>По выбранным фильтрам семьи не найдены.</p></div>${hostVisitsSection(families, groups, extraVisits)}`;
       makeDashboardSections();
       bindDashboard({ families, groups });
     } catch (error) {
@@ -338,6 +364,22 @@
     });
   }
   function bindDashboard({ families, groups }) {
+    document.querySelectorAll('[data-add-host-visit]').forEach((button) => {
+      button.onclick = async () => {
+        const id = button.dataset.addHostVisit;
+        const select = document.querySelector(`[data-host-visit-group="${CSS.escape(id)}"]`);
+        const message = document.querySelector(`[data-host-visit-msg="${CSS.escape(id)}"]`);
+        if (!select.value) { message.textContent = 'Выберите группу'; return; }
+        button.disabled = true;
+        message.textContent = 'Добавляем посещение и обновляем маршрут…';
+        try {
+          await api(`/hosts/${encodeURIComponent(id)}/visits`, { method: 'POST', body: { groupId: select.value } });
+          await renderDashboard();
+          document.querySelector(`[data-host-visit-group="${CSS.escape(id)}"]`)?.closest('.host-visits-card')?.setAttribute('open', '');
+        } catch (error) { message.textContent = error.message; button.disabled = false; }
+      };
+    });
+
     document.getElementById('remindCandyBtn').onclick = async () => {
       if (!confirm('Отправить напоминание семьям со статусом «Ждём конфеты»? Успешно получившим его ранее повторное сообщение не отправится.')) return;
       const button = document.getElementById('remindCandyBtn');

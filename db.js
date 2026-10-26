@@ -210,6 +210,12 @@ if (!db.prepare("SELECT 1 FROM app_settings WHERE key = 'door_status_freeze_v1'"
   })();
 }
 
+db.exec(`CREATE TABLE IF NOT EXISTS extra_host_visits (
+  group_id TEXT NOT NULL REFERENCES groups(id) ON DELETE CASCADE,
+  family_id TEXT NOT NULL REFERENCES families(id) ON DELETE CASCADE,
+  PRIMARY KEY (group_id, family_id)
+);`);
+
 function shortCode(len = 6) {
   const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // без похожих символов (0/O, 1/I)
   let out = '';

@@ -1,4 +1,5 @@
 const express = require('express');
+const { loadExtraHostVisits, rebuildStoredRoutes } = require('../lib/extra-host-visits');
 const { assertWishGroups } = require('../lib/wish-links');
 const { createExportDownload, getExportDownload, sendExcel } = require('../lib/export-downloads');
 const { assignGroupNames } = require('../lib/group-names');
@@ -549,7 +550,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
     });
   }
 
-  const routes = buildRoutes(result.groups, families, loadSpecialPoints());
+  const routes = buildRoutes(result.groups, families, loadSpecialPoints(), loadExtraHostVisits(db));
   const routeByGroup = new Map(routes.map((route) => [route.groupId, route]));
   db.transaction(() => {
     const insertGroup = db.prepare(
@@ -754,29 +755,23 @@ router.post('/override', (req, res) => {
   res.json({ ok: true });
 });
 
+router.get('/extra-host-visits', (req, res) => res.json({ visits: loadExtraHostVisits(db) }));
+router.post('/hosts/:familyId/visits', (req, res) => {
+  const host = db.prepare('SELECT * FROM families WHERE id=?').get(req.params.familyId);
+  if (!host || host.cancelled || (!host.hosting && !host.quest)) return res.status(400).json({ error: 'Квартира не принимает гостей' });
+  const groupId = req.body.groupId;
+  if (typeof groupId !== 'string' || !db.prepare('SELECT 1 FROM groups WHERE id=?').get(groupId)) return res.status(400).json({ error: 'Выберите существующую группу' });
+  const routes = db.transaction(() => {
+    db.prepare('INSERT OR IGNORE INTO extra_host_visits(group_id,family_id) VALUES (?,?)').run(groupId, host.id);
+    return rebuildStoredRoutes(db, { preserveStops: true });
+  })();
+  res.json({ ok: true, stopCount: routes.find((r) => r.groupId === groupId)?.stops.length || 0 });
+});
+
 // Rebuild routes without changing registrations, memberships, or group names.
 router.post('/recompute-routes', (req, res) => {
-  const groups = db.prepare('SELECT id FROM groups ORDER BY id').all().map((group) => ({
-    id: group.id,
-    memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ? ORDER BY family_id')
-      .all(group.id).map((member) => member.family_id),
-  }));
-  if (!groups.length) return res.status(400).json({ error: 'Сначала сформируйте группы' });
-  const routes = buildRoutes(groups, loadFamiliesForAlgo(), loadSpecialPoints());
-  db.transaction(() => {
-    db.prepare('DELETE FROM route_stops').run();
-    const insert = db.prepare(`INSERT INTO route_stops
-      (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`);
-    const update = db.prepare('UPDATE groups SET total_min = ? WHERE id = ?');
-    for (const route of routes) {
-      update.run(route.totalMin, route.groupId);
-      for (const stop of route.stops) {
-        insert.run(route.groupId, stop.hostId, stop.hostType, stop.seq, stop.tower, stop.floor,
-          stop.apartmentCode, stop.displayName, stop.isQuest ? 1 : 0, stop.arrival, stop.departure);
-      }
-    }
-  })();
+  if (!db.prepare('SELECT 1 FROM groups LIMIT 1').get()) return res.status(400).json({ error: 'Сначала сформируйте группы' });
+  const routes = rebuildStoredRoutes(db);
   res.json({ ok: true, groupCount: routes.length, stopCount: routes.reduce((sum, route) => sum + route.stops.length, 0) });
 });
 
@@ -797,7 +792,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
 
   const groups = buildGroups(families, wishLinks);
   assertWishGroups(groups, wishLinks);
-  const routes = buildRoutes(groups, families, specialPoints);
+  const extraVisits = loadExtraHostVisits(db);
+  const routes = buildRoutes(groups, families, specialPoints, extraVisits);
   const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
   assignGroupNames(groups, db.prepare('SELECT * FROM group_name_catalog').all(), oldGroups);
 
@@ -841,7 +837,15 @@ router.post('/recompute', asyncRoute(async (req, res) => {
       }
     }
   });
-  tx();
+  // Restore explicit visits after group rows are replaced by full formation.
+  const saveGroups = db.transaction(() => {
+    tx();
+    const insertExtra = db.prepare('INSERT OR IGNORE INTO extra_host_visits(group_id,family_id) VALUES (?,?)');
+    for (const visit of extraVisits) {
+      if (groups.some((g) => g.id === visit.groupId)) insertExtra.run(visit.groupId, visit.familyId);
+    }
+  });
+  saveGroups();
 
   const notificationGroups = groups.map((group) => {
     const route = routes.find((item) => item.groupId === group.id);
