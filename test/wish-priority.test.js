@@ -55,7 +55,7 @@ test('full grouping keeps eligible wish components indivisible regardless of inp
 
 
 test('eligible families remain together across a paused or ineligible intermediary', () => {
-  for (const excluded of [{ groupingPaused: true, candyBrought: true }, { candyBrought: false }, { cancelled: true }]) {
+  for (const excluded of [{ groupingPaused: true, candyBrought: true }, { cancelled: true }]) {
     const families = [
       { id: 'left', tower: 'A', walking: true, candyBrought: true, children: [{ age: 3 }], manualGroupId: 'left-group' },
       { id: 'middle', tower: 'B', walking: true, children: [{ age: 8 }], ...excluded },
@@ -89,4 +89,23 @@ test('two small chains combine before singles, and oversized chains receive no e
   assert.equal(oversized.childCount, 7);
   assertWishGroups(groups, links);
   assert.equal(new Set(groups.flatMap((g) => g.memberFamilyIds)).size, families.length);
+});
+
+
+test('linked families bypass candy gating in full grouping and waiting distribution, in both wish directions', () => {
+  const { fillExistingGroups } = require('../lib/grouping-routing');
+  for (const reverse of [false, true]) {
+    const families = ['a', 'b', 'c', 'unlinked'].map((id) => ({ id, tower: 'A', walking: true, candyBrought: false, children: [{ age: 8 }] }));
+    const wishes = [{ a: 'a', b: 'b' }, { a: 'b', b: 'c' }].map(({ a, b }) => reverse ? { a: b, b: a } : { a, b });
+    const groups = buildGroups(families, wishes);
+    assert.equal(groups.length, 1);
+    assert.deepEqual(groups[0].memberFamilyIds.sort(), ['a', 'b', 'c']);
+    const result = fillExistingGroups([{ id: 'existing', memberFamilyIds: ['a'] }], families, wishes, () => 0);
+    assert.deepEqual(result.groups[0].memberFamilyIds.sort(), ['a', 'b', 'c']);
+    assert.equal(result.assignments.length, 2);
+    const cancelled = buildGroups(families.map((f) => f.id === 'b' ? { ...f, cancelled: true } : f), wishes);
+    assert.deepEqual(cancelled[0].memberFamilyIds.sort(), ['a', 'c']);
+    const notWalking = buildGroups(families.map((f) => f.id === 'b' ? { ...f, walking: false } : f), wishes);
+    assert.deepEqual(notWalking[0].memberFamilyIds.sort(), ['a', 'c']);
+  }
 });

@@ -657,8 +657,8 @@ router.post('/groups/:id/members', asyncRoute(async (req, res) => {
   if (!group) return res.status(404).json({ error: 'Группа не найдена' });
   if (!family) return res.status(404).json({ error: 'Семья не найдена' });
   if (!family.walking || family.cancelled) return res.status(400).json({ error: 'Семья не участвует в обходе' });
-  if (!isFamilyEligibleForGrouping({ hosting: family.hosting, quest: family.quest, candyBrought: family.candy_brought })) {
-    return res.status(400).json({ error: 'Сначала отметьте, что семья принесла конфеты, или выберите квест / раздачу конфет' });
+  if (!isFamilyEligibleForGrouping({ id: family.id, hosting: family.hosting, quest: family.quest, candyBrought: family.candy_brought }, loadWishLinks())) {
+    return res.status(400).json({ error: 'Семья без пожеланий должна принести конфеты или проводить квест / раздачу конфет' });
   }
   const familyChildren = db.prepare('SELECT COUNT(*) AS count FROM children WHERE family_id = ?').get(familyId).count;
   const currentChildren = db.prepare(`SELECT COUNT(c.id) AS count FROM group_members gm

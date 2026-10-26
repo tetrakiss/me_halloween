@@ -36,7 +36,7 @@ test('без приёма гостей семья допускается тол�
     family('host', 8, 'A', { hosting: true, candyBrought: false }),
     family('quest', 8, 'A', { quest: true, candyBrought: false }),
   ];
-  const groups = buildGroups(families, [{ a: 'blocked', b: 'approved' }]);
+  const groups = buildGroups(families, []);
   assert.deepEqual(groups.flatMap((group) => group.memberFamilyIds).sort(), ['approved', 'host', 'quest']);
   const result = fillExistingGroups([{ id: 'existing', memberFamilyIds: ['host'] }], families, [], () => 0);
   assert.deepEqual(result.assignments.map((assignment) => assignment.familyId).sort(), ['approved', 'quest']);

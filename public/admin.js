@@ -96,7 +96,7 @@
   }
   function familyCard(family, groups) {
     const childrenText = family.children.map((child) => `${child.name}|${child.age}`).join('\n');
-    const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : family.candyBrought ? '🍬 принесли конфеты' : '<span class="choice-missing-mark">⏳ ждём конфеты</span>';
+    const hostingMark = family.quest ? '🎭' : family.hosting ? '🍬' : family.candyBrought ? '🍬 принесли конфеты' : family.wishFamilyIds?.length ? '🔗 допущены по пожеланию' : '<span class="choice-missing-mark">⏳ ждём конфеты</span>';
     const chaperoneMark = family.adultChaperone ? '<span class="chaperone-mark">🧑‍🤝‍🧑 сопровождает</span>' : '';
     return `<details class="admin-family" data-family-card="${esc(family.id)}">
       <summary><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
@@ -258,7 +258,7 @@
       ]);
       const familiesById = new Map(families.map((family) => [family.id, family]));
       const waitingFamilies = families.filter((family) => family.walking && !family.cancelled && !family.currentGroupId);
-      const eligibleWaitingCount = waitingFamilies.filter((family) => family.hosting || family.quest || family.candyBrought).length;
+      const eligibleWaitingCount = waitingFamilies.filter((family) => family.hosting || family.quest || family.candyBrought || family.wishFamilyIds?.length).length;
       APP.innerHTML = `<section class="admin-section admin-actions"><div class="admin-section-head"><div><span class="section-kicker">Быстрые действия</span><h2>Управление событием</h2></div><span class="status-pill"><i></i>Система активна</span></div>
         <div class="admin-action-grid"><button id="backBtn" class="secondary small">← В приложение</button>
         <button id="distributeWaitingBtn" class="secondary small" ${eligibleWaitingCount ? '' : 'disabled'}>🎲 Распределить ожидающих <span class="action-count">${eligibleWaitingCount}</span></button>
