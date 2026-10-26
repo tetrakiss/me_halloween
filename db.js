@@ -145,6 +145,9 @@ db.exec(`UPDATE recipient_notification_state SET group_name = (
 ) WHERE group_name IS NULL;`);
 db.prepare("UPDATE groups SET start_location = ? WHERE TRIM(COALESCE(start_location, '')) = ''")
   .run(DEFAULT_GROUP_START_LOCATION);
+// Legacy links have no known author: preserve them as mutual requests.
+ensureColumn('wish_links', 'requested_by_a', 'INTEGER NOT NULL DEFAULT 1');
+ensureColumn('wish_links', 'requested_by_b', 'INTEGER NOT NULL DEFAULT 1');
 ensureColumn('families', 'grouping_paused', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('families', 'adult_chaperone', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('families', 'candy_brought', 'INTEGER NOT NULL DEFAULT 0');

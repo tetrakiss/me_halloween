@@ -1,4 +1,5 @@
 const express = require('express');
+const { assertWishGroups } = require('../lib/wish-links');
 const { createExportDownload, getExportDownload, sendExcel } = require('../lib/export-downloads');
 const { assignGroupNames } = require('../lib/group-names');
 const { db, newId, shortCode, DEFAULT_GROUP_START_LOCATION } = require('../db');
@@ -786,6 +787,7 @@ router.post('/recompute', asyncRoute(async (req, res) => {
   const specialPoints = loadSpecialPoints();
 
   const groups = buildGroups(families, wishLinks);
+  assertWishGroups(groups, wishLinks);
   const routes = buildRoutes(groups, families, specialPoints);
   const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
   assignGroupNames(groups, db.prepare('SELECT * FROM group_name_catalog').all(), oldGroups);

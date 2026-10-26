@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.36</span>
+          <span class="loading-version">Версия 1.0.37</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -892,7 +892,7 @@
   function renderEditForm() {
     stopCountdown();
     const family = state.family;
-    const currentWish = family.wishFamilies?.[0] || null;
+    const currentWish = family.wishFamilies?.find((wish) => wish.id === family.selectedWishFamilyId) || null;
     wishFamilyId = currentWish?.id || null;
     childRows = family.children.map((child) => ({ name: child.name, age: child.age }));
     APP.innerHTML = `<div class="card form-card">

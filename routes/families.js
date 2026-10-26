@@ -1,4 +1,5 @@
 const express = require('express');
+const { setFamilyWish } = require('../lib/wish-links');
 const { db, shortCode, newId, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { getEventSettings } = require('../lib/event-settings');
@@ -23,7 +24,7 @@ function familyWithChildren(family) {
   const children = db.prepare('SELECT id, name, age FROM children WHERE family_id = ?').all(family.id);
   const wishLinks = db
     .prepare(
-      `SELECT family_a, family_b FROM wish_links WHERE family_a = ? OR family_b = ?`
+      `SELECT family_a, family_b, requested_by_a, requested_by_b FROM wish_links WHERE family_a = ? OR family_b = ?`
     )
     .all(family.id, family.id);
   const wishFamilyIds = wishLinks.map((w) => (w.family_a === family.id ? w.family_b : w.family_a));
@@ -51,13 +52,13 @@ function familyWithChildren(family) {
     groupingPaused: !!family.grouping_paused,
     cancelled: !!family.cancelled,
     children,
+    selectedWishFamilyId: (() => {
+      const own = wishLinks.find((w) => w.family_a === family.id ? w.requested_by_a : w.requested_by_b);
+      return own ? (own.family_a === family.id ? own.family_b : own.family_a) : null;
+    })(),
     wishLinks: wishFamilyIds,
     wishFamilies,
   };
-}
-
-function orderedWishPair(familyA, familyB) {
-  return familyA < familyB ? [familyA, familyB] : [familyB, familyA];
 }
 
 function validFloor(value) {
@@ -198,9 +199,6 @@ router.post('/register', (req, res) => {
     VALUES (@id, @familyCode, @tower, @floor, @apartmentCode, @walking, @adultChaperone, @hosting, @quest, @questDurationMin, 0, @createdAt)
   `);
   const insertChild = db.prepare('INSERT INTO children (family_id, name, age) VALUES (?, ?, ?)');
-  const insertWish = db.prepare(
-    'INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)'
-  );
 
   const tx = db.transaction(() => {
     insertFamily.run({
@@ -224,7 +222,7 @@ router.post('/register', (req, res) => {
     if (wishFamilyId) {
       const linkedFamily = db.prepare('SELECT id FROM families WHERE id = ? AND cancelled = 0').get(wishFamilyId);
       if (!linkedFamily) throw new Error('Выбранная семья не найдена');
-      insertWish.run(...orderedWishPair(familyId, linkedFamily.id));
+      setFamilyWish(db, familyId, linkedFamily.id);
     }
   });
   tx();
@@ -447,11 +445,7 @@ router.patch('/me', (req, res) => {
     }
 
     if (wishFamilyId !== undefined) {
-      db.prepare('DELETE FROM wish_links WHERE family_a = ? OR family_b = ?').run(family.id, family.id);
-      if (wishFamilyId) {
-        db.prepare('INSERT OR IGNORE INTO wish_links (family_a, family_b) VALUES (?, ?)')
-          .run(...orderedWishPair(family.id, wishFamilyId));
-      }
+      setFamilyWish(db, family.id, wishFamilyId);
     }
 
     // Адрес дублируется в уже сформированных маршрутах. Обновляем снимок,
