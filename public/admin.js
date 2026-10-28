@@ -164,6 +164,9 @@
         <div class="member-actions">${memberWishBadges(family, group, familiesById)}<button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></div></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
       <h4>Маршрут</h4>
       <ol class="admin-route">${startStop}${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Квартиры маршрута пока не добавлены</li>'}</ol>
+      <div class="search-hint" data-route-warning="${esc(group.id)}" aria-live="polite"></div>
+      <button class="small" data-save-route="${esc(group.id)}" disabled>Сохранить маршрут</button>
+      <div class="search-hint" data-route-message="${esc(group.id)}" aria-live="polite"></div>
     </div>`;
   }
   function waitingFamilyCard(family, groups) {
@@ -815,13 +818,62 @@
         } catch (error) { button.disabled = false; alert(error.message); }
       };
     });
-    const saveRouteOrder = async (group) => {
-      await api(`/groups/${encodeURIComponent(group.id)}/route`, {
-        method: 'PUT',
-        body: { stopIds: group.stops.map((stop) => stop.id) },
-      });
-      await renderDashboard();
+    const savedRoutes = new Map(groups.map((group) => [group.id, [...group.stops]]));
+    const routeElement = (attribute, id) => document.querySelector(`[${attribute}="${CSS.escape(id)}"]`);
+    const updateRouteWarnings = () => {
+      for (const group of groups) {
+        const warnings = [];
+        group.stops.forEach((stop, index) => {
+          const others = groups.filter((other) => other.id !== group.id && savedRoutes.get(other.id)?.[index]?.hostType === stop.hostType
+            && savedRoutes.get(other.id)?.[index]?.hostId === stop.hostId);
+          if (others.length) {
+            const address = stop.hostType === 'special' ? `${stop.tower}, ${stop.displayName}` : `${stop.tower}, кв. ${stop.apartmentCode}`;
+            warnings.push(`Этап ${index + 1}: ${address} — ${others.map((other) => other.name || other.id).join(', ')}`);
+          }
+        });
+        routeElement('data-route-warning', group.id).innerHTML = warnings.length
+          ? `<p>⚠️ Возможны пересечения: одна точка на одинаковом этапе с другими группами. Сохранение доступно.</p><ul>${warnings.map((warning) => `<li>${esc(warning)}</li>`).join('')}</ul>` : '';
+      }
     };
+    const updateRouteDraft = (group) => {
+      const card = routeElement('data-group-card', group.id);
+      const list = card.querySelector('.admin-route');
+      const nodes = new Map([...list.querySelectorAll('[data-route-stop-id]')].map((node) => [Number(node.dataset.routeStopId), node]));
+      group.stops.forEach((stop, index) => {
+        const node = nodes.get(stop.id);
+        node.querySelector('.admin-route-node').textContent = index + 1;
+        node.querySelectorAll('[data-route-move]').forEach((button) => {
+          button.dataset.index = index;
+          button.disabled = button.dataset.routeMove === 'up' ? index === 0 : index === group.stops.length - 1;
+        });
+        list.append(node);
+      });
+      const dirty = group.stops.some((stop, index) => stop.id !== savedRoutes.get(group.id)[index]?.id);
+      routeElement('data-save-route', group.id).disabled = !dirty;
+      routeElement('data-route-message', group.id).textContent = dirty ? 'Есть несохранённые изменения маршрута.' : '';
+      updateRouteWarnings();
+    };
+    document.querySelectorAll('[data-save-route]').forEach((button) => {
+      button.onclick = async () => {
+        const group = groups.find((entry) => entry.id === button.dataset.saveRoute);
+        const card = routeElement('data-group-card', group.id);
+        button.disabled = true;
+        card.querySelectorAll('[data-route-move]').forEach((control) => { control.disabled = true; });
+        card.querySelectorAll('[data-route-stop-id]').forEach((node) => { node.draggable = false; });
+        let message;
+        try {
+          await api(`/groups/${encodeURIComponent(group.id)}/route`, { method: 'PUT', body: { stopIds: group.stops.map((stop) => stop.id) } });
+          savedRoutes.set(group.id, [...group.stops]);
+          message = 'Маршрут сохранён.';
+        } catch (error) { message = error.message; }
+        finally {
+          card.querySelectorAll('[data-route-stop-id]').forEach((node) => { node.draggable = true; });
+          updateRouteDraft(group);
+          routeElement('data-route-message', group.id).textContent = message;
+        }
+      };
+    });
+    updateRouteWarnings();
     let draggedRouteStop = null;
     document.querySelectorAll('[data-route-stop-id]').forEach((item) => {
       item.ondragstart = (event) => {
@@ -847,7 +899,7 @@
         if (from < 0 || to < 0 || from === to) return;
         const [moved] = group.stops.splice(from, 1);
         group.stops.splice(to, 0, moved);
-        try { await saveRouteOrder(group); } catch (error) { alert(error.message); await renderDashboard(); }
+        updateRouteDraft(group);
       };
       item.ondragend = () => {
         draggedRouteStop = null;
@@ -859,8 +911,7 @@
         const group = groups.find((item) => item.id === button.dataset.group); const index = Number(button.dataset.index);
         const target = button.dataset.routeMove === 'up' ? index - 1 : index + 1;
         [group.stops[index], group.stops[target]] = [group.stops[target], group.stops[index]];
-        try { await saveRouteOrder(group); }
-        catch (error) { alert(error.message); await renderDashboard(); }
+        updateRouteDraft(group);
       };
     });
     document.getElementById('spAddBtn').onclick = async () => {

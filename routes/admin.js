@@ -729,22 +729,6 @@ router.put('/groups/:id/route', asyncRoute(async (req, res) => {
   if (stopIds.length !== existingIds.length || new Set(stopIds).size !== existingIds.length || existingIds.some((id) => !stopIds.includes(id))) {
     return res.status(400).json({ error: 'Порядок должен содержать все точки маршрута ровно один раз' });
   }
-  const stopById = new Map(existingStops.map((stop) => [stop.id, stop]));
-  const findStageConflict = db.prepare(`
-    SELECT rs.group_id, COALESCE(g.name, rs.group_id) AS group_name
-    FROM route_stops rs JOIN groups g ON g.id = rs.group_id
-    WHERE rs.group_id != ? AND rs.seq = ? AND rs.host_type = ? AND rs.host_id = ?
-    LIMIT 1
-  `);
-  for (let index = 0; index < stopIds.length; index += 1) {
-    const stop = stopById.get(stopIds[index]);
-    const conflict = findStageConflict.get(req.params.id, index + 1, stop.host_type, stop.host_id);
-    if (conflict) {
-      return res.status(409).json({
-        error: `Этап ${index + 1} уже занят этой точкой у группы «${conflict.group_name}». Выберите другой порядок.`,
-      });
-    }
-  }
   db.transaction(() => {
     const update = db.prepare('UPDATE route_stops SET seq = ? WHERE id = ? AND group_id = ?');
     stopIds.forEach((id, index) => update.run(index + 1, id, req.params.id));
