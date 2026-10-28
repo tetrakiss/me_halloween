@@ -417,7 +417,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.44</span>
+          <span class="loading-version">Версия 1.0.45</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -438,10 +438,13 @@
     splash.classList.add('is-leaving');
     await new Promise((resolve) => setTimeout(resolve, 460));
   }
+  function childrenAdditionNotice() {
+    return eventState?.childrenAdditionClosed ? '<section class="panel sect"><h2>Добавление детей закрыто</h2><p class="sect-p">Добавление новых детей в семьи закрыто организатором. Вы можете удалять детей и редактировать данные своей семьи.</p></section>' : '';
+  }
   function renderEntry() {
     const closed = !!eventState?.registrationClosed;
     if (closed) activeTab = 'join';
-    APP.innerHTML = `${countdownCard()}${adminButton()}${closed ? '<section class="panel sect"><h2>Регистрация окончена</h2><p class="sect-p">К сожалению, регистрация окончена. Добавление новых участников невозможно.</p><p class="sect-p">Если ваша семья уже зарегистрирована, войдите по коду семьи.</p></section>' : ''}<div class="tabs">
+    APP.innerHTML = `${countdownCard()}${adminButton()}${closed ? '<section class="panel sect"><h2>Регистрация окончена</h2><p class="sect-p">К сожалению, регистрация окончена. Добавление новых участников невозможно.</p><p class="sect-p">Если ваша семья уже зарегистрирована, войдите по коду семьи.</p></section>' : ''}${childrenAdditionNotice()}<div class="tabs">
       <button id="tabRegister" ${closed ? 'disabled' : ''} class="${activeTab === 'register' ? 'active' : ''}" aria-selected="${activeTab === 'register'}">Записать семью</button>
       <button id="tabJoin" class="${activeTab === 'join' ? 'active' : ''}" aria-selected="${activeTab === 'join'}">У нас есть код</button>
       </div><div id="tabContent"></div>`;
@@ -580,11 +583,13 @@
         <div class="step-actions"><button class="step-back" type="button" data-back="5" aria-label="Вернуться к настройкам">${ICONS.back}</button><button class="btn btn-primary" id="submitRegister" type="button">Подтвердить и записаться</button></div>
       </section>
     </div>`;
+    if (eventState?.childrenAdditionClosed) childRows = [];
     renderChildRows();
+    if (eventState?.childrenAdditionClosed) { document.getElementById('noChildren').checked = true; document.getElementById('noChildren').disabled = true; }
     document.getElementById('noChildren').onchange = (event) => {
       const checked = event.target.checked;
       document.getElementById('childrenList').hidden = checked;
-      document.getElementById('addChild').hidden = checked;
+      document.getElementById('addChild').hidden = checked || !!eventState?.childrenAdditionClosed;
       document.getElementById('childCount').hidden = checked;
       if (checked) {
         document.querySelector('input[name="groupChoice"][value="no"]').checked = true;
@@ -595,7 +600,9 @@
         document.getElementById('kidsError').classList.remove('show');
       }
     };
-    document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
+    if (eventState?.childrenAdditionClosed) document.getElementById('noChildren').onchange({ target: document.getElementById('noChildren') });
+    document.getElementById('addChild').hidden = !!eventState?.childrenAdditionClosed;
+    document.getElementById('addChild').onclick = () => { if (eventState?.childrenAdditionClosed) return; syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('hosting').onchange = (event) => {
       if (!event.target.checked) {
         document.getElementById('quest').checked = false;
@@ -828,7 +835,7 @@
   function renderDashboard() {
     const family = state.family;
     const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>') || '🏠 Без детей — принимаем гостей';
-    APP.innerHTML = `${countdownCard()}${adminButton()}<section class="family-home">
+    APP.innerHTML = `${countdownCard()}${adminButton()}${childrenAdditionNotice()}<section class="family-home">
       <div class="family-success-card"><span class="success-seal" aria-hidden="true">${ICONS.check}</span><span class="family-success-kicker">Регистрация завершена</span>
         <h2>Ваша семья в игре</h2><p>Данные сохранены. По семейному коду близкие смогут присоединиться с другого устройства.</p></div>
       <div class="family-code-card"><span>Код семьи</span><div class="family-code-row">
@@ -918,7 +925,8 @@
       <div id="editMsg" class="search-hint form-status" aria-live="polite"></div>
       <div class="form-actions"><button id="saveFamilyBtn">Сохранить</button><button id="cancelEditBtn" class="secondary">Отмена</button></div></div>`;
     renderChildRows();
-    document.getElementById('addChild').onclick = () => { syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
+    document.getElementById('addChild').hidden = !!eventState?.childrenAdditionClosed;
+    document.getElementById('addChild').onclick = () => { if (eventState?.childrenAdditionClosed) return; syncChildRows(); childRows.push({ name: '', age: '' }); renderChildRows(); };
     document.getElementById('editHosting').onchange = (event) => {
       if (!event.target.checked) {
         document.getElementById('editQuest').checked = false;
@@ -933,15 +941,16 @@
     const updateNoChildren = () => {
       const checked = document.getElementById('editNoChildren').checked;
       document.getElementById('childrenList').hidden = checked;
-      document.getElementById('addChild').hidden = checked;
+      document.getElementById('addChild').hidden = checked || !!eventState?.childrenAdditionClosed;
       for (const id of ['editWalking', 'editAdultChaperone', 'editWishTower', 'editWishApartment']) document.getElementById(id).disabled = checked;
       if (checked) {
         document.getElementById('editWalking').checked = false;
         document.getElementById('editAdultChaperone').checked = false;
         document.getElementById('editWishApartment').value = '';
         wishFamilyId = null;
-      } else if (!childRows.length) { childRows.push({ name: '', age: '' }); renderChildRows(); }
+      } else if (!childRows.length && !eventState?.childrenAdditionClosed) { childRows.push({ name: '', age: '' }); renderChildRows(); }
     };
+    document.getElementById('editNoChildren').disabled = !!eventState?.childrenAdditionClosed && !family.children.length;
     document.getElementById('editNoChildren').onchange = updateNoChildren;
     updateNoChildren();
     document.getElementById('cancelEditBtn').onclick = renderDashboard;

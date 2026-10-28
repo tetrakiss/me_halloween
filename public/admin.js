@@ -347,7 +347,9 @@
           <label><input type="checkbox" id="doorStatusEnabled" ${eventSettings.doorStatusEnabled ? 'checked' : ''} /> Активировать отметки «Не открыли»</label>
           <p class="muted">Кнопка доступна участникам только после начала события. До этого времени отметки не сохраняются.</p><div id="doorStatusSettingsMsg" class="search-hint" aria-live="polite"></div>
           <label><input type="checkbox" id="registrationClosed" ${eventSettings.registrationClosed ? 'checked' : ''} /> Закрыть регистрацию новых семей</label>
-          <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div></div>
+          <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div>
+          <label><input type="checkbox" id="childrenAdditionClosed" ${eventSettings.childrenAdditionClosed ? 'checked' : ''} /> Запретить добавление новых детей</label>
+          <p class="muted">Удалять детей и редактировать данные семьи можно.</p><div id="childrenAdditionSettingsMsg" class="search-hint" aria-live="polite"></div></div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. При распределении ожидающих пожелания объединяют семьи; для освобождения мест могут переноситься семьи без связей. Полное формирование пересобирает все группы и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Очередь</span><h2>Ожидают назначения</h2></div><span class="metric-total">${waitingFamilies.length}</span></div>
           <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
@@ -449,6 +451,17 @@
       try {
         const settings = await api('/door-status-settings', { method: 'PUT', body: { doorStatusEnabled: value } });
         message.textContent = !settings.doorStatusEnabled ? 'Отметки отключены' : settings.doorStatusActive ? 'Отметки активны' : 'Включено. Кнопка появится после начала события';
+      } catch (error) { checkbox.checked = !value; message.textContent = error.message; }
+      finally { checkbox.disabled = false; }
+    };
+    document.getElementById('childrenAdditionClosed').onchange = async (event) => {
+      const checkbox = event.target;
+      const value = checkbox.checked;
+      checkbox.disabled = true;
+      const message = document.getElementById('childrenAdditionSettingsMsg');
+      try {
+        await api('/children-addition-settings', { method: 'PUT', body: { childrenAdditionClosed: value } });
+        message.textContent = value ? 'Добавление детей закрыто' : 'Добавление детей разрешено';
       } catch (error) { checkbox.checked = !value; message.textContent = error.message; }
       finally { checkbox.disabled = false; }
     };

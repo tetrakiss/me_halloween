@@ -1,0 +1,41 @@
+const test = require('node:test');
+const assert = require('node:assert/strict');
+process.env.DATABASE_PATH = ':memory:';
+const { db } = require('../db');
+const admin = require('../routes/admin');
+const families = require('../routes/families');
+const { getEventSettings } = require('../lib/event-settings');
+const handler = (router, path, method) => router.stack.find((entry) => entry.route?.path === path && entry.route.methods[method]).route.stack[0].handle;
+async function invoke(fn, req) {
+  let result;
+  const res = { status(code) { this.code = code; return this; }, json(body) { result = { status: this.code || 200, body }; return this; } };
+  await fn(req, res, (error) => { throw error; });
+  return result;
+}
+test('child freeze blocks growth and registration, permits edits/deletion, and can be disabled independently', async () => {
+  db.prepare("INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,created_at) VALUES ('f','code','A',1,'101',1,0)").run();
+  db.prepare("INSERT INTO parent_links(platform,platform_user_id,family_id) VALUES ('dev','user','f')").run();
+  db.prepare("INSERT INTO children(family_id,name,age) VALUES ('f','One',8),('f','Two',9)").run();
+  const toggle = handler(admin, '/children-addition-settings', 'put');
+  const edit = handler(families, '/me', 'patch');
+  const register = handler(families, '/register', 'post');
+  const update = (children, extra = {}) => invoke(edit, { platform: 'dev', platformUserId: 'user', body: { children, ...extra } });
+  assert.equal(getEventSettings().childrenAdditionClosed, false);
+  assert.equal((await invoke(toggle, { body: { childrenAdditionClosed: 'yes' } })).status, 400);
+  await invoke(toggle, { body: { childrenAdditionClosed: true } });
+  assert.equal(getEventSettings().childrenAdditionClosed, true);
+  assert.equal(getEventSettings().registrationClosed, false);
+  const kids = [{ name: 'One', age: 8 }, { name: 'Two', age: 10 }];
+  assert.equal((await update([...kids, { name: 'Three', age: 5 }])).status, 403);
+  assert.equal(db.prepare('SELECT count(*) n FROM children').get().n, 2);
+  assert.equal((await update(kids)).status, 200);
+  assert.equal((await update(kids.slice(0, 1))).status, 200);
+  assert.equal((await update(kids)).status, 403);
+  assert.equal((await update([], { walking: false, adultChaperone: false })).status, 200);
+  assert.equal((await update(kids.slice(0, 1))).status, 403);
+  const body = { tower: 'A', floor: 2, apartmentCode: '202', children: kids, hosting: true };
+  assert.equal((await invoke(register, { platform: 'dev', platformUserId: 'new', body })).status, 403);
+  assert.equal((await invoke(register, { platform: 'dev', platformUserId: 'host', body: { ...body, children: [], walking: false } })).status, 200);
+  await invoke(toggle, { body: { childrenAdditionClosed: false } });
+  assert.equal((await update(kids, { walking: true })).status, 200);
+});

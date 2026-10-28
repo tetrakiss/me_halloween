@@ -346,6 +346,15 @@ router.put('/registration-settings', (req, res) => {
   res.json({ ok: true, ...getEventSettings() });
 });
 
+router.put('/children-addition-settings', (req, res) => {
+  if (typeof req.body.childrenAdditionClosed !== 'boolean') {
+    return res.status(400).json({ error: 'Укажите состояние добавления детей' });
+  }
+  db.prepare(`INSERT INTO app_settings(key,value) VALUES ('children_addition_closed',?)
+    ON CONFLICT(key) DO UPDATE SET value=excluded.value`).run(req.body.childrenAdditionClosed ? '1' : '0');
+  res.json({ ok: true, ...getEventSettings() });
+});
+
 router.put('/door-status-settings', (req, res) => {
   if (typeof req.body.doorStatusEnabled !== 'boolean') {
     return res.status(400).json({ error: 'Укажите состояние отметок «Не открыли»' });

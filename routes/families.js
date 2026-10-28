@@ -167,6 +167,10 @@ router.post('/register', (req, res) => {
     return res.status(400).json({ error: 'tower, floor, apartmentCode и хотя бы один ребёнок обязательны' });
   }
 
+  if (getEventSettings().childrenAdditionClosed && children.length > 0) {
+    return res.status(403).json({ code: 'CHILDREN_ADDITION_CLOSED', error: 'Добавление новых детей закрыто организатором. Удаление детей из семьи доступно.' });
+  }
+
   const existing = getFamilyForUser(platform, platformUserId);
   if (children.length === 0 && (!hosting && !quest || walking || adultChaperone || wishFamilyId)) {
     return res.status(400).json({ error: 'Без детей можно только принимать гостей: выберите конфеты или квест и отключите обход, сопровождение и пожелание группы' });
@@ -376,6 +380,10 @@ router.patch('/me', asyncRoute(async (req, res) => {
   }
   if (children !== undefined && !validChildren(children)) {
     return res.status(400).json({ error: 'Укажите имя и возраст каждого ребёнка' });
+  }
+  if (Array.isArray(children) && getEventSettings().childrenAdditionClosed
+      && children.length > db.prepare('SELECT COUNT(*) AS n FROM children WHERE family_id = ?').get(family.id).n) {
+    return res.status(403).json({ code: 'CHILDREN_ADDITION_CLOSED', error: 'Добавление новых детей закрыто организатором. Удаление детей из семьи доступно.' });
   }
   const nextChildren = children === undefined ? db.prepare('SELECT name, age FROM children WHERE family_id = ?').all(family.id) : children;
   if (!nextChildren.length && (!(hosting ?? family.hosting) && !(quest ?? family.quest) || (walking ?? family.walking) || (adultChaperone ?? family.adult_chaperone) || wishFamilyId)) {
