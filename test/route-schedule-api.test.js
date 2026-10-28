@@ -4,6 +4,7 @@ process.env.DATABASE_PATH = ':memory:';
 const { db } = require('../db');
 const admin = require('../routes/admin');
 const families = require('../routes/families');
+const publicSchedule = require('../routes/schedule');
 const handler = (router, path, method) => router.stack.find((entry) => entry.route?.path === path && entry.route.methods[method]).route.stack[0].handle;
 async function invoke(fn, req) {
   let result;
@@ -34,4 +35,14 @@ test('schedule reflects event start and saved tower; participants see selected p
   assert.equal(me.body.group.startLocation, 'Афины, парковка -2 этаж');
   db.prepare("UPDATE app_settings SET value=? WHERE key='event_start_at'").run(String(at + 3600000));
   assert.equal((await schedule()).body.groups[0].stops[0].arrivalAt, at + 75 * 60000);
+  const publicResult = await invoke(handler(publicSchedule, '/route-schedule', 'get'), {});
+  assert.equal(publicResult.status, 200);
+  assert.deepEqual(publicResult.body.groups, (await schedule()).body.groups);
+  const serialized = JSON.stringify(publicResult.body);
+  for (const privateField of ['familyCode', 'family_code', 'memberFamilyIds', 'username', 'platformUserId', 'hostId']) {
+    assert.equal(serialized.includes(`"${privateField}"`), false, privateField);
+  }
+  assert.equal(serialized.includes('Child'), false);
+  assert.equal(serialized.includes('"code"'), false);
+
 });

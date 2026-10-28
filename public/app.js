@@ -326,6 +326,9 @@
   function adminButton() {
     return state.isAdmin ? `<button id="adminBtn" class="btn btn-ghost btn-sm admin-entry-button">${ICONS.admin}Администрирование</button>` : '';
   }
+  function scheduleButton() {
+    return `<a class="btn btn-ghost btn-sm admin-entry-button" href="/route-schedule.html${esc(location.search + location.hash)}">◷ Расписание маршрутов</a>`;
+  }
   function countdownCard() {
     const spark = '<svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 2.5l1.6 6 6 1.6-6 1.6-1.6 6-1.6-6-6-1.6 6-1.6z"/></svg>';
     const magic = `<span class="magic-orbit" aria-hidden="true"></span>
@@ -417,7 +420,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.47</span>
+          <span class="loading-version">Версия 1.0.48</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -444,7 +447,7 @@
   function renderEntry() {
     const closed = !!eventState?.registrationClosed;
     if (closed) activeTab = 'join';
-    APP.innerHTML = `${countdownCard()}${adminButton()}${closed ? '<section class="panel sect"><h2>Регистрация окончена</h2><p class="sect-p">К сожалению, регистрация окончена. Добавление новых участников невозможно.</p><p class="sect-p">Если ваша семья уже зарегистрирована, войдите по коду семьи.</p></section>' : ''}${childrenAdditionNotice()}<div class="tabs">
+    APP.innerHTML = `${countdownCard()}${adminButton()}${scheduleButton()}${closed ? '<section class="panel sect"><h2>Регистрация окончена</h2><p class="sect-p">К сожалению, регистрация окончена. Добавление новых участников невозможно.</p><p class="sect-p">Если ваша семья уже зарегистрирована, войдите по коду семьи.</p></section>' : ''}${childrenAdditionNotice()}<div class="tabs">
       <button id="tabRegister" ${closed ? 'disabled' : ''} class="${activeTab === 'register' ? 'active' : ''}" aria-selected="${activeTab === 'register'}">Записать семью</button>
       <button id="tabJoin" class="${activeTab === 'join' ? 'active' : ''}" aria-selected="${activeTab === 'join'}">У нас есть код</button>
       </div><div id="tabContent"></div>`;
@@ -835,7 +838,7 @@
   function renderDashboard() {
     const family = state.family;
     const children = family.children.map((child) => `${esc(child.name)}, ${child.age}`).join('<br>') || '🏠 Без детей — принимаем гостей';
-    APP.innerHTML = `${countdownCard()}${adminButton()}${childrenAdditionNotice()}<section class="family-home">
+    APP.innerHTML = `${countdownCard()}${adminButton()}${scheduleButton()}${childrenAdditionNotice()}<section class="family-home">
       <div class="family-success-card"><span class="success-seal" aria-hidden="true">${ICONS.check}</span><span class="family-success-kicker">Регистрация завершена</span>
         <h2>Ваша семья в игре</h2><p>Данные сохранены. По семейному коду близкие смогут присоединиться с другого устройства.</p></div>
       <div class="family-code-card"><span>Код семьи</span><div class="family-code-row">

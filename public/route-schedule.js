@@ -9,17 +9,12 @@
     const [date, time] = value.split(' ');
     return date === data.eventStartLocal?.split(' ')[0] ? time : `${date} ${time}`;
   };
-  const backUrl = `/admin.html${location.search}${location.hash}`;
-  function headers() {
-    const context = window.MINI_APP_CONTEXT || {};
-    if (context.platform === 'telegram') return { 'X-Platform': 'telegram', 'X-Init-Data': window.Telegram?.WebApp?.initData || context.initData };
-    return { 'X-Admin-Password': sessionStorage.getItem('adminPassword') || '' };
-  }
+  const backUrl = `/${location.search}${location.hash}`;
   function render() {
     const t = data.timing;
     const groups = data.groups.filter((group) => !selectedGroup || group.id === selectedGroup);
     root.innerHTML = `<section class="card">
-      <div class="schedule-toolbar"><button id="scheduleBack" class="secondary small">← В админку</button><button id="scheduleRefresh" class="secondary small">Обновить</button><button id="schedulePrint" class="secondary small">Печать</button>
+      <div class="schedule-toolbar"><button id="scheduleBack" class="secondary small">← В приложение</button><button id="scheduleRefresh" class="secondary small">Обновить</button><button id="schedulePrint" class="secondary small">Печать</button>
       <label>Группа<select id="scheduleGroup"><option value="">Все группы</option>${data.groups.map((group) => `<option value="${esc(group.id)}" ${group.id === selectedGroup ? 'selected' : ''}>${esc(group.name)}</option>`).join('')}</select></label></div>
       <div class="schedule-summary"><p>Начало мероприятия: <strong>${esc(data.eventStartLocal || 'не задано')}</strong></p><p>Сбор: <strong>${t.gathering} минут</strong></p><p>Выход групп: <strong>${esc(clock(data.groups[0]?.departureLocal))}</strong></p></div>
       <p class="schedule-note">Квест — ${t.quest} мин · конфеты — ${t.candy} мин · переход в башне — ${t.insideTower} мин · между башнями — ${t.betweenTowers} мин. Первый переход считается от парковки стартовой башни каждой группы. Все группы выходят одновременно, через ${t.gathering} минут после начала мероприятия.</p>
@@ -44,7 +39,7 @@
     const button = document.getElementById('scheduleRefresh');
     if (button) button.disabled = true;
     try {
-      const response = await fetch('/admin-api/route-schedule', { headers: headers(), cache: 'no-store' });
+      const response = await fetch('/public-api/route-schedule', { cache: 'no-store' });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || 'Не удалось загрузить расписание');
       data = result;
@@ -53,7 +48,7 @@
     } catch (error) {
       if (data) document.getElementById('scheduleError').textContent = `Не удалось обновить данные: ${error.message}. Показано последнее загруженное расписание.`;
       else {
-        root.innerHTML = `<section class="card"><h2>Не удалось открыть расписание</h2><p>${esc(error.message)}</p><button id="scheduleBack" class="secondary">Войти через админку</button></section>`;
+        root.innerHTML = `<section class="card"><h2>Не удалось открыть расписание</h2><p>${esc(error.message)}</p><button id="scheduleBack" class="secondary">В приложение</button></section>`;
         document.getElementById('scheduleBack').onclick = () => { location.href = backUrl; };
       }
     } finally {

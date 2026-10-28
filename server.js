@@ -90,6 +90,7 @@ app.get(['/games/pass', '/games/pass/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public/games/pass/index.html'));
 });
 app.use('/game-api', require('./routes/game').createGameRouter());
+app.use('/public-api', require('./routes/schedule'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 3000;

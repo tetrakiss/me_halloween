@@ -1,4 +1,5 @@
-const { TOWERS, startTowerFor, parkingLocation, displayStartLocation, buildSchedule } = require('../lib/route-schedule');
+const { readStoredSchedule } = require('../lib/stored-route-schedule');
+const { TOWERS, startTowerFor, parkingLocation, displayStartLocation } = require('../lib/route-schedule');
 const express = require('express');
 const { loadExtraHostVisits, rebuildStoredRoutes } = require('../lib/extra-host-visits');
 const { assertWishGroups } = require('../lib/wish-links');
@@ -9,7 +10,7 @@ const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEl
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups, notifyCandyAccepted, notifyWaitingCandy } = require('../lib/notifications');
-const { getEventSettings, saveEventStartLocal, formatServerLocal } = require('../lib/event-settings');
+const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
 const { removeFamilyAndRepair } = require('../lib/family-removal');
@@ -526,19 +527,7 @@ router.patch('/families/:id', asyncRoute(async (req, res) => {
 
 router.get('/route-schedule', (req, res) => {
   res.set('Cache-Control', 'no-store');
-  const schedule = db.transaction(() => {
-    const settings = getEventSettings();
-    const groups = db.prepare('SELECT id FROM groups ORDER BY id').all().map((group) => loadGroupDetails(group.id));
-    const result = buildSchedule(groups, settings.eventStartAt);
-    const local = (at) => at === null ? null : formatServerLocal(at).replace('T', ' ');
-    return { ...result, eventStartLocal: local(result.eventStartAt),
-      generatedAt: formatServerLocal().replace('T', ' '),
-      groups: result.groups.map((group) => ({ ...group, gatheringLocal: local(group.gatheringAt),
-        departureLocal: local(group.departureAt), endLocal: local(group.endAt),
-        stops: group.stops.map((stop) => ({ ...stop, arrivalLocal: local(stop.arrivalAt), departureLocal: local(stop.departureAt) })) })),
-      conflicts: result.conflicts.map((conflict) => ({ ...conflict, fromLocal: local(conflict.fromAt), toLocal: local(conflict.toAt) })) };
-  })();
-  res.json(schedule);
+  res.json(readStoredSchedule());
 });
 
 router.get('/groups', (req, res) => {
