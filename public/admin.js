@@ -162,7 +162,7 @@
       <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
         <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
         <div class="member-actions">${memberWishBadges(family, group, familiesById)}<button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></div></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
-      <h4>Маршрут</h4>
+      <h4>Маршрут · ${group.stops.length} остановок</h4><p class="muted">Не более 3 остановок в одной башне. Собственные квартиры доступны только с квестом.${group.stops.length < 10 ? ' Маршрут короче 10 остановок: проверьте доступность принимающих квартир.' : ''}</p>
       <ol class="admin-route">${startStop}${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Квартиры маршрута пока не добавлены</li>'}</ol>
       <div class="search-hint" data-route-warning="${esc(group.id)}" aria-live="polite"></div>
       <button class="small" data-save-route="${esc(group.id)}" disabled>Сохранить маршрут</button>
@@ -868,6 +868,7 @@
         let message;
         try {
           await api(`/groups/${encodeURIComponent(group.id)}/route`, { method: 'PUT', body: { stopIds: group.stops.map((stop) => stop.id) } });
+          group.stops.forEach((stop) => { stop.waitMin = 0; });
           savedRoutes.set(group.id, [...group.stops]);
           message = 'Маршрут сохранён.';
         } catch (error) { message = error.message; }

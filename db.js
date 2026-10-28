@@ -135,6 +135,7 @@ function ensureColumn(table, name, definition) {
   }
 }
 
+ensureColumn('route_stops', 'wait_min', 'INTEGER NOT NULL DEFAULT 0');
 ensureColumn('groups', 'name', 'TEXT');
 ensureColumn('groups', 'start_location', "TEXT NOT NULL DEFAULT 'Парковка Вена -2 этаж'");
 // Preserve the current name for recipients notified before name tracking existed.

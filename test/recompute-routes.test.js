@@ -13,8 +13,8 @@ const invoke = () => {
 
 test('route-only rebuild preserves groups and memberships and is repeatable without notifications', () => {
   assert.equal(invoke().status, 400);
-  const family = db.prepare("INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,created_at) VALUES (?,?,?,?,?,?,0)");
-  for (let i = 0; i < 12; i += 1) family.run(`f${i}`, `f${i}`, i < 6 ? 'Вена' : 'Стокгольм', i + 1, `${i}`, 1);
+  const family = db.prepare("INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,quest,created_at) VALUES (?,?,?,?,?,?,1,0)");
+  for (let i = 0; i < 12; i += 1) family.run(`f${i}`, `f${i}`, ['Вена','Стокгольм','Афины','Венеция'][i%4], i + 1, `${i}`, 1);
   db.prepare("INSERT INTO groups(id,name,start_location,avg_age,child_count,is_manual) VALUES ('g','Имя','Старт',8,12,1)").run();
   for (let i = 0; i < 12; i += 1) db.prepare("INSERT INTO group_members(group_id,family_id) VALUES ('g',?)").run(`f${i}`);
   db.prepare("INSERT INTO recipient_notification_state(platform,platform_user_id,group_id,group_name,signature,last_notified_at) VALUES ('telegram','u','g','Имя','old',1)").run();

@@ -38,7 +38,7 @@ function createDb() {
       host_id TEXT NOT NULL, host_type TEXT NOT NULL DEFAULT 'family',
       seq INTEGER NOT NULL, tower TEXT NOT NULL, floor INTEGER NOT NULL,
       apartment_code TEXT, display_name TEXT, is_quest INTEGER NOT NULL DEFAULT 0,
-      arrival_min INTEGER, departure_min INTEGER
+      arrival_min INTEGER, departure_min INTEGER, wait_min INTEGER NOT NULL DEFAULT 0
     );
     CREATE TABLE door_status (id INTEGER PRIMARY KEY, host_id TEXT, group_id TEXT, status TEXT, reported_at INTEGER);
     CREATE TABLE recipient_notification_state (platform TEXT, platform_user_id TEXT, group_id TEXT, signature TEXT, last_notified_at INTEGER);

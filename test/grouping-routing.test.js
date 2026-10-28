@@ -253,7 +253,7 @@ test('квесты и обычные квартиры распределяютс
   assert.ok(routes.every((route) => route.stops.some((stop) => stop.isQuest) && route.stops.some((stop) => !stop.isQuest)));
 });
 
-test('одна квартира не повторяется на одном этапе у разных групп', () => {
+test('интервалы посещений одной квартиры у разных групп не пересекаются', () => {
   const towers = ['A', 'B', 'C', 'D'];
   const hosts = Array.from({ length: 20 }, (_, index) => family(`host${index + 1}`, 8, towers[index % towers.length], {
     floor: 1 + Math.floor(index / towers.length),
@@ -264,27 +264,22 @@ test('одна квартира не повторяется на одном эт
   const groups = walkers.map((walker, index) => ({ id: `group_${index + 1}`, memberFamilyIds: [walker.id] }));
   const routes = buildRoutes(groups, [...hosts, ...walkers]);
   routes.forEach(assertTowerBlocks);
-  for (let stage = 0; stage < TARGET_ROUTE_STOPS; stage += 1) {
-    const hostIds = routes.map((route) => route.stops[stage]?.hostId).filter(Boolean);
-    assert.equal(new Set(hostIds).size, hostIds.length);
-  }
+  const { buildSchedule } = require('../lib/route-schedule');
+  const schedule = buildSchedule(routes.map((route) => ({ ...groups.find((g) => g.id === route.groupId), stops: route.stops })), 0);
+  assert.equal(schedule.conflicts.length, 0);
 });
 
-test('единственная принимающая семья попадает в маршрут собственной группы как резервная точка', () => {
-  const onlyFamily = family('only', 8, 'A', {
-    children: [
-      { name: 'Первый ребёнок', age: 8 },
-      { name: 'Второй ребёнок', age: 10 },
-    ],
-    hosting: true,
-  });
-  const [route] = buildRoutes([{ id: 'group_1', memberFamilyIds: [onlyFamily.id] }], [onlyFamily]);
+test('собственная конфетная квартира исключается, а собственный квест разрешён', () => {
+  const onlyFamily = family('only', 8, 'A', { hosting: true });
+  const group = { id: 'group_1', memberFamilyIds: [onlyFamily.id] };
+  assert.equal(buildRoutes([group], [onlyFamily])[0].stops.length, 0);
+  const [route] = buildRoutes([group], [{ ...onlyFamily, quest: true }]);
   assert.equal(route.stops.length, 1);
   assert.equal(route.stops[0].hostId, onlyFamily.id);
-  assert.equal(route.stops[0].seq, 1);
+  assert.equal(route.stops[0].departure - route.stops[0].arrival, 15);
 });
 
-test('собственная квартира не попадает в маршрут, когда внешних точек достаточно', () => {
+test('собственная квартира не попадает в маршрут, а в единственной внешней башне берутся максимум три точки', () => {
   const memberHost = family('member', 8, 'A', { hosting: true });
   const externalHosts = Array.from({ length: TARGET_ROUTE_STOPS }, (_, index) => family(`host${index + 1}`, 8, 'B', {
     hosting: true,
@@ -292,7 +287,8 @@ test('собственная квартира не попадает в марш�
     apartmentCode: String(300 + index),
   }));
   const [route] = buildRoutes([{ id: 'group_1', memberFamilyIds: [memberHost.id] }], [memberHost, ...externalHosts]);
-  assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
+  assert.equal(route.stops.length, 3);
+  assert.equal(route.shortened, true);
   assert.ok(route.stops.every((stop) => stop.hostId !== memberHost.id));
 });
 
@@ -386,12 +382,12 @@ test('нагрузка выравнивается по квартирам, вк�
   routes.forEach((route, index) => {
     assert.equal(route.stops.length, TARGET_ROUTE_STOPS);
     assert.equal(new Set(route.stops.map((stop) => stop.hostId)).size, TARGET_ROUTE_STOPS);
-    assert.ok(!route.stops.some((stop) => groups[index].memberFamilyIds.includes(stop.hostId)));
+    assert.ok(!route.stops.some((stop) => !stop.isQuest && groups[index].memberFamilyIds.includes(stop.hostId)));
     assertTowerBlocks(route);
     for (const stop of route.stops) {
       loads.set(stop.hostId, loads.get(stop.hostId) + 1);
       const host = hosts.find((item) => item.id === stop.hostId);
-      assert.equal(stop.departure - stop.arrival, host.quest ? host.questDurationMin : 7);
+      assert.equal(stop.departure - stop.arrival, host.quest ? 15 : 5);
     }
   });
   // Per-route rounding can give quest and candy hosts different average loads.

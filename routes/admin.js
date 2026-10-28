@@ -145,6 +145,7 @@ function loadGroupDetails(groupId) {
       isQuest: !!stop.is_quest,
       arrivalMin: stop.arrival_min,
       departureMin: stop.departure_min,
+      waitMin: stop.wait_min || 0,
     })),
   };
 }
@@ -594,8 +595,8 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
 
     db.prepare('DELETE FROM route_stops').run();
     const insertStop = db.prepare(`
-      INSERT INTO route_stops (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO route_stops (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min, wait_min)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     for (const route of routes) {
       for (const stop of route.stops) {
@@ -610,7 +611,8 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
           stop.displayName,
           stop.isQuest ? 1 : 0,
           stop.arrival,
-          stop.departure
+          stop.departure,
+          stop.waitMin || 0
         );
       }
     }
@@ -743,7 +745,7 @@ router.put('/groups/:id/route', asyncRoute(async (req, res) => {
     return res.status(400).json({ error: 'Порядок должен содержать все точки маршрута ровно один раз' });
   }
   db.transaction(() => {
-    const update = db.prepare('UPDATE route_stops SET seq = ? WHERE id = ? AND group_id = ?');
+    const update = db.prepare('UPDATE route_stops SET seq = ?, wait_min = 0 WHERE id = ? AND group_id = ?');
     stopIds.forEach((id, index) => update.run(index + 1, id, req.params.id));
   })();
   const group = loadGroupDetails(req.params.id);
@@ -799,8 +801,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
   const groups = buildGroups(families, wishLinks);
   assertWishGroups(groups, wishLinks);
   const extraVisits = loadExtraHostVisits(db);
-  const routes = buildRoutes(groups, families, specialPoints, extraVisits);
   const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
+  const routes = buildRoutes(groups.map((g) => ({ ...g, startLocation: oldGroups.get(g.id)?.start_location })), families, specialPoints, extraVisits);
   assignGroupNames(groups, db.prepare('SELECT * FROM group_name_catalog').all(), oldGroups);
 
   const tx = db.transaction(() => {
@@ -811,8 +813,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
     );
     const insertMember = db.prepare('INSERT INTO group_members (group_id, family_id) VALUES (?, ?)');
     const insertStop = db.prepare(`
-      INSERT INTO route_stops (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO route_stops (group_id, host_id, host_type, seq, tower, floor, apartment_code, display_name, is_quest, arrival_min, departure_min, wait_min)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
 
     const routeByGroup = new Map(routes.map((r) => [r.groupId, r]));
@@ -837,7 +839,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
             stop.displayName,
             stop.isQuest ? 1 : 0,
             stop.arrival,
-            stop.departure
+            stop.departure,
+            stop.waitMin || 0
           );
         }
       }

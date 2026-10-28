@@ -275,6 +275,11 @@ app.post('/max-webhook', async (req, res) => {
   }
 });
 
+app.use((error, req, res, next) => {
+  if (error.code === 'ROUTE_CONSTRAINT') return res.status(409).json({ error: error.message });
+  return next(error);
+});
+
 app.listen(PORT, HOST, () => {
   console.log(`Halloween backend listening on ${HOST}:${PORT}`);
 });

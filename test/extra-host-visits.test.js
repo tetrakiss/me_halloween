@@ -18,7 +18,7 @@ function blocks(stops) {
 
 test('admin adds extra visits without replacing automatic stops, duplicates, membership changes or notification writes', async () => {
   const insert=db.prepare('INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,walking,candy_brought,created_at) VALUES (?,?,?,?,?,?,?,1,0)');
-  for(let i=0;i<14;i++)insert.run(`h${i}`,`c${i}`,i%2?'A':'B',i+1,`${i+100}`,1,0);
+  for(let i=0;i<14;i++)insert.run(`h${i}`,`c${i}`,`T${i%5}`,i+1,`${i+100}`,1,0);
   insert.run('walker','walk','A',1,'999',0,1);
   for(let i=0;i<6;i++)db.prepare("INSERT INTO children(family_id,name,age) VALUES ('walker',?,?)").run(`Child ${i}`,4+i%4);
   db.prepare("INSERT INTO groups(id,name,child_count) VALUES ('group_1','Тыквята',6)").run();
@@ -26,7 +26,8 @@ test('admin adds extra visits without replacing automatic stops, duplicates, mem
   rebuildStoredRoutes(db);
   const before=db.prepare('SELECT host_id FROM route_stops').all().map(r=>r.host_id);
   assert.equal(before.length,10);
-  const missing=Array.from({length:14},(_,i)=>`h${i}`).find(id=>!before.includes(id));
+  const beforeRows=db.prepare('SELECT host_id,tower FROM route_stops').all();
+  const missing=Array.from({length:14},(_,i)=>`h${i}`).find((id,i)=>!before.includes(id) && beforeRows.filter(s=>s.tower===`T${i%5}`).length<3);
   const add=route('/hosts/:familyId/visits');
   const req={params:{familyId:missing},body:{groupId:'group_1'}};
   assert.equal((await call(add,req)).body.stopCount,11);
@@ -47,8 +48,8 @@ test('admin adds extra visits without replacing automatic stops, duplicates, mem
   assert.equal((await call(add,{params:{familyId:missing},body:{groupId:'absent'}})).status,400);
 });
 
-test('long manually extended routes retain every visit and tower block without bitmask overflow', () => {
-  const hosts=Array.from({length:40},(_,i)=>({id:`h${i}`,tower:['A','B','C'][i%3],floor:i,apartmentCode:`${i}`,children:[],hosting:true}));
+test('long manually extended routes retain every visit while respecting tower caps', () => {
+  const hosts=Array.from({length:40},(_,i)=>({id:`h${i}`,tower:`T${i%14}`,floor:i,apartmentCode:`${i}`,children:[],hosting:true}));
   const extra=hosts.map(h=>({groupId:'g',familyId:h.id}));
   const [route]=buildRoutes([{id:'g',memberFamilyIds:[]}],hosts,[],extra);
   assert.equal(route.stops.length,40);
@@ -56,4 +57,11 @@ test('long manually extended routes retain every visit and tower block without b
   blocks(route.stops);
   assert.equal(route.totalMin,route.stops.at(-1).departure);
   assert.deepEqual(route.stops.map(s=>s.seq),Array.from({length:40},(_,i)=>i+1));
+});
+
+
+test('pinned visits cannot override the three-stop limit', () => {
+  const hosts=Array.from({length:4},(_,i)=>({id:`h${i}`,tower:'A',floor:i,children:[],hosting:true}));
+  const extras=hosts.map(h=>({groupId:'g',familyId:h.id}));
+  assert.throws(()=>buildRoutes([{id:'g',memberFamilyIds:[]}],hosts,[],extras),{code:'ROUTE_CONSTRAINT'});
 });
