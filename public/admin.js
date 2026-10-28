@@ -153,7 +153,7 @@
     const startStop = `<li class="admin-route-stop admin-route-start"><span class="route-drag-handle route-start-icon">⌂</span><span class="admin-route-node">Старт</span><span class="admin-route-address"><strong>Место сбора группы</strong><small>${esc(startLocation || 'Пока не указано')}</small></span></li>`;
     return `<div class="group-card" data-group-card="${esc(group.id)}">
       <div class="admin-grid"><div><label>Название группы</label><input type="text" data-group-name="${esc(group.id)}" value="${esc(group.name || group.id)}" /></div>
-      <div><label>Место сбора — старт</label><input type="text" data-group-start="${esc(group.id)}" value="${esc(startLocation)}" placeholder="Например: холл башни Вена" /></div></div>
+      <div><label>Место сбора — старт</label><select data-group-start="${esc(group.id)}">${towerOptions(group.startTower || 'Вена')}</select><p class="muted">Парковка −2 этаж выбранной башни</p></div></div>
       <div class="button-row"><button class="small" data-save-group="${esc(group.id)}">Сохранить группу</button>
       <button class="danger small" data-delete-group="${esc(group.id)}">Удалить группу</button></div>
       <div class="group-summary"><span>👧 ${childCount} детей</span><span class="group-chaperone-count">🧑‍🤝‍🧑 ${chaperoneCount} сопровождающих</span><span>🎭 ${questCount} квестов</span><span>🍬 ${candyCount} с конфетами</span></div>
@@ -326,6 +326,7 @@
         <button id="recomputeBtn" class="small">✦ Сформировать группы и маршруты</button>
         <button id="remindCandyBtn" class="secondary small">🍬 Напомнить о конфетах</button>
         <button id="exportParticipantsBtn" class="secondary small">⇩ Участники Excel</button>
+        <button id="routeScheduleBtn" class="secondary small">◷ Расписание маршрутов</button>
         <button id="exportRoutesBtn" class="secondary small">⇩ Маршруты Excel</button></div><div id="adminActionMsg" class="search-hint"></div></section>
         <section class="admin-section test-data-section"><div class="admin-section-head"><div><span class="section-kicker">Тестовые данные</span><h2>Управление базой семей</h2></div><span class="test-data-badge">${families.length} семей</span></div>
           <div class="test-data-actions"><button id="addTestDataBtn" class="secondary small">🧪 Добавить 20 тестовых семей</button>
@@ -479,6 +480,7 @@
       } catch (error) { checkbox.checked = !value; message.textContent = error.message; }
       finally { checkbox.disabled = false; }
     };
+    document.getElementById('routeScheduleBtn').onclick = () => { location.href = `/route-schedule.html${location.search}${location.hash}`; };
     document.getElementById('backBtn').onclick = () => {
       sessionStorage.setItem('skipNextAppSplash', '1');
       location.href = `/${location.search}${location.hash}`;
@@ -770,8 +772,11 @@
       button.onclick = async () => {
         const id = button.dataset.saveGroup;
         const name = document.querySelector(`[data-group-name="${CSS.escape(id)}"]`).value.trim();
-        const startLocation = document.querySelector(`[data-group-start="${CSS.escape(id)}"]`).value.trim();
-        try { await api(`/groups/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name, startLocation } }); button.textContent = 'Сохранено ✓'; }
+        const startTower = document.querySelector(`[data-group-start="${CSS.escape(id)}"]`).value;
+        try { await api(`/groups/${encodeURIComponent(id)}`, { method: 'PATCH', body: { name, startTower } }); button.textContent = 'Сохранено ✓';
+          const group = groups.find((entry) => entry.id === id);
+          group.name = name; group.startTower = startTower; group.startLocation = `${startTower}, парковка -2 этаж`;
+          document.querySelector(`[data-group-card="${CSS.escape(id)}"] .admin-route-start .admin-route-address small`).textContent = group.startLocation; }
         catch (error) { alert(error.message); }
       };
     });

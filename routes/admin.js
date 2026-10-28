@@ -1,3 +1,4 @@
+const { TOWERS, startTowerFor, parkingLocation, displayStartLocation, buildSchedule } = require('../lib/route-schedule');
 const express = require('express');
 const { loadExtraHostVisits, rebuildStoredRoutes } = require('../lib/extra-host-visits');
 const { assertWishGroups } = require('../lib/wish-links');
@@ -8,7 +9,7 @@ const { buildGroups, fillExistingGroups, buildRoutes, MAX_GROUP_SIZE, isFamilyEl
 const { validateInitData } = require('../lib/validateInitData');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
 const { notifyChangedGroups, notifyCandyAccepted, notifyWaitingCandy } = require('../lib/notifications');
-const { getEventSettings, saveEventStartLocal } = require('../lib/event-settings');
+const { getEventSettings, saveEventStartLocal, formatServerLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { participantsWorkbookBuffer, routesWorkbookBuffer } = require('../lib/excel-exports');
 const { removeFamilyAndRepair } = require('../lib/family-removal');
@@ -128,7 +129,8 @@ function loadGroupDetails(groupId) {
   return {
     id: group.id,
     name: group.name || group.id,
-    startLocation: group.start_location || DEFAULT_GROUP_START_LOCATION,
+    startLocation: displayStartLocation(group),
+    startTower: startTowerFor(group),
     memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ?').all(groupId).map((r) => r.family_id),
     stops: db.prepare('SELECT * FROM route_stops WHERE group_id = ? ORDER BY seq').all(groupId).map((stop) => ({
       id: stop.id,
@@ -522,6 +524,23 @@ router.patch('/families/:id', asyncRoute(async (req, res) => {
   res.json({ ok: true, notifications });
 }));
 
+router.get('/route-schedule', (req, res) => {
+  res.set('Cache-Control', 'no-store');
+  const schedule = db.transaction(() => {
+    const settings = getEventSettings();
+    const groups = db.prepare('SELECT id FROM groups ORDER BY id').all().map((group) => loadGroupDetails(group.id));
+    const result = buildSchedule(groups, settings.eventStartAt);
+    const local = (at) => at === null ? null : formatServerLocal(at).replace('T', ' ');
+    return { ...result, eventStartLocal: local(result.eventStartAt),
+      generatedAt: formatServerLocal().replace('T', ' '),
+      groups: result.groups.map((group) => ({ ...group, gatheringLocal: local(group.gatheringAt),
+        departureLocal: local(group.departureAt), endLocal: local(group.endAt),
+        stops: group.stops.map((stop) => ({ ...stop, arrivalLocal: local(stop.arrivalAt), departureLocal: local(stop.departureAt) })) })),
+      conflicts: result.conflicts.map((conflict) => ({ ...conflict, fromLocal: local(conflict.fromAt), toLocal: local(conflict.toAt) })) };
+  })();
+  res.json(schedule);
+});
+
 router.get('/groups', (req, res) => {
   const groups = db.prepare('SELECT * FROM groups').all();
   res.json({
@@ -630,7 +649,12 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
 
 router.patch('/groups/:id', asyncRoute(async (req, res) => {
   const name = String(req.body.name || '').trim();
-  const startLocation = String(req.body.startLocation || '').trim();
+  const startTower = req.body.startTower;
+  if (startTower !== undefined && !TOWERS.includes(startTower)) return res.status(400).json({ error: 'Выберите башню места сбора' });
+  const current = db.prepare('SELECT * FROM groups WHERE id = ?').get(req.params.id);
+  if (!current) return res.status(404).json({ error: 'Группа не найдена' });
+  const startLocation = startTower !== undefined ? parkingLocation(startTower)
+    : req.body.startLocation === undefined ? current.start_location : String(req.body.startLocation || '').trim();
   if (!name) return res.status(400).json({ error: 'Название группы обязательно' });
   if (startLocation.length > 240) return res.status(400).json({ error: 'Место сбора слишком длинное' });
   const result = db.prepare('UPDATE groups SET name = ?, start_location = ? WHERE id = ?')

@@ -1,3 +1,4 @@
+const { displayStartLocation } = require('../lib/route-schedule');
 const express = require('express');
 const { setFamilyWish } = require('../lib/wish-links');
 const { reconcileFamilyWish } = require('../lib/wish-group-reconciliation');
@@ -339,7 +340,7 @@ router.get('/me', (req, res) => {
     group: groupInfo ? {
       id: groupInfo.id,
       name: groupInfo.name || groupInfo.id,
-      startLocation: groupInfo.start_location || DEFAULT_GROUP_START_LOCATION,
+      startLocation: displayStartLocation(groupInfo),
       families: db.prepare(`SELECT f.id, f.tower, f.floor, f.apartment_code
         FROM group_members gm JOIN families f ON f.id = gm.family_id
         WHERE gm.group_id = ? ORDER BY f.tower, f.floor, f.apartment_code`).all(groupInfo.id)
