@@ -1,10 +1,10 @@
-const { displayStartLocation } = require('../lib/route-schedule');
+const { displayStartLocation, buildSchedule } = require('../lib/route-schedule');
 const express = require('express');
 const { setFamilyWish } = require('../lib/wish-links');
 const { reconcileFamilyWish } = require('../lib/wish-group-reconciliation');
 const { db, shortCode, newId, DEFAULT_GROUP_START_LOCATION } = require('../db');
 const { isTelegramSuperAdmin } = require('../lib/admin-auth');
-const { getEventSettings } = require('../lib/event-settings');
+const { getEventSettings, formatServerLocal } = require('../lib/event-settings');
 const { apartmentNumberKey, findApartmentConflict } = require('../lib/apartment-identity');
 const { getParticipantStats } = require('../lib/participant-stats');
 const { removeFamilyAndRepair } = require('../lib/family-removal');
@@ -91,7 +91,7 @@ function saveParentProfile(platform, platformUserId, familyId, user, chatId) {
     );
 }
 
-function routeForFamily(family) {
+function routeForFamily(family, groupInfo) {
   const membership = db
     .prepare('SELECT group_id FROM group_members WHERE family_id = ?')
     .get(family.id);
@@ -102,7 +102,15 @@ function routeForFamily(family) {
     .all(membership.group_id);
 
   const doorSettings = getEventSettings();
-  return stops.map((s) => {
+  const schedule = buildSchedule([{ ...groupInfo, stops: stops.map((s) => ({
+    hostId: s.host_id, hostType: s.host_type, tower: s.tower, isQuest: !!s.is_quest, waitMin: s.wait_min || 0,
+  })) }], doorSettings.eventStartAt).groups[0];
+  const eventDate = doorSettings.eventStartAt === null ? null : formatServerLocal(doorSettings.eventStartAt).slice(0, 10);
+  return stops.map((s, index) => {
+    const arrivalAt = schedule.stops[index].arrivalAt;
+    const arrivalLocal = arrivalAt === null ? null : formatServerLocal(arrivalAt).replace('T', ' ');
+    const arrivalTime = arrivalLocal === null ? null : arrivalLocal.slice(0, 10) === eventDate
+      ? arrivalLocal.slice(11) : `${arrivalLocal.slice(8, 10)}.${arrivalLocal.slice(5, 7)} ${arrivalLocal.slice(11)}`;
     const lastStatus = doorSettings.doorStatusActive ? db
       .prepare(
         `SELECT status FROM door_status WHERE host_id = ? AND reported_at >= ? ORDER BY reported_at DESC LIMIT 1`
@@ -118,6 +126,8 @@ function routeForFamily(family) {
       isQuest: !!s.is_quest,
       hostId: s.host_id,
       lastKnownStatus: lastStatus ? lastStatus.status : null,
+      arrivalLocal,
+      arrivalTime,
     };
   });
 }
@@ -350,7 +360,7 @@ router.get('/me', (req, res) => {
           children: db.prepare('SELECT name, age FROM children WHERE family_id = ? ORDER BY age, id').all(member.id),
         })),
     } : null,
-    route: groupInfo ? routeForFamily(family) : null,
+    route: groupInfo ? routeForFamily(family, groupInfo) : null,
     incomingVisits: incomingVisitsForFamily(family),
     isAdmin: isTelegramSuperAdmin(platform, req.platformUser),
   });

@@ -420,7 +420,7 @@
           <h2>Монстрополия</h2>
           <p>Собираем костюмы и конфеты</p>
           <span class="loading-track" aria-hidden="true"><i></i></span>
-          <span class="loading-version">Версия 1.0.49</span>
+          <span class="loading-version">Версия 1.0.50</span>
           <div class="loading-fallback" id="loadingFallback" hidden>
             <p>Загрузка заняла больше обычного. Проверьте соединение и попробуйте ещё раз.</p>
             <button class="loading-retry" type="button" onclick="window.__MONSTER_BOOT.retry()">Повторить загрузку</button>
@@ -1009,7 +1009,7 @@
       const title = stop.isSpecial ? esc(stop.displayName) : esc(stop.tower);
       const address = stop.isSpecial ? `${esc(stop.tower)} · этаж ${stop.floor}` : `этаж ${stop.floor} · квартира ${esc(stop.apartmentCode)}`;
       return `<li class="stop family-route-stop ${stop.isQuest ? 'quest' : ''} ${stop.lastKnownStatus === 'no_answer' ? 'warned' : ''}">
-        <div class="stop-num">${stop.seq}</div><div class="stop-info"><div class="addr">${title}</div><div class="stop-address">${address}</div>
+        <div class="stop-num">${stop.seq}</div><div class="stop-info"><div class="addr">${title}</div><div class="stop-address">${address}</div>${stop.arrivalTime ? `<div class="route-arrival">Приход ${esc(stop.arrivalTime)}</div>` : ''}
         ${stop.lastKnownStatus === 'no_answer' ? '<div class="stop-warning">⚠️ ранее не открыли</div>' : ''}</div>
         <div class="route-stop-actions"><span class="route-kind">${kind}</span>${eventState?.doorStatusActive ? `<button class="secondary small door-button" data-door="${esc(stop.hostId)}">Не открыли</button>` : ''}</div></li>`;
     }).join('');

@@ -33,8 +33,20 @@ test('schedule reflects event start and saved tower; participants see selected p
   assert.match(result.groups[0].stops[0].arrivalLocal, /16:15$/);
   const me = await invoke(handler(families, '/me', 'get'), { platform: 'dev', platformUserId: 'user' });
   assert.equal(me.body.group.startLocation, 'Афины, парковка -2 этаж');
+  assert.equal(me.body.route[0].arrivalTime, '16:15');
+  assert.equal(me.body.route[0].arrivalLocal, result.groups[0].stops[0].arrivalLocal);
+  assert.equal(Object.hasOwn(me.body.route[0], 'departureLocal'), false);
+  assert.equal(Object.hasOwn(me.body.route[0], 'departureTime'), false);
+
   db.prepare("UPDATE app_settings SET value=? WHERE key='event_start_at'").run(String(at + 3600000));
   assert.equal((await schedule()).body.groups[0].stops[0].arrivalAt, at + 75 * 60000);
+  const shifted = await invoke(handler(families, '/me', 'get'), { platform: 'dev', platformUserId: 'user' });
+  assert.equal(shifted.body.route[0].arrivalTime, '17:15');
+  db.prepare("UPDATE route_stops SET wait_min=5 WHERE group_id='g'").run();
+  const waiting = await invoke(handler(families, '/me', 'get'), { platform: 'dev', platformUserId: 'user' });
+  assert.equal(waiting.body.route[0].arrivalTime, '17:20');
+  assert.equal(waiting.body.route[0].arrivalLocal, (await schedule()).body.groups[0].stops[0].arrivalLocal);
+
   const publicResult = await invoke(handler(publicSchedule, '/route-schedule', 'get'), {});
   assert.equal(publicResult.status, 200);
   assert.deepEqual(publicResult.body.groups, (await schedule()).body.groups);
