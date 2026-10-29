@@ -1,3 +1,29 @@
 <!doctype html>
-<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Бункер · Дежурная смена</title><link rel="stylesheet" href="/games/bunker/game.css?v=1.0.55"></head>
-<body><main class="bunker" id="bunker"><div class="scene" aria-label="Уютная дежурная комната ретрофутуристического бункера"><div class="room"></div><div class="portal"><div class="visitor" id="visitor">🤖<span>☕</span></div><div class="door"><div class="door-label">ЖИЗНЬ ПРЕКРАСНА<br><strong>07</strong></div><i class="wheel">✣</i><span class="door-stripe"></span></div></div><div class="lamp"></div><div class="steam"></div><div class="scan"></div><div class="ball"></div><div class="vignette"></div></div><header><span class="badge">● УБЕЖИЩЕ НА СВЯЗИ</span><button id="fullscreen" type="button">На весь экран</button></header><section class="caption"><p class="eyebrow">ДЕЖУРНАЯ СМЕНА</p><h1>Хороший день.<br>Даже под землёй.</h1><p id="status" role="status">Кофе готов. Всё работает. Почти всё.</p></section><footer><div class="radio"><div class="radio-copy"><span class="onair">РАДИО УБЕЖИЩА</span><span id="track">Семь мелодий для хорошей смены</span></div><button id="sound" type="button" aria-pressed="false">▶ Включить радио</button><button id="next" type="button" aria-label="Следующий трек">Следующий →</button><label>Громкость <input id="volume" type="range" min="0" max="100" value="35"></label></div><a class="back" href="/games/">← Вернуться в меню игр</a></footer></main><script src="/games/bunker/game.js?v=1.0.55" defer></script></body></html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>Бункер</title>
+  <link rel="stylesheet" href="/games/bunker/game.css?v=1.0.56">
+</head>
+<body>
+  <main class="bunker" id="bunker">
+    <div class="scene" aria-hidden="true">
+      <div class="room"></div>
+      <div class="portal">
+        <div class="corridor"></div>
+        <div class="door"><div class="wheel"><i></i><i></i><i></i></div></div>
+      </div>
+      <div class="lamp"></div>
+      <div class="steam"></div>
+      <div class="scan"></div>
+      <div class="ball"></div>
+    </div>
+    <nav aria-label="Управление заставкой">
+      <a href="/games/">Вернуться в меню</a>
+      <button id="sound" type="button" aria-pressed="true">Выключить музыку</button>
+    </nav>
+  </main>
+  <script src="/games/bunker/game.js?v=1.0.56" defer></script>
+</body>
+</html>
