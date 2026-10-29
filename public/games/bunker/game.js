@@ -48,25 +48,34 @@
   function resetEvent() {
     sequenceTimers.forEach(clearTimeout);
     sequenceTimers.clear();
-    bunker.classList.remove('unlock', 'open', 'delivery', 'party');
+    bunker.classList.remove('unlock', 'open', 'delivery', 'party', 'robot-passing', 'resident-passing');
   }
   function schedule(delay = 16000 + Math.random() * 12000) {
     clearTimeout(eventTimer);
     if (!document.hidden && !disposed) eventTimer = setTimeout(runEvent, delay);
   }
+  function openDoor(visitor) {
+    bunker.classList.add('unlock');
+    later(() => bunker.classList.add('open'), 2000);
+    // Sliding takes 3.6 seconds. Nobody crosses until the doorway is clear.
+    if (visitor) later(() => bunker.classList.add(visitor), 6000);
+    // The longest crossing ends at 16 seconds, before closing starts.
+    later(() => bunker.classList.remove('open'), 17500);
+    later(() => bunker.classList.remove('unlock'), 21500);
+    later(() => { resetEvent(); schedule(); }, 24000);
+  }
   function runEvent() {
     if (document.hidden || disposed) return;
     let event;
-    do { event = Math.floor(Math.random() * 3); } while (event === lastEvent);
+    do { event = Math.floor(Math.random() * 5); } while (event === lastEvent);
     lastEvent = event;
     resetEvent();
-    if (event === 0) {
-      bunker.classList.add('unlock');
-      later(() => bunker.classList.add('open'), 2000);
-      later(() => bunker.classList.remove('open'), 10000);
-      later(() => bunker.classList.remove('unlock'), 14000);
-    } else bunker.classList.add(event === 1 ? 'delivery' : 'party');
-    later(() => { resetEvent(); schedule(); }, 16500);
+    if (event < 3) {
+      openDoor(['robot-passing', 'resident-passing', null][event]);
+    } else {
+      bunker.classList.add(event === 3 ? 'delivery' : 'party');
+      later(() => { resetEvent(); schedule(); }, 16500);
+    }
   }
   document.addEventListener('visibilitychange', () => {
     bunker.classList.toggle('paused', document.hidden);
@@ -84,9 +93,7 @@
   });
   // Try autoplay; browsers that require a gesture expose the same music button.
   nextTrack();
-  bunker.classList.add('unlock');
-  later(() => bunker.classList.add('open'), 2000);
-  later(() => bunker.classList.remove('open'), 10000);
-  later(() => bunker.classList.remove('unlock'), 14000);
-  later(() => { resetEvent(); schedule(); }, 16500);
+  // The first opening shows the coffee robot; later visitors are random.
+  lastEvent = 0;
+  openDoor('robot-passing');
 })();

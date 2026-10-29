@@ -14,8 +14,22 @@ body { margin: 0; overflow: hidden; }
 }
 .room { position: absolute; inset: 0; background: url('assets/room.png') center / 100% 100% no-repeat; }
 .portal { position: absolute; left: 37.2%; top: 21.7%; width: 26.2%; height: 50%; overflow: hidden; border-radius: 9%; background: #152a25; }
-.corridor { position: absolute; inset: 0; background: linear-gradient(90deg,#152e29 0 12%,transparent 12% 88%,#152e29 88%),repeating-linear-gradient(0deg,#52746a 0 2%,#344e46 2% 19%); box-shadow: inset 0 0 70px 25px #10231e; }
-.corridor::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 10%,#ffe5a566,transparent 65%); }
+/* Characters share the corridor layer and stay behind the moving door. */
+.corridor { position: absolute; inset: 0; background: #4e6657 url('assets/corridor.png?v=1.0.57') center / cover no-repeat; box-shadow: inset 0 0 20px #15271e88; }
+.visitor { position: absolute; bottom: 5%; left: -55%; width: 37%; height: 68%; opacity: 0; isolation: isolate; }
+.visitor::after { content: ''; position: absolute; z-index: -1; left: 5%; right: 5%; bottom: -1%; height: 5%; border-radius: 50%; background: #162d2466; filter: blur(3px); }
+.visitor img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
+.robot-passing .robot { animation: robot-crossing 9s linear forwards; }
+.resident { width: 46%; height: auto; aspect-ratio: 2 / 3; }
+.resident-body, .resident-arm { position: absolute; inset: 0; background: url('assets/resident-wave.png?v=1.0.57') center bottom / contain no-repeat; }
+/* The raised arm is split from the same source image: edges and lighting match. */
+.resident-body { clip-path: polygon(0 0, 65% 0, 65% 32%, 100% 32%, 100% 100%, 0 100%); }
+.resident-arm { clip-path: polygon(65% 0, 100% 0, 100% 32%, 65% 32%); transform-origin: 66% 25%; transform: translateX(-3%); }
+.resident-passing .resident { animation: resident-crossing 10s linear forwards; }
+.resident-passing .resident-arm { animation: wave 1s ease-in-out 2.8s 4; }
+@keyframes robot-crossing { 0% { left: -45%; opacity: 1; } 100% { left: 110%; opacity: 1; } }
+@keyframes resident-crossing { 0% { left: -45%; opacity: 1; } 28%,65% { left: 30%; opacity: 1; } 100% { left: 110%; opacity: 1; } }
+@keyframes wave { 0%,100% { transform: translateX(-3%) rotate(0); } 50% { transform: translateX(-3%) rotate(12deg); } }
 .door { position: absolute; inset: 0; background: #52766a url('assets/door-realistic.png?v=1.0.56') center / cover no-repeat; box-shadow: inset 0 0 15px #192a25, -8px 0 15px #10211d88; transition: transform 3.6s cubic-bezier(.45,0,.2,1); }
 .wheel { position: absolute; width: 34%; aspect-ratio: 1; left: 33%; top: 29%; border: 7px ridge #ccbd91; border-radius: 50%; background: radial-gradient(circle,#bdb08b 0 14%,#4f5346 15% 22%,transparent 23%); box-shadow: 2px 5px 5px #10211d99,inset 1px 2px 4px #172b23; transition: transform 1.8s ease-in-out; }
 .wheel i { position: absolute; left: 45%; top: 0; height: 100%; width: 10%; background: linear-gradient(90deg,#867d60,#e2d0a0,#8b8062); border-radius: 4px; }
