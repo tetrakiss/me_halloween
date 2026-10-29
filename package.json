@@ -1,12 +1,12 @@
 {
   "name": "halloween-bot",
-  "version": "1.0.54",
+  "version": "1.0.55",
   "description": "Halloween trick-or-treat регистрация, группировка и маршруты — Telegram/Max мини-апп",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "test": "node --test",
-    "check": "node --check server.js && node --check db.js && node --check lib/grouping-routing.js && node --check lib/apartment-identity.js && node --check lib/participant-stats.js && node --check lib/family-removal.js && node --check lib/excel-exports.js && node --check lib/validateInitData.js && node --check lib/admin-auth.js && node --check lib/notifications.js && node --check lib/event-settings.js && node --check routes/families.js && node --check routes/admin.js && node --check public/platform-sdk.js && node --check public/app.js && node --check public/admin.js && node --check lib/megatonna.js && node --check routes/game.js && node --check public/games/games.js && node --check public/games/bomb/game.js && node --check public/games/viewport.js && node --check public/games/bomb/sound.js && node --check public/games/pass/scenarios.js && node --check public/games/pass/game.js && node --check public/games/roach/game.js && node --check lib/route-schedule.js && node --check public/route-schedule.js && node --check lib/stored-route-schedule.js && node --check routes/schedule.js && node --check lib/route-planner.js"
+    "check": "node --check server.js && node --check db.js && node --check lib/grouping-routing.js && node --check lib/apartment-identity.js && node --check lib/participant-stats.js && node --check lib/family-removal.js && node --check lib/excel-exports.js && node --check lib/validateInitData.js && node --check lib/admin-auth.js && node --check lib/notifications.js && node --check lib/event-settings.js && node --check routes/families.js && node --check routes/admin.js && node --check public/platform-sdk.js && node --check public/app.js && node --check public/admin.js && node --check lib/megatonna.js && node --check routes/game.js && node --check public/games/games.js && node --check public/games/bomb/game.js && node --check public/games/viewport.js && node --check public/games/bomb/sound.js && node --check public/games/pass/scenarios.js && node --check public/games/pass/game.js && node --check public/games/roach/game.js && node --check lib/route-schedule.js && node --check public/route-schedule.js && node --check lib/stored-route-schedule.js && node --check routes/schedule.js && node --check lib/route-planner.js && node --check public/games/bunker/game.js"
   },
   "dependencies": {
     "better-sqlite3": "^13.0.3",

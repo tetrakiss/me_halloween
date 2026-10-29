@@ -5,7 +5,8 @@
 const GAMES = [
   { id: 'roach', title: 'РАДТАРАКАНЫ', subtitle: 'Спаси печенье · 1 минута', href: '/games/roach/', image: '/games/roach/assets/splash.png?v=1.0.20', width: 1672, height: 941, alt: 'Лазерный прицел защищает пачку печенья от радтараканов' },
   { id: 'megatonna', title: 'МЕГАТОННА', subtitle: '3 раунда · по 1 минуте', href: '/games/bomb', image: '/games/bomb/assets/vault-background.webp?v=1.0.10', width: 1672, height: 941, alt: 'Потёртая бомба «Мегатонна» с пятью цветными проводами на верстаке убежища', artwork: 'wires' },
-  { id: 'pass', title: 'ПРОВЕРКА ДОПУСКА', subtitle: 'Личность · багаж · радиация', href: '/games/pass', image: '/games/pass/assets/icon.webp?v=1.0.13', width: 1672, height: 941, alt: 'Инспектор шлюза: портрет врача и её медицинская сумка' }
+  { id: 'pass', title: 'ПРОВЕРКА ДОПУСКА', subtitle: 'Личность · багаж · радиация', href: '/games/pass', image: '/games/pass/assets/icon.webp?v=1.0.13', width: 1672, height: 941, alt: 'Инспектор шлюза: портрет врача и её медицинская сумка' },
+  { id: 'bunker', title: 'БУНКЕР', subtitle: 'Дежурная смена · живая заставка', href: '/games/bunker/', image: '/games/bunker/assets/room.png?v=1.0.55', width: 1672, height: 941, alt: 'Уютная комната бункера с радио и дверью' }
 ];
 const PLACEHOLDERS = 2;
 const stage = document.getElementById('stage');
