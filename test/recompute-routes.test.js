@@ -28,7 +28,7 @@ test('route-only rebuild preserves groups and memberships and is repeatable with
   const originalFetch = global.fetch;
   global.fetch = () => { throw new Error('No notification should be sent'); };
   try {
-    assert.deepEqual(invoke(), { status: 200, body: { ok: true, groupCount: 1, stopCount: 10 } });
+    assert.deepEqual(invoke(), { status: 200, body: { ok: true, groupCount: 1, stopCount: 8 } });
     const stops = () => db.prepare('SELECT group_id,host_id,host_type,seq,tower,floor,arrival_min,departure_min FROM route_stops ORDER BY group_id,seq').all();
     const first = stops();
     const towers = first.map((stop) => stop.tower).filter((tower, i, all) => !i || tower !== all[i - 1]);

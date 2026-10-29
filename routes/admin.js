@@ -119,7 +119,7 @@ function loadSpecialPoints() {
     floor: sp.floor,
     name: sp.name,
     active: !!sp.active,
-    quest: !!sp.quest,
+    quest: !!sp.quest, routeFinal: !!sp.route_final, allowParallel: !!sp.allow_parallel,
     questDurationMin: sp.quest_duration_min,
   }));
 }
@@ -143,6 +143,7 @@ function loadGroupDetails(groupId) {
       apartmentCode: stop.apartment_code,
       displayName: stop.display_name,
       isQuest: !!stop.is_quest,
+      isFinal: stop.host_type === 'special' && !!db.prepare('SELECT route_final FROM special_points WHERE id=?').get(stop.host_id)?.route_final,
       arrivalMin: stop.arrival_min,
       departureMin: stop.departure_min,
       waitMin: stop.wait_min || 0,
@@ -546,6 +547,7 @@ router.post('/groups/distribute-unassigned', asyncRoute(async (req, res) => {
     id: group.id,
     name: group.name || group.id,
     startLocation: group.start_location || DEFAULT_GROUP_START_LOCATION,
+    routeQuestCount: db.prepare('SELECT SUM(is_quest) AS n FROM route_stops WHERE group_id=?').get(group.id).n ?? undefined,
     isManual: !!group.is_manual,
     memberFamilyIds: db.prepare('SELECT family_id FROM group_members WHERE group_id = ? ORDER BY family_id')
       .all(group.id).map((row) => row.family_id),
@@ -744,6 +746,11 @@ router.put('/groups/:id/route', asyncRoute(async (req, res) => {
   if (stopIds.length !== existingIds.length || new Set(stopIds).size !== existingIds.length || existingIds.some((id) => !stopIds.includes(id))) {
     return res.status(400).json({ error: 'Порядок должен содержать все точки маршрута ровно один раз' });
   }
+  const finalStops = existingStops.filter((stop) => stop.host_type === 'special'
+    && db.prepare('SELECT route_final FROM special_points WHERE id=?').get(stop.host_id)?.route_final);
+  if (finalStops.some((stop) => stopIds.at(-1) !== stop.id)) {
+    return res.status(400).json({ error: 'Финальная спецточка должна оставаться последней остановкой.' });
+  }
   db.transaction(() => {
     const update = db.prepare('UPDATE route_stops SET seq = ?, wait_min = 0 WHERE id = ? AND group_id = ?');
     stopIds.forEach((id, index) => update.run(index + 1, id, req.params.id));
@@ -801,8 +808,8 @@ router.post('/recompute', asyncRoute(async (req, res) => {
   const groups = buildGroups(families, wishLinks);
   assertWishGroups(groups, wishLinks);
   const extraVisits = loadExtraHostVisits(db);
-  const oldGroups = new Map(db.prepare('SELECT id, name, start_location FROM groups').all().map((g) => [g.id, g]));
-  const routes = buildRoutes(groups.map((g) => ({ ...g, startLocation: oldGroups.get(g.id)?.start_location })), families, specialPoints, extraVisits);
+  const oldGroups = new Map(db.prepare('SELECT id, name, start_location, (SELECT SUM(is_quest) FROM route_stops WHERE group_id=groups.id) AS routeQuestCount FROM groups').all().map((g) => [g.id, g]));
+  const routes = buildRoutes(groups.map((g) => ({ ...g, startLocation: oldGroups.get(g.id)?.start_location, routeQuestCount: oldGroups.get(g.id)?.routeQuestCount ?? undefined })), families, specialPoints, extraVisits);
   assignGroupNames(groups, db.prepare('SELECT * FROM group_name_catalog').all(), oldGroups);
 
   const tx = db.transaction(() => {

@@ -125,14 +125,14 @@
       <div class="search-hint" data-family-msg="${esc(family.id)}"></div>
     </details>`;
   }
-  function routeStop(stop, index, total, groupId) {
+  function routeStop(stop, index, total, groupId, hasFinal = false) {
     const title = stop.hostType === 'special' ? stop.displayName : stop.tower;
     const address = stop.hostType === 'special'
       ? `${stop.tower} · этаж ${stop.floor}`
       : `этаж ${stop.floor} · квартира ${stop.apartmentCode}`;
-    return `<li class="admin-route-stop" draggable="true" data-route-stop-id="${stop.id}" data-group="${esc(groupId)}"><span class="route-drag-handle" title="Перетащить">⠿</span><span class="admin-route-node">${index + 1}</span><span class="admin-route-address"><strong>${stop.isQuest ? '🎭' : '🍬'} ${esc(title)}</strong><small>${esc(address)}</small></span>
-      <span class="route-controls"><button class="secondary tiny" data-route-move="up" data-group="${esc(groupId)}" data-index="${index}" ${index === 0 ? 'disabled' : ''}>↑</button>
-      <button class="secondary tiny" data-route-move="down" data-group="${esc(groupId)}" data-index="${index}" ${index === total - 1 ? 'disabled' : ''}>↓</button></span></li>`;
+    return `<li class="admin-route-stop" draggable="${!stop.isFinal}" data-route-stop-id="${stop.id}" data-group="${esc(groupId)}"><span class="route-drag-handle" title="Перетащить">⠿</span><span class="admin-route-node">${index + 1}</span><span class="admin-route-address"><strong>${stop.isQuest ? '🎭' : '🍬'} ${esc(title)}</strong><small>${esc(address)}</small></span>
+      <span class="route-controls"><button class="secondary tiny" data-route-move="up" data-group="${esc(groupId)}" data-index="${index}" ${index === 0 || stop.isFinal ? 'disabled' : ''}>↑</button>
+      <button class="secondary tiny" data-route-move="down" data-group="${esc(groupId)}" data-index="${index}" ${stop.isFinal || index === total - 1 || (hasFinal && index === total - 2) ? 'disabled' : ''}>↓</button></span></li>`;
   }
   function memberWishBadges(family, group, familiesById) {
     return (family.wishFamilyIds || []).map((id) => {
@@ -162,8 +162,8 @@
       <ul class="group-members">${members.map((family) => `<li><div><strong>${esc(family.tower)}, эт. ${family.floor}, кв. ${esc(family.apartmentCode)}</strong>
         <small>${family.children.map((child) => `${esc(child.name)}, ${child.age}`).join(' · ')}</small>${family.adultChaperone ? '<small class="member-chaperone">🧑‍🤝‍🧑 Есть сопровождающий взрослый</small>' : ''}</div>
         <div class="member-actions">${memberWishBadges(family, group, familiesById)}<button class="danger tiny" data-remove-member="${esc(family.id)}" data-group="${esc(group.id)}">Убрать из группы</button></div></li>`).join('') || '<li>В группе пока никого нет</li>'}</ul>
-      <h4>Маршрут · ${group.stops.length} остановок</h4><p class="muted">Не более 3 остановок в одной башне. Собственные квартиры доступны только с квестом.${group.stops.length < 10 ? ' Маршрут короче 10 остановок: проверьте доступность принимающих квартир.' : ''}</p>
-      <ol class="admin-route">${startStop}${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id)).join('') || '<li>Квартиры маршрута пока не добавлены</li>'}</ol>
+      <h4>Маршрут · ${group.stops.length} остановок</h4><p class="muted">Не более 3 остановок в одной башне. Собственные квартиры доступны только с квестом.${group.stops.filter((stop) => !stop.isFinal).length < 8 ? ' Основной маршрут короче 8 остановок: проверьте доступность принимающих квартир.' : ''} Финальная спецточка добавляется сверх основных остановок и остаётся последней.</p>
+      <ol class="admin-route">${startStop}${group.stops.map((stop, index) => routeStop(stop, index, group.stops.length, group.id, !!group.stops.at(-1)?.isFinal)).join('') || '<li>Квартиры маршрута пока не добавлены</li>'}</ol>
       <div class="search-hint" data-route-warning="${esc(group.id)}" aria-live="polite"></div>
       <button class="small" data-save-route="${esc(group.id)}" disabled>Сохранить маршрут</button>
       <div class="search-hint" data-route-message="${esc(group.id)}" aria-live="polite"></div>
@@ -235,7 +235,7 @@
     const hosts = families.filter((f) => !f.cancelled && (f.hosting || f.quest))
       .sort((a, b) => a.tower.localeCompare(b.tower) || a.floor - b.floor || a.apartmentCode.localeCompare(b.apartmentCode));
     return `<details class="card admin-collection"><summary>Квартиры с квестами и конфетами · ${hosts.length}</summary>
-      <p class="muted">Дополнительные посещения добавляются сверх автоматического маршрута, без ограничения в 10 остановок.</p>
+      <p class="muted">Дополнительные посещения добавляются сверх автоматического маршрута, сверх 8 основных остановок и финальной спецточки.</p>
       ${hosts.map((host) => {
         const visiting = groups.filter((g) => g.stops.some((stop) => stop.hostType === 'family' && stop.hostId === host.id));
         const available = groups.filter((g) => !visiting.includes(g));
@@ -361,7 +361,7 @@
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Точки маршрута</span><h2>Спецточки</h2></div><span class="metric-total">${specialPoints.length}</span></div><div class="admin-grid"><div><label>Башня</label><select id="spTower">${towerOptions()}</select></div>
           <div><label>Этаж</label><input type="number" id="spFloor" value="0" /></div></div>
           <label>Название</label><input type="text" id="spName" placeholder="Название точки" /><button id="spAddBtn" class="secondary">+ Добавить</button>
-          <div id="spMsg" class="search-hint"></div><ul class="plain-list">${specialPoints.map((point) => `<li>${point.quest ? '🎭' : '🍬'} ${esc(point.name)} — ${esc(point.tower)}, эт. ${point.floor}
+          <div id="spMsg" class="search-hint"></div><ul class="plain-list">${specialPoints.map((point) => `<li>${point.routeFinal ? '🏁' : point.quest ? '🎭' : '🍬'} ${esc(point.name)}${point.routeFinal ? ' · финал для всех групп' : ''} — ${esc(point.tower)}, эт. ${point.floor}
           <button class="secondary tiny" data-toggle-sp="${esc(point.id)}" data-active="${point.active}">${point.active ? 'Выключить' : 'Включить'}</button>
           <button class="danger tiny" data-delete-sp="${esc(point.id)}">Удалить</button></li>`).join('') || '<li>Нет спецточек</li>'}</ul></div>
         <div class="card admin-collection" id="familiesSection"><div class="admin-section-head"><div><span class="section-kicker">Участники</span><h2>Зарегистрированные семьи</h2></div>
@@ -849,7 +849,7 @@
         node.querySelector('.admin-route-node').textContent = index + 1;
         node.querySelectorAll('[data-route-move]').forEach((button) => {
           button.dataset.index = index;
-          button.disabled = button.dataset.routeMove === 'up' ? index === 0 : index === group.stops.length - 1;
+          button.disabled = stop.isFinal || (button.dataset.routeMove === 'up' ? index === 0 : index === group.stops.length - 1 || !!group.stops[index + 1]?.isFinal);
         });
         list.append(node);
       });
@@ -873,7 +873,7 @@
           message = 'Маршрут сохранён.';
         } catch (error) { message = error.message; }
         finally {
-          card.querySelectorAll('[data-route-stop-id]').forEach((node) => { node.draggable = true; });
+          card.querySelectorAll('[data-route-stop-id]').forEach((node) => { node.draggable = !group.stops.find((stop) => stop.id === Number(node.dataset.routeStopId))?.isFinal; });
           updateRouteDraft(group);
           routeElement('data-route-message', group.id).textContent = message;
         }
@@ -902,7 +902,7 @@
         const group = groups.find((entry) => entry.id === item.dataset.group);
         const from = group.stops.findIndex((stop) => stop.id === draggedRouteStop.stopId);
         const to = group.stops.findIndex((stop) => stop.id === Number(item.dataset.routeStopId));
-        if (from < 0 || to < 0 || from === to) return;
+        if (from < 0 || to < 0 || from === to || group.stops[from].isFinal || group.stops[to].isFinal) return;
         const [moved] = group.stops.splice(from, 1);
         group.stops.splice(to, 0, moved);
         updateRouteDraft(group);

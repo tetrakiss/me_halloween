@@ -214,7 +214,7 @@ function assertTowerBlocks(route) {
   }
 }
 
-test('маршрут содержит десять адресов и проходит каждую башню целиком', () => {
+test('маршрут содержит восемь адресов и проходит каждую башню целиком', () => {
   const towers = ['A', 'B', 'C', 'D'];
   const hosts = towers.flatMap((tower, towerIndex) => Array.from({ length: 4 }, (_, index) => (
     family(`h${towerIndex + 1}${index + 1}`, 8, tower, {
