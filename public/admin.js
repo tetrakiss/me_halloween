@@ -748,8 +748,17 @@
     document.querySelectorAll('[data-save-override]').forEach((button) => {
       button.onclick = async () => {
         const id = button.dataset.saveOverride; const card = document.querySelector(`[data-family-card="${CSS.escape(id)}"]`);
-        try { await api('/override', { method: 'POST', body: { familyId: id, groupId: card.querySelector('[data-field="manualGroup"]').value || null } }); button.textContent = 'Применено ✓'; }
-        catch (error) { alert(error.message); }
+        button.disabled = true;
+        button.textContent = 'Применяем…';
+        try {
+          await api('/override', { method: 'POST', body: { familyId: id, groupId: card.querySelector('[data-field="manualGroup"]').value || null } });
+          await renderDashboard();
+          const updatedCard = document.querySelector(`[data-family-card="${CSS.escape(id)}"]`);
+          if (updatedCard) {
+            updatedCard.open = true;
+            updatedCard.querySelector('[data-save-override]').textContent = 'Применено ✓';
+          }
+        } catch (error) { button.disabled = false; button.textContent = 'Применить группу'; alert(error.message); }
       };
     });
     document.querySelectorAll('[data-delete-family]').forEach((button) => {

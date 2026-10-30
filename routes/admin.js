@@ -686,7 +686,7 @@ router.delete('/groups/:id/members/:familyId', asyncRoute(async (req, res) => {
   res.json({ ok: true, status: 'waiting', notifications });
 }));
 
-router.post('/groups/:id/members', asyncRoute(async (req, res) => {
+async function assignFamilyToGroup(req, res) {
   const familyId = String(req.body.familyId || '');
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id);
   const family = db.prepare('SELECT * FROM families WHERE id = ?').get(familyId);
@@ -731,7 +731,8 @@ router.post('/groups/:id/members', asyncRoute(async (req, res) => {
   const changedGroups = [...new Set([...oldGroupIds, req.params.id])].map(loadGroupDetails).filter(Boolean);
   const notifications = await notifyChangedGroups(changedGroups);
   res.json({ ok: true, notifications });
-}));
+}
+router.post('/groups/:id/members', asyncRoute(assignFamilyToGroup));
 
 router.post('/families/:id/grouping/resume', (req, res) => {
   const result = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?').run(req.params.id);
@@ -760,15 +761,16 @@ router.put('/groups/:id/route', asyncRoute(async (req, res) => {
   res.json({ ok: true, notifications });
 }));
 
-// Ручная привязка семьи к группе — высший приоритет над алгоритмом.
-// groupId можно передать новый (например "manual_1") — группа создастся при recompute.
-router.post('/override', (req, res) => {
+// Apply a manual selection immediately, using the same validated membership operation.
+router.post('/override', asyncRoute(async (req, res) => {
   const { familyId, groupId } = req.body;
-  if (!familyId) return res.status(400).json({ error: 'familyId обязателен' });
-
-  db.prepare('UPDATE families SET manual_group_id = ?, grouping_paused = 0 WHERE id = ?').run(groupId || null, familyId);
+  if (typeof familyId !== 'string' || !familyId) return res.status(400).json({ error: 'familyId обязателен' });
+  if (groupId != null && typeof groupId !== 'string') return res.status(400).json({ error: 'Некорректная группа' });
+  if (groupId) return assignFamilyToGroup({ params: { id: groupId }, body: { familyId } }, res);
+  const result = db.prepare('UPDATE families SET manual_group_id = NULL, grouping_paused = 0 WHERE id = ?').run(familyId);
+  if (!result.changes) return res.status(404).json({ error: 'Семья не найдена' });
   res.json({ ok: true });
-});
+}));
 
 router.get('/extra-host-visits', (req, res) => res.json({ visits: loadExtraHostVisits(db) }));
 router.post('/hosts/:familyId/visits', (req, res) => {
