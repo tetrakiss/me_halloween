@@ -28,12 +28,14 @@
   .host-visits-card { margin-top: 12px; padding: 12px; border: 1px solid var(--border); border-radius: 12px; }
   .host-visits-card > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
   .host-visits-card select { width: 100%; margin: 6px 0 10px; }
+  .host-filter-primary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  @media (max-width: 640px) { .host-filter-primary { grid-template-columns: 1fr; } }
 </style>
 <link rel="stylesheet" href="admin-redesign.css?v=1.0.43" />
 </head>
 <body class="admin-page">
   <div class="header"><span class="brand-mark" aria-hidden="true">🦇</span><span class="brand-copy"><small>HALLOWEEN BOT</small><h1>Панель управления</h1></span></div>
   <div id="app"></div>
-  <script src="admin.js?v=1.0.61"></script>
+  <script src="admin.js?v=1.1.0"></script>
 </body>
 </html>

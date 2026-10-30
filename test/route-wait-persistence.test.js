@@ -22,14 +22,17 @@ test('waiting persists through rebuilds and is used by the public dynamic schedu
   assert.deepEqual(schedule.groups.map((g) => g.stops[0].arrivalAt), [4500000, 5400000, 6300000]);
 });
 
-test('an incompatible fourth pinned stop rolls back the whole admin action', () => {
+test('a persistence failure rolls back the whole extra-visit admin action', () => {
   for (let i = 0; i < 4; i += 1) db.prepare("INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,created_at) VALUES (?,?,'Афины',1,?,1,0)").run(`p${i}`,`p${i}`,`${i}`);
   db.prepare("INSERT INTO groups(id,name) VALUES ('fixed','Fixed')").run();
   for (let i = 0; i < 3; i += 1) db.prepare("INSERT INTO extra_host_visits(group_id,family_id) VALUES ('fixed',?)").run(`p${i}`);
   rebuildStoredRoutes(db);
   const before = db.prepare('SELECT * FROM route_stops ORDER BY id').all();
   const handler = admin.stack.find((r) => r.route?.path === '/hosts/:familyId/visits').route.stack[0].handle;
-  assert.throws(() => handler({ params: { familyId: 'p3' }, body: { groupId: 'fixed' } }, { json() {} }), { code: 'ROUTE_CONSTRAINT' });
+  db.exec("CREATE TRIGGER reject_route_write BEFORE INSERT ON route_stops BEGIN SELECT RAISE(ABORT,'test route persistence failure'); END;");
+  try {
+    assert.throws(() => handler({ params: { familyId: 'p3' }, body: { groupId: 'fixed' } }, { json() {} }), /test route persistence failure/);
+  } finally { db.exec('DROP TRIGGER reject_route_write'); }
   assert.equal(db.prepare("SELECT count(*) n FROM extra_host_visits WHERE group_id='fixed'").get().n, 3);
   assert.deepEqual(db.prepare('SELECT * FROM route_stops ORDER BY id').all(), before);
 });

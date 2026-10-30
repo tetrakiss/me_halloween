@@ -5,6 +5,7 @@
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
   let familyFiltersOpen = false;
   const groupFilterState = { groupId: '', apartment: '', telegram: '' };
+  const hostFilterState = { tower: '', apartment: '' };
   const sectionState = new Map([['Сводка мероприятия', true], ['Управление событием', true]]);
 
   function detectPlatform() {
@@ -256,12 +257,17 @@
     const hosts = families.filter((f) => !f.cancelled && (f.hosting || f.quest))
       .sort((a, b) => a.tower.localeCompare(b.tower) || a.floor - b.floor || a.apartmentCode.localeCompare(b.apartmentCode));
     return `<details class="card admin-collection"><summary>Квартиры с квестами и конфетами · ${hosts.length}</summary>
-      <p class="muted">Дополнительные посещения добавляются сверх автоматического маршрута, сверх 8 основных остановок и финальной спецточки.</p>
+      <div class="family-filter-bar"><div class="family-filter-primary host-filter-primary">
+        <label><span>Башня</span><select id="hostFilterTower"><option value="">Все башни</option>${[...new Set(hosts.map((host) => host.tower))].sort((a, b) => a.localeCompare(b, 'ru')).map((tower) => `<option value="${esc(tower)}">${esc(tower)}</option>`).join('')}</select></label>
+        <label><span>Номер квартиры</span><input type="search" id="hostFilterApartment" placeholder="Например, 1503" /></label>
+      </div><div class="family-filter-result"><span id="hostFilterSummary" role="status" aria-live="polite"></span><button id="clearHostFilters" type="button" class="secondary tiny">Сбросить фильтры</button></div></div>
+      <p class="muted">Дополнительные группы добавляются без ограничений по числу посещений и остановок в башне. Одна группа посещает квартиру один раз.</p>
+      <p id="hostFilterEmpty" class="muted" hidden>По выбранным фильтрам квартиры не найдены.</p>
       ${hosts.map((host) => {
         const visiting = groups.filter((g) => g.stops.some((stop) => stop.hostType === 'family' && stop.hostId === host.id));
         const available = groups.filter((g) => !visiting.includes(g));
         const children = visiting.reduce((sum, g) => sum + g.memberFamilyIds.reduce((n, id) => n + (byId.get(id)?.children.length || 0), 0), 0);
-        return `<details class="host-visits-card"><summary>${host.quest ? '🎭' : '🍬'} ${esc(host.tower)}, кв. ${esc(host.apartmentCode)} · Групп: ${visiting.length} · Детей: ${children}</summary>
+        return `<details class="host-visits-card" data-host-family="${esc(host.id)}"><summary>${host.quest ? '🎭' : '🍬'} ${esc(host.tower)}, кв. ${esc(host.apartmentCode)} · Групп: ${visiting.length} · Детей: ${children}</summary>
           <ul class="plain-list">${visiting.map((g) => `<li>${esc(describe(g))}${extraVisits.some((v) => v.familyId === host.id && v.groupId === g.id) ? ' · 📌 добавлено вручную' : ''}</li>`).join('') || '<li class="muted">Посещения ещё не назначены</li>'}</ul>
           <label>Добавить группу<select data-host-visit-group="${esc(host.id)}" ${available.length ? '' : 'disabled'}><option value="">${available.length ? 'Выберите группу' : 'Все группы уже посещают квартиру'}</option>${available.map((g) => `<option value="${esc(g.id)}">${esc(describe(g))}</option>`).join('')}</select></label>
           <button class="secondary small" data-add-host-visit="${esc(host.id)}" ${available.length ? '' : 'disabled'}>+ Добавить посещение</button>
@@ -459,6 +465,32 @@
       applyGroupFilters();
     };
     applyGroupFilters();
+
+    const hostCards = [...document.querySelectorAll('[data-host-family]')];
+    const hostTower = document.getElementById('hostFilterTower');
+    const hostApartment = document.getElementById('hostFilterApartment');
+    if (hostFilterState.tower && !families.some((f) => !f.cancelled && (f.hosting || f.quest) && f.tower === hostFilterState.tower)) hostFilterState.tower = '';
+    hostTower.value = hostFilterState.tower;
+    hostApartment.value = hostFilterState.apartment;
+    const applyHostFilters = () => {
+      const query = normalizeGroupSearch(hostFilterState.apartment);
+      let visible = 0;
+      for (const card of hostCards) {
+        const host = groupFamiliesById.get(card.dataset.hostFamily);
+        card.hidden = !host || (!!hostFilterState.tower && host.tower !== hostFilterState.tower)
+          || !normalizeGroupSearch(host.apartmentCode).includes(query);
+        if (!card.hidden) visible += 1;
+      }
+      document.getElementById('hostFilterSummary').textContent = `Показано квартир: ${visible} из ${hostCards.length}`;
+      document.getElementById('hostFilterEmpty').hidden = !hostCards.length || visible > 0;
+    };
+    hostTower.onchange = () => { hostFilterState.tower = hostTower.value; applyHostFilters(); };
+    hostApartment.oninput = () => { hostFilterState.apartment = hostApartment.value; applyHostFilters(); };
+    document.getElementById('clearHostFilters').onclick = () => {
+      hostFilterState.tower = ''; hostFilterState.apartment = '';
+      hostTower.value = ''; hostApartment.value = ''; applyHostFilters();
+    };
+    applyHostFilters();
 
     document.querySelectorAll('[data-add-host-visit]').forEach((button) => {
       button.onclick = async () => {

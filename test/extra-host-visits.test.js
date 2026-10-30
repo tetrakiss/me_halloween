@@ -60,8 +60,28 @@ test('long manually extended routes retain every visit while respecting tower ca
 });
 
 
-test('pinned visits cannot override the three-stop limit', () => {
+test('explicit admin visits bypass the three-stop tower limit', () => {
   const hosts=Array.from({length:4},(_,i)=>({id:`h${i}`,tower:'A',floor:i,children:[],hosting:true}));
   const extras=hosts.map(h=>({groupId:'g',familyId:h.id}));
-  assert.throws(()=>buildRoutes([{id:'g',memberFamilyIds:[]}],hosts,[],extras),{code:'ROUTE_CONSTRAINT'});
+  const [route]=buildRoutes([{id:'g',memberFamilyIds:[]}],hosts,[],extras);
+  assert.equal(route.stops.length,4);
+  assert.equal(new Set(route.stops.map(s=>s.hostId)).size,4);
+});
+
+
+test('admin can add own ordinary hosting apartment and exceed tower limits without losing stored visits', async () => {
+  db.prepare("UPDATE families SET hosting=1 WHERE id='walker'").run();
+  const before=db.prepare("SELECT host_id FROM route_stops WHERE group_id='group_1'").all();
+  const response=await call(route('/hosts/:familyId/visits'),{params:{familyId:'walker'},body:{groupId:'group_1'}});
+  assert.equal(response.status,200);
+  const after=db.prepare("SELECT * FROM route_stops WHERE group_id='group_1' ORDER BY seq").all();
+  assert.equal(after.filter(s=>s.host_id==='walker').length,1);
+  assert.ok(before.every(s=>after.some(a=>a.host_id===s.host_id)));
+  db.prepare("INSERT INTO families(id,family_code,tower,floor,apartment_code,hosting,created_at) VALUES ('fourth','fourth','T0',20,'2000',1,0)").run();
+  for(const host of db.prepare("SELECT id FROM families WHERE tower='T0' AND hosting=1").all()) {
+    assert.equal((await call(route('/hosts/:familyId/visits'),{params:{familyId:host.id},body:{groupId:'group_1'}})).status,200);
+  }
+  assert.ok(db.prepare("SELECT COUNT(*) AS n FROM route_stops WHERE group_id='group_1' AND tower='T0'").get().n>=4);
+  await call(route('/recompute-routes'),{});
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM route_stops WHERE group_id='group_1' AND host_id='walker'").get().n,1);
 });
