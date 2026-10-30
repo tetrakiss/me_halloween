@@ -4,6 +4,7 @@
   let password = sessionStorage.getItem('adminPassword') || '';
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
   let familyFiltersOpen = false;
+  const groupFilterState = { name: '', apartment: '', telegram: '' };
   const sectionState = new Map([['Сводка мероприятия', true], ['Управление событием', true]]);
 
   function detectPlatform() {
@@ -141,6 +142,24 @@
       const together = group.memberFamilyIds.includes(id);
       return `<small class="member-wish${together ? '' : ' member-wish-missing'}" title="${together ? 'В одной группе' : 'Пожелание не выполнено: семья в другой группе или ожидает'}">🔗 ${esc(friend.tower)}, кв. ${esc(friend.apartmentCode)}${together ? '' : ' ⚠️'}</small>`;
     }).join('');
+  }
+  function normalizeGroupSearch(value) {
+    return String(value || '').toLocaleLowerCase('ru').replace(/ё/g, 'е').trim();
+  }
+  function groupMatchesFilters(group, familiesById, filters) {
+    const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
+    const name = normalizeGroupSearch(filters.name);
+    const apartment = normalizeGroupSearch(filters.apartment);
+    const telegram = normalizeGroupSearch(filters.telegram).replace(/^@/, '');
+    const tokens = apartment.split(/\s+/).filter(Boolean);
+    return (!name || normalizeGroupSearch(group.name || group.id).includes(name))
+      && (!apartment || members.some((family) => {
+        const address = normalizeGroupSearch(`${family.tower} ${family.apartmentCode}`);
+        return tokens.every((token) => address.includes(token));
+      }))
+      && (!telegram || members.some((family) => (family.parents || []).some((parent) =>
+        parent.platform === 'telegram' && (normalizeGroupSearch(parent.username).replace(/^@/, '').includes(telegram)
+          || normalizeGroupSearch(`${parent.firstName || ''} ${parent.lastName || ''}`).includes(telegram)))));
   }
   function groupCard(group, familiesById) {
     const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
@@ -354,7 +373,13 @@
           <p class="muted">Вход по коду существующей семьи остаётся доступным.</p><div id="registrationSettingsMsg" class="search-hint" aria-live="polite"></div>
           <label><input type="checkbox" id="childrenAdditionClosed" ${eventSettings.childrenAdditionClosed ? 'checked' : ''} /> Запретить добавление новых детей</label>
           <p class="muted">Удалять детей и редактировать данные семьи можно.</p><div id="childrenAdditionSettingsMsg" class="search-hint" aria-live="polite"></div></div>
-        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total">${groups.length}</span></div><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. При распределении ожидающих пожелания объединяют семьи; для освобождения мест могут переноситься семьи без связей. Полное формирование пересобирает все группы и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
+        <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total" id="groupFilterCount">${groups.length}</span></div>
+          <div class="family-filter-bar"><div class="family-filter-primary">
+            <label><span>Название группы</span><input type="search" id="groupFilterName" placeholder="Например, Тыквята" /></label>
+            <label><span>Квартира участника</span><input type="search" id="groupFilterApartment" placeholder="Например, 1606 или Стамбул 1606" /></label>
+            <label><span>Telegram участника</span><input type="search" id="groupFilterTelegram" placeholder="Имя или @username" /></label>
+          </div><div class="family-filter-result"><span id="groupFilterSummary" role="status" aria-live="polite"></span><button class="secondary tiny" type="button" id="clearGroupFilters">Сбросить фильтры</button></div></div>
+          <p class="muted" id="groupFilterEmpty" hidden>По выбранным фильтрам группы не найдены.</p><p class="muted">До 6 детей в группе. Превышение — только для семей, которые хотят ходить вместе. При распределении ожидающих пожелания объединяют семьи; для освобождения мест могут переноситься семьи без связей. Полное формирование пересобирает все группы и маршруты.</p>${groups.map((group) => groupCard(group, familiesById)).join('') || '<p class="muted">Группы ещё не сформированы.</p>'}</div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Очередь</span><h2>Ожидают назначения</h2></div><span class="metric-total">${waitingFamilies.length}</span></div>
           <p class="muted">Здесь видны все активные семьи без группы. Их можно назначить вручную или вернуть в следующий автоматический подбор.</p>
           <ul class="waiting-list">${waitingFamilies.map((family) => waitingFamilyCard(family, groups)).join('') || '<li>Очередь пуста</li>'}</ul></div>
@@ -401,6 +426,35 @@
     });
   }
   function bindDashboard({ families, groups }) {
+    const groupFamiliesById = new Map(families.map((family) => [family.id, family]));
+    const groupsById = new Map(groups.map((group) => [group.id, group]));
+    const groupCards = [...document.querySelectorAll('[data-group-card]')];
+    const applyGroupFilters = () => {
+      let visible = 0;
+      for (const card of groupCards) {
+        const group = groupsById.get(card.dataset.groupCard);
+        card.hidden = !group || !groupMatchesFilters(group, groupFamiliesById, groupFilterState);
+        if (!card.hidden) visible += 1;
+      }
+      document.getElementById('groupFilterCount').textContent = `${visible} / ${groups.length}`;
+      document.getElementById('groupFilterSummary').textContent = `Показано групп: ${visible} из ${groups.length}`;
+      document.getElementById('groupFilterEmpty').hidden = !groups.length || visible > 0;
+    };
+    const groupFilterInputs = { name: 'groupFilterName', apartment: 'groupFilterApartment', telegram: 'groupFilterTelegram' };
+    for (const [key, id] of Object.entries(groupFilterInputs)) {
+      const input = document.getElementById(id);
+      input.value = groupFilterState[key];
+      input.oninput = () => { groupFilterState[key] = input.value; applyGroupFilters(); };
+    }
+    document.getElementById('clearGroupFilters').onclick = () => {
+      for (const [key, id] of Object.entries(groupFilterInputs)) {
+        groupFilterState[key] = '';
+        document.getElementById(id).value = '';
+      }
+      applyGroupFilters();
+    };
+    applyGroupFilters();
+
     document.querySelectorAll('[data-add-host-visit]').forEach((button) => {
       button.onclick = async () => {
         const id = button.dataset.addHostVisit;
