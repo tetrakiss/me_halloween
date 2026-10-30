@@ -4,7 +4,7 @@
   let password = sessionStorage.getItem('adminPassword') || '';
   const familyFilterState = { query: '', tower: '', ageMin: '', ageMax: '', statuses: new Set() };
   let familyFiltersOpen = false;
-  const groupFilterState = { name: '', apartment: '', telegram: '' };
+  const groupFilterState = { groupId: '', apartment: '', telegram: '' };
   const sectionState = new Map([['Сводка мероприятия', true], ['Управление событием', true]]);
 
   function detectPlatform() {
@@ -150,11 +150,11 @@
   }
   function groupMatchesFilters(group, familiesById, filters) {
     const members = group.memberFamilyIds.map((id) => familiesById.get(id)).filter(Boolean);
-    const name = normalizeGroupSearch(filters.name);
+    const groupId = filters.groupId || '';
     const apartment = normalizeGroupSearch(filters.apartment);
     const telegram = normalizeGroupSearch(filters.telegram).replace(/^@/, '');
     const tokens = apartment.split(/\s+/).filter(Boolean);
-    return (!name || normalizeGroupSearch(group.name || group.id).includes(name))
+    return (!groupId || group.id === groupId)
       && (!apartment || members.some((family) => {
         const address = normalizeGroupSearch(`${family.tower} ${family.apartmentCode}`);
         return tokens.every((token) => address.includes(token));
@@ -377,7 +377,7 @@
           <p class="muted">Удалять детей и редактировать данные семьи можно.</p><div id="childrenAdditionSettingsMsg" class="search-hint" aria-live="polite"></div></div>
         <div class="card admin-collection"><div class="admin-section-head"><div><span class="section-kicker">Маршрутизация</span><h2>Группы</h2></div><span class="metric-total" id="groupFilterCount">${groups.length}</span></div>
           <div class="family-filter-bar"><div class="family-filter-primary">
-            <label><span>Название группы</span><input type="search" id="groupFilterName" placeholder="Например, Тыквята" /></label>
+            <label><span>Группа</span><select id="groupFilterGroup"><option value="">Все группы</option>${[...groups].sort((a, b) => (a.name || a.id).localeCompare(b.name || b.id, 'ru')).map((group) => `<option value="${esc(group.id)}">${esc(group.name || group.id)}</option>`).join('')}</select></label>
             <label><span>Квартира участника</span><input type="search" id="groupFilterApartment" placeholder="Например, 1606 или Стамбул 1606" /></label>
             <label><span>Telegram участника</span><input type="search" id="groupFilterTelegram" placeholder="Имя или @username" /></label>
           </div><div class="family-filter-result"><span id="groupFilterSummary" role="status" aria-live="polite"></span><button class="secondary tiny" type="button" id="clearGroupFilters">Сбросить фильтры</button></div></div>
@@ -442,11 +442,14 @@
       document.getElementById('groupFilterSummary').textContent = `Показано групп: ${visible} из ${groups.length}`;
       document.getElementById('groupFilterEmpty').hidden = !groups.length || visible > 0;
     };
-    const groupFilterInputs = { name: 'groupFilterName', apartment: 'groupFilterApartment', telegram: 'groupFilterTelegram' };
+    if (groupFilterState.groupId && !groupsById.has(groupFilterState.groupId)) groupFilterState.groupId = '';
+    const groupFilterInputs = { groupId: 'groupFilterGroup', apartment: 'groupFilterApartment', telegram: 'groupFilterTelegram' };
     for (const [key, id] of Object.entries(groupFilterInputs)) {
       const input = document.getElementById(id);
       input.value = groupFilterState[key];
-      input.oninput = () => { groupFilterState[key] = input.value; applyGroupFilters(); };
+      const updateFilter = () => { groupFilterState[key] = input.value; applyGroupFilters(); };
+      if (key === 'groupId') input.onchange = updateFilter;
+      else input.oninput = updateFilter;
     }
     document.getElementById('clearGroupFilters').onclick = () => {
       for (const [key, id] of Object.entries(groupFilterInputs)) {
