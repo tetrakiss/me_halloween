@@ -119,8 +119,10 @@
         <label><input type="checkbox" data-field="cancelled" ${family.cancelled ? 'checked' : ''}/> Отмена</label>
       </div>
       <label>Длительность квеста, мин.</label><input type="number" data-field="questDurationMin" value="${family.questDurationMin || 20}" min="5" max="60" />
+      <p class="muted">Текущая группа: <strong>${esc(groups.find((group) => group.id === family.currentGroupId)?.name || family.currentGroupId || 'Не назначена')}</strong></p>
       <label>Ручная группа</label><select data-field="manualGroup">${groupOptions(groups, family.manualGroupId)}</select>
       <div class="button-row"><button class="small" data-save-family="${esc(family.id)}">Сохранить все данные</button>
+      <p class="muted">Ручное назначение применяется сразу, без ограничения по количеству детей.</p>
       <button class="secondary small" data-save-override="${esc(family.id)}">Применить группу</button>
       <button class="danger small" data-delete-family="${esc(family.id)}">Удалить семью</button></div>
       <div class="search-hint" data-family-msg="${esc(family.id)}"></div>

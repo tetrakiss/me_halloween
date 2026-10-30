@@ -686,7 +686,7 @@ router.delete('/groups/:id/members/:familyId', asyncRoute(async (req, res) => {
   res.json({ ok: true, status: 'waiting', notifications });
 }));
 
-async function assignFamilyToGroup(req, res) {
+async function assignFamilyToGroup(req, res, { ignoreCapacity = false } = {}) {
   const familyId = String(req.body.familyId || '');
   const group = db.prepare('SELECT id FROM groups WHERE id = ?').get(req.params.id);
   const family = db.prepare('SELECT * FROM families WHERE id = ?').get(familyId);
@@ -700,7 +700,7 @@ async function assignFamilyToGroup(req, res) {
   const currentChildren = db.prepare(`SELECT COUNT(c.id) AS count FROM group_members gm
     JOIN children c ON c.family_id = gm.family_id WHERE gm.group_id = ? AND gm.family_id != ?`)
     .get(req.params.id, familyId).count;
-  if (currentChildren + familyChildren > MAX_GROUP_SIZE) {
+  if (!ignoreCapacity && currentChildren + familyChildren > MAX_GROUP_SIZE) {
     const connected = new Set([familyId]);
     const wishes = loadWishLinks();
     let changed = true;
@@ -732,7 +732,7 @@ async function assignFamilyToGroup(req, res) {
   const notifications = await notifyChangedGroups(changedGroups);
   res.json({ ok: true, notifications });
 }
-router.post('/groups/:id/members', asyncRoute(assignFamilyToGroup));
+router.post('/groups/:id/members', asyncRoute((req, res) => assignFamilyToGroup(req, res)));
 
 router.post('/families/:id/grouping/resume', (req, res) => {
   const result = db.prepare('UPDATE families SET grouping_paused = 0, manual_group_id = NULL WHERE id = ?').run(req.params.id);
@@ -766,7 +766,7 @@ router.post('/override', asyncRoute(async (req, res) => {
   const { familyId, groupId } = req.body;
   if (typeof familyId !== 'string' || !familyId) return res.status(400).json({ error: 'familyId обязателен' });
   if (groupId != null && typeof groupId !== 'string') return res.status(400).json({ error: 'Некорректная группа' });
-  if (groupId) return assignFamilyToGroup({ params: { id: groupId }, body: { familyId } }, res);
+  if (groupId) return assignFamilyToGroup({ params: { id: groupId }, body: { familyId } }, res, { ignoreCapacity: true });
   const result = db.prepare('UPDATE families SET manual_group_id = NULL, grouping_paused = 0 WHERE id = ?').run(familyId);
   if (!result.changes) return res.status(404).json({ error: 'Семья не найдена' });
   res.json({ ok: true });
