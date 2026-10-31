@@ -17,7 +17,18 @@ body { margin: 0; overflow: hidden; }
 /* Characters share the corridor layer and stay behind the moving door. */
 .corridor { position: absolute; inset: 0; background: #4e6657 url('assets/corridor.png?v=1.0.57') center / cover no-repeat; box-shadow: inset 0 0 20px #15271e88; }
 .visitor { position: absolute; bottom: 5%; left: -55%; width: 37%; height: 68%; opacity: 0; isolation: isolate; }
-.visitor::after { content: ''; position: absolute; z-index: -1; left: 5%; right: 5%; bottom: -1%; height: 5%; border-radius: 50%; background: #162d2466; filter: blur(3px); }
+/* Warm overhead light: tight dark contact plus a softer shadow toward camera/right. */
+.cast-shadow { position: absolute; inset: 0; z-index: -2; transform-origin: 50% 97%; transform: skewX(35deg) scaleY(-.24); filter: brightness(0) blur(2px); opacity: .27; pointer-events: none; }
+.robot-cast { background: url('assets/robot-coffee.png?v=1.0.57') center bottom / contain no-repeat; transform: skewX(30deg) scaleY(-.18); }
+.resident-cast { transform-origin: 50% 96%; }
+.floor-shadow { position: absolute; z-index: -1; pointer-events: none; }
+.floor-shadow::before, .floor-shadow::after { content: ''; position: absolute; }
+.robot .floor-shadow { left: 11%; width: 72%; bottom: 0; height: 12%; }
+.robot .floor-shadow::before { inset: 15% -25% -35% 0; border-radius: 50%; background: radial-gradient(ellipse at 35% 35%,#251a12a6, #251a124d 45%,transparent 73%); transform: skewX(-25deg); filter: blur(2px); }
+.robot .floor-shadow::after { left: 10%; right: 7%; top: 8%; height: 25%; background: radial-gradient(ellipse at 15% 50%,#1c140ddd,transparent 25%),radial-gradient(ellipse at 83% 50%,#1c140ddd,transparent 25%); filter: blur(.6px); }
+.resident .floor-shadow { left: 20%; width: 48%; bottom: 3%; height: 22%; }
+.resident .floor-shadow::before { inset: 12% -60% -12% 5%; background: radial-gradient(ellipse at 35% 40%,#281c1499,#281c1440 50%,transparent 72%); transform: skewX(-30deg) rotate(-10deg); filter: blur(3px); }
+.resident .floor-shadow::after { left: 0; right: 0; bottom: 15%; height: 16%; background: radial-gradient(ellipse at 20% 50%,#20150de6,transparent 28%),radial-gradient(ellipse at 80% 50%,#20150dcc,transparent 27%); filter: blur(.8px); }
 .visitor img { display: block; width: 100%; height: 100%; object-fit: contain; object-position: center bottom; }
 .robot-passing .robot { animation: robot-crossing 9s linear forwards; }
 .resident { width: 46%; height: auto; aspect-ratio: 2 / 3; }
@@ -41,8 +52,12 @@ body { margin: 0; overflow: hidden; }
 .lamp { position: absolute; left: 48%; top: 2%; width: 5%; height: 3%; background: #ffe6aa; border-radius: 50%; filter: blur(9px); box-shadow: 0 0 60px 22px #ffcb5b55; animation: glow 5s ease-in-out infinite; }
 .steam { position: absolute; left: 11%; top: 45%; width: 4%; height: 12%; background: radial-gradient(ellipse,#ffe9be55,transparent 65%); filter: blur(7px); animation: steam 7s ease-out infinite; }
 .scan { position: absolute; left: 1%; top: 46%; width: 4%; height: 2px; background: #a3ffbc66; box-shadow: 0 0 18px #7affb3; animation: scan 4s linear infinite; }
-.ball { position: absolute; bottom: 13%; left: -10%; width: 2%; aspect-ratio: 1; border-radius: 50%; background: repeating-linear-gradient(45deg,#db7758 0 12px,#eccc75 12px 24px); box-shadow: 0 7px 8px #182c2888; }
-.delivery .ball { animation: roll 12s ease-in-out; }
+.ball-motion { position: absolute; bottom: 13%; left: -10%; width: 2%; aspect-ratio: 1; }
+.ball { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 30% 25%,#fff7da88,transparent 35%,#2c1d1177 85%),repeating-conic-gradient(#c76745 0 90deg,#e4c976 90deg 180deg); box-shadow: inset -2px -3px 4px #35261566; }
+.ball-shadow { position: absolute; left: -8%; top: 78%; width: 165%; height: 43%; border-radius: 50%; background: radial-gradient(ellipse at 38% 30%,#25170fc4,#25170f55 45%,transparent 73%); transform: skewX(-20deg); filter: blur(1px); }
+.ball-shadow::after { content: ''; position: absolute; left: 10%; top: 0; width: 55%; height: 40%; border-radius: 50%; background: #25170fb0; filter: blur(.5px); }
+.delivery .ball-motion { animation: roll 12s linear; }
+.delivery .ball { animation: spin 12s linear; }
 .party .lamp { box-shadow: 0 0 100px 60px #ffde6a88; }
 nav { position: absolute; bottom: max(20px, env(safe-area-inset-bottom)); left: 0; right: 0; display: flex; justify-content: center; gap: 12px; padding: 0 16px; }
 nav a, nav button { display: flex; align-items: center; justify-content: center; min-height: 44px; border: 1px solid #d7c99a88; border-radius: 7px; padding: 12px 20px; background: #193e36d9; color: #fff1cc; font: 600 14px/1.3 Arial,sans-serif; text-decoration: none; cursor: pointer; backdrop-filter: blur(8px); }
@@ -52,6 +67,10 @@ nav a:focus-visible, nav button:focus-visible { outline: 3px solid #fff0c2; outl
 @keyframes glow { 50% { opacity: .7; } }
 @keyframes steam { 0% { transform: translateY(10px) scale(.7); opacity: 0; } 40% { opacity: .6; } 100% { transform: translateY(-65px) scale(1.7); opacity: 0; } }
 @keyframes scan { to { transform: translateY(35px); } }
-@keyframes roll { from { left: -10%; transform: rotate(0); } to { left: 110%; transform: rotate(900deg); } }
+@keyframes roll { from { left: -10%; } to { left: 110%; } }
+@keyframes spin { to { transform: rotate(3420deg); } }
 @media (max-width: 450px) { nav { gap: 8px; } nav a, nav button { padding: 11px; font-size: 12px; } }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation: none !important; transition: none !important; } }
+
+/* Kept rendered for legacy video-based sleep inhibition, behind the scene. */
+.keep-awake { position: fixed; left: 0; top: 0; width: 2px; height: 2px; opacity: .01; pointer-events: none; }

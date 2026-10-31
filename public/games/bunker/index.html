@@ -4,28 +4,32 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <title>Бункер</title>
-  <link rel="stylesheet" href="/games/bunker/game.css?v=1.0.57">
+  <link rel="stylesheet" href="/games/bunker/game.css?v=1.1.1">
 </head>
 <body>
+  <video id="keep-awake" class="keep-awake" muted loop playsinline preload="none" aria-hidden="true" tabindex="-1" disablepictureinpicture disableremoteplayback>
+    <source src="/games/bunker/assets/keep-awake.mp4?v=1.1.1" type="video/mp4">
+  </video>
   <main class="bunker" id="bunker">
     <div class="scene" aria-hidden="true">
       <div class="room"></div>
       <div class="portal">
         <div class="corridor"></div>
-        <div class="visitor robot"><img src="/games/bunker/assets/robot-coffee.png?v=1.0.57" alt=""></div>
-        <div class="visitor resident"><div class="resident-body"></div><div class="resident-arm"></div></div>
+        <div class="visitor robot"><div class="cast-shadow robot-cast"></div><span class="floor-shadow"></span><img src="/games/bunker/assets/robot-coffee.png?v=1.0.57" alt=""></div>
+        <div class="visitor resident"><div class="cast-shadow resident-cast"><div class="resident-body"></div><div class="resident-arm"></div></div><span class="floor-shadow"></span><div class="resident-body"></div><div class="resident-arm"></div></div>
         <div class="door"><div class="wheel"><i></i><i></i><i></i></div></div>
       </div>
       <div class="lamp"></div>
       <div class="steam"></div>
       <div class="scan"></div>
-      <div class="ball"></div>
+      <div class="ball-motion"><div class="ball-shadow"></div><div class="ball"></div></div>
     </div>
     <nav aria-label="Управление заставкой">
       <a href="/games/">Вернуться в меню</a>
       <button id="sound" type="button" aria-pressed="true">Выключить музыку</button>
     </nav>
   </main>
-  <script src="/games/bunker/game.js?v=1.0.57" defer></script>
+  <script src="/games/bunker/game.js?v=1.1.1" defer></script>
+  <script src="/games/bunker/keep-awake.js?v=1.1.1" defer></script>
 </body>
 </html>
